@@ -7,8 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "grove",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
+      "bundleIdentifier": "com.grove.app",
       "supportsTablet": true
     },
     "android": {

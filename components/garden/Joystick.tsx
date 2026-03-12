@@ -1,12 +1,6 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
-import { Canvas, Circle } from '@shopify/react-native-skia';
 import { JOYSTICK } from '@/lib/game/constants';
 
 export interface JoystickDelta {
@@ -20,16 +14,17 @@ interface JoystickProps {
   size?: number;
 }
 
-const springConfig = { damping: 20, stiffness: 200 };
+const SPRING = { damping: 20, stiffness: 200, useNativeDriver: true };
 
 export function Joystick({ onMove, onEnd, size = JOYSTICK.SIZE }: JoystickProps) {
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
   const knobRadius = JOYSTICK.KNOB_SIZE / 2;
   const baseRadius = size / 2;
   const maxDistance = baseRadius - knobRadius;
 
   const panGesture = Gesture.Pan()
+    .runOnJS(true)
     .onUpdate((e) => {
       let dx = e.translationX;
       let dy = e.translationY;
@@ -39,32 +34,41 @@ export function Joystick({ onMove, onEnd, size = JOYSTICK.SIZE }: JoystickProps)
         dx *= scale;
         dy *= scale;
       }
-      translateX.value = dx;
-      translateY.value = dy;
+      translateX.setValue(dx);
+      translateY.setValue(dy);
       const magnitude = Math.sqrt(dx * dx + dy * dy);
       if (magnitude > JOYSTICK.DEADZONE * maxDistance) {
         onMove({ x: dx / maxDistance, y: dy / maxDistance });
       }
     })
     .onEnd(() => {
-      translateX.value = withSpring(0, springConfig);
-      translateY.value = withSpring(0, springConfig);
+      Animated.spring(translateX, { toValue: 0, ...SPRING }).start();
+      Animated.spring(translateY, { toValue: 0, ...SPRING }).start();
       onEnd();
     });
 
-  const knobStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-    ],
-  }));
-
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      <Canvas style={[styles.canvas, { width: size, height: size }]}>
-        <Circle cx={baseRadius} cy={baseRadius} r={baseRadius - 2} color="rgba(255,255,255,0.3)" />
-        <Circle cx={baseRadius} cy={baseRadius} r={baseRadius - 4} color="rgba(255,255,255,0.2)" />
-      </Canvas>
+      {/* Joystick base rings */}
+      <View
+        style={[
+          styles.baseOuter,
+          { width: size, height: size, borderRadius: baseRadius },
+        ]}
+      />
+      <View
+        style={[
+          styles.baseInner,
+          {
+            width: size - 8,
+            height: size - 8,
+            borderRadius: baseRadius - 4,
+            top: 4,
+            left: 4,
+          },
+        ]}
+      />
+
       <GestureDetector gesture={panGesture}>
         <Animated.View
           style={[
@@ -75,9 +79,8 @@ export function Joystick({ onMove, onEnd, size = JOYSTICK.SIZE }: JoystickProps)
               borderRadius: knobRadius,
               left: baseRadius - knobRadius,
               top: baseRadius - knobRadius,
-              backgroundColor: 'rgba(255,255,255,0.9)',
             },
-            knobStyle,
+            { transform: [{ translateX }, { translateY }] },
           ]}
         />
       </GestureDetector>
@@ -93,12 +96,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  canvas: {
+  baseOuter: {
     position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  baseInner: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   knob: {
     position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 });

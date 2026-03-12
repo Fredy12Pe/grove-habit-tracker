@@ -1,2 +1,2 @@
-export { GardenWorld } from './GardenWorld';
+export { GardenScene } from './GardenScene';
 export { Joystick, type JoystickDelta } from './Joystick';

@@ -16,14 +16,47 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+**⚠️ This app does not run in Expo Go.** It uses native modules (e.g. React Native Skia, Rive) that require a development build.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+**Running on iOS (two steps):**
+
+1. **Terminal 1** – start the Metro bundler (leave it running):
+   ```bash
+   npm start
+   ```
+2. **Terminal 2** – build and open the Grove app in the simulator:
+   ```bash
+   npm run ios
+   ```
+
+The app needs Metro running so it can load the JavaScript bundle. If you only run `npm run ios` without `npm start`, the app may open then crash or show a connection error. Do not open this project from inside the "Expo Go" app.
+
+In the output of `npx expo start`, you can also use:
+
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/) (recommended)
 - [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## iOS build: path with spaces
+
+If `npm run ios` fails with **"No such file or directory"** or **EXConstants script failed**, your project path likely contains a **space** (e.g. `Desktop/Coding Projects/grove`). Xcode/CocoaPods scripts don’t quote it and the build breaks.
+
+**Fix (pick one):**
+
+1. **Move the project** to a path without spaces, then run from there:
+   ```bash
+   mv ~/Desktop/Coding\ Projects/grove ~/Desktop/grove
+   cd ~/Desktop/grove && npm run ios
+   ```
+
+2. **Or use a symlink** so the project is also available at a path without spaces:
+   ```bash
+   ln -s ~/Desktop/Coding\ Projects/grove ~/Desktop/grove
+   cd ~/Desktop/grove && npm run ios
+   ```
+   Open the project in Cursor/VS Code from `~/Desktop/grove` when working on iOS.
 
 ## Get a fresh project
 
