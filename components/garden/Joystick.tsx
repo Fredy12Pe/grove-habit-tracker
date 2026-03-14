@@ -1,7 +1,9 @@
-import React, { useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { JOYSTICK } from '@/lib/game/constants';
+import { JOYSTICK } from "@/lib/game/constants";
+import React, { useRef } from "react";
+import { Animated, Dimensions, StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export interface JoystickDelta {
   x: number;
@@ -16,12 +18,17 @@ interface JoystickProps {
 
 const SPRING = { damping: 20, stiffness: 200, useNativeDriver: true };
 
-export function Joystick({ onMove, onEnd, size = JOYSTICK.SIZE }: JoystickProps) {
+export function Joystick({
+  onMove,
+  onEnd,
+  size = JOYSTICK.SIZE,
+}: JoystickProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const knobRadius = JOYSTICK.KNOB_SIZE / 2;
   const baseRadius = size / 2;
   const maxDistance = baseRadius - knobRadius;
+  const leftCenter = (SCREEN_WIDTH - size) / 2;
 
   const panGesture = Gesture.Pan()
     .runOnJS(true)
@@ -48,7 +55,12 @@ export function Joystick({ onMove, onEnd, size = JOYSTICK.SIZE }: JoystickProps)
     });
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <View
+      style={[
+        styles.container,
+        { width: size, height: size, left: leftCenter },
+      ]}
+    >
       {/* Joystick base rings */}
       <View
         style={[
@@ -90,24 +102,23 @@ export function Joystick({ onMove, onEnd, size = JOYSTICK.SIZE }: JoystickProps)
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    bottom: 48,
-    left: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: "absolute",
+    bottom: 76,
+    justifyContent: "center",
+    alignItems: "center",
   },
   baseOuter: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.3)",
   },
   baseInner: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
   knob: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    shadowColor: '#000',
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,

@@ -5,6 +5,9 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
+    "generate-collision": "node ./scripts/generate-collision-data.js",
+    "generate-atlas": "node ./scripts/generate-character-atlas.js",
+    "optimize-game-assets": "node ./scripts/optimize-game-assets.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:go": "expo start --ios",
@@ -47,6 +50,8 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "get-pixels": "^3.3.3",
+    "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
   "private": true
