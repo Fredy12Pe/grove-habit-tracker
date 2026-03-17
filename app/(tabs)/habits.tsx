@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -24,6 +24,11 @@ export default function HabitsScreen() {
   const storeHabits = useHabitStore((s) => s.habits);
   const toggleHabit = useHabitStore((s) => s.toggleHabit);
   const syncHabits = useHabitStore((s) => s.syncHabits);
+  const ensureDayReset = useHabitStore((s) => s.ensureDayReset);
+
+  useEffect(() => {
+    ensureDayReset();
+  }, [ensureDayReset]);
 
   const habits: HabitData[] = storeHabits.map((h) => ({
     id: h.id,
@@ -104,6 +109,7 @@ export default function HabitsScreen() {
         onClose={() => setSheetVisible(false)}
         onUpdate={(ids) => syncHabits(ids)}
       />
+
     </SafeAreaView>
   );
 }

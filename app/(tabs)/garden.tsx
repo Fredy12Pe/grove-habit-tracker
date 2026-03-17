@@ -1,25 +1,29 @@
-import React from 'react';
+import { ProgressCard, SproutSupportCard } from "@/components/cards";
+import { GamePreview } from "@/components/game/GamePreview";
+import { AppText } from "@/components/ui/AppText";
+import { Card } from "@/components/ui/Card";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useHabitStore } from "@/lib/store";
+import { GroveColors, GroveSpacing } from "@/styles/theme";
+import { useRouter } from "expo-router";
+import React from "react";
 import {
-  View,
-  StyleSheet,
-  ScrollView,
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
   TouchableOpacity,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Card } from '@/components/ui/Card';
-import { AppText } from '@/components/ui/AppText';
-import { GardenScene } from '@/components/garden';
-import { ProgressCard, SproutSupportCard } from '@/components/cards';
-import { GroveColors, GroveSpacing } from '@/styles/theme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useHabitStore } from '@/lib/store';
+  View,
+} from "react-native";
 
 export default function GardenScreen() {
   const router = useRouter();
   const storeHabits = useHabitStore((s) => s.habits);
 
-  const habits = storeHabits.map((h) => ({ id: h.id, name: h.name, completed: h.completedToday }));
+  const habits = storeHabits.map((h) => ({
+    id: h.id,
+    name: h.name,
+    completed: h.completedToday,
+  }));
   const completedCount = habits.filter((h) => h.completed).length;
   const totalCount = habits.length;
 
@@ -46,15 +50,21 @@ export default function GardenScreen() {
               </AppText>
             </View>
             <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-              <IconSymbol name="bell.fill" size={18} color={GroveColors.secondaryText} />
+              <IconSymbol
+                name="bell.fill"
+                size={18}
+                color={GroveColors.secondaryText}
+              />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Garden card */}
-        <Card style={styles.gardenCard}>
-          <GardenScene />
-        </Card>
+        {/* Garden game preview — tap to open full game; preview fills card only */}
+        <View style={styles.gardenCardWrap}>
+          <Card style={styles.gardenCard}>
+            <GamePreview />
+          </Card>
+        </View>
 
         {/* Today's Progress */}
         <View style={styles.section}>
@@ -62,7 +72,7 @@ export default function GardenScreen() {
             completedCount={completedCount}
             totalCount={totalCount}
             habits={habits}
-            onCompleteHabits={() => router.push('/(tabs)/habits')}
+            onCompleteHabits={() => router.push("/(tabs)/habits")}
             readonly
           />
         </View>
@@ -91,14 +101,14 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 28,
   },
   profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 14,
   },
   avatarPlaceholder: {
@@ -107,27 +117,27 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: GroveColors.inactive,
     borderWidth: 1,
-    borderColor: 'rgba(124, 123, 103, 0.12)',
+    borderColor: "rgba(124, 123, 103, 0.12)",
   },
   userName: {
-    fontWeight: '700',
+    fontWeight: "700",
     color: GroveColors.primaryText,
   },
   headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 14,
   },
   streakPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: 'rgba(124, 123, 103, 0.2)',
+    borderColor: "rgba(124, 123, 103, 0.2)",
   },
   streakText: {
     color: GroveColors.secondaryText,
@@ -136,14 +146,23 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: 'rgba(124, 123, 103, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(124, 123, 103, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gardenCardWrap: {
+    width: "100%",
+    height: 320,
+    marginBottom: GroveSpacing.sectionGap,
   },
   gardenCard: {
-    marginBottom: GroveSpacing.sectionGap,
+    flex: 1,
+    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    overflow: "hidden",
   },
   section: {
     marginBottom: GroveSpacing.sectionGap,

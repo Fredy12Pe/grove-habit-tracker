@@ -1,7 +1,56 @@
+export type HabitActionType =
+  | 'journal'      // Multiline text (Journal)
+  | 'note'         // Optional short note (Pray, Read Scripture, Gratitude)
+  | 'duration'     // Minutes picker (Meditate, Exercise, Stretch, Read, Study)
+  | 'count'        // Number 1–N (Drink Water)
+  | 'checkbox_only'; // Just mark done (Sleep, Eat Healthy, Avoids, etc.)
+
 export interface CatalogHabit {
   id: string;
   name: string;
   icon: number;
+}
+
+/** Which action UI to show when user taps the card dropdown. */
+export const HABIT_ACTION_MAP: Record<string, HabitActionType> = {
+  // Faith
+  pray: 'note',
+  'read-scripture': 'note',
+  journal: 'journal',
+  meditate: 'duration',
+  'practice-gratitude': 'note',
+  // Fitness
+  'drink-water': 'count',
+  exercise: 'duration',
+  stretch: 'duration',
+  sleep: 'checkbox_only',
+  'eat-healthy': 'checkbox_only',
+  // Well Being
+  'read-book': 'duration',
+  study: 'duration',
+  'limit-screen': 'checkbox_only',
+  'avoid-alcohol': 'checkbox_only',
+  'avoid-porn': 'checkbox_only',
+  'no-social-media': 'checkbox_only',
+};
+
+/** Duration presets (minutes) per habit id. Default used when not listed. */
+export const HABIT_DURATION_OPTIONS: Record<string, number[]> = {
+  meditate: [5, 10, 15, 20],
+  exercise: [10, 20, 30, 45, 60],
+  stretch: [5, 10, 15, 20],
+  'read-book': [15, 30, 45, 60],
+  study: [15, 30, 45, 60, 90],
+};
+
+export const DEFAULT_DURATION_OPTIONS = [5, 10, 15, 20, 30];
+
+export function getHabitActionType(habitId: string): HabitActionType {
+  return HABIT_ACTION_MAP[habitId] ?? 'checkbox_only';
+}
+
+export function getDurationOptions(habitId: string): number[] {
+  return HABIT_DURATION_OPTIONS[habitId] ?? DEFAULT_DURATION_OPTIONS;
 }
 
 export interface CatalogSection {

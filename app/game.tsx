@@ -1,6 +1,7 @@
 import { Joystick, type JoystickDelta } from "@/components/garden/Joystick";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -300,6 +301,21 @@ export default function GameScreen() {
     cameraAnim.setValue(getCameraOffset(START_X, START_Y));
   }, [charAnim, cameraAnim]);
 
+  // Always start at the middle when the game screen is shown (e.g. opening from preview)
+  useFocusEffect(
+    useCallback(() => {
+      worldPosRef.current = { x: START_X, y: START_Y };
+      charAnim.setValue({
+        x: START_X - CHAR_SIZE / 2,
+        y: START_Y - CHAR_SIZE / 2,
+      });
+      cameraAnim.setValue(getCameraOffset(START_X, START_Y));
+      dirRef.current = "idle";
+      setAnimKey("idle");
+      setFrame(0);
+    }, [charAnim, cameraAnim])
+  );
+
   // Show game as soon as background + one character frame are ready; load rest in background
   useEffect(() => {
     let cancelled = false;
@@ -541,7 +557,7 @@ export default function GameScreen() {
       {/* ── UI overlays (always on top, not affected by camera) ── */}
       <TouchableOpacity
         style={styles.backBtn}
-        onPress={() => router.push("/(tabs)/garden")}
+        onPress={() => router.back()}
         activeOpacity={0.7}
       >
         <IconSymbol name="chevron.left" size={18} color="#5A7A3A" />

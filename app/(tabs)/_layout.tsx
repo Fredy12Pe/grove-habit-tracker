@@ -30,6 +30,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="all-habits"
+        options={{
+          title: 'All habits',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="progress"
         options={{
           title: 'Progress',
@@ -41,14 +48,6 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="game"
-        options={{
-          title: 'Game',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gamecontroller.fill" color={color} />,
-          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen name="index" options={{ href: null }} />
