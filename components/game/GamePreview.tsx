@@ -293,7 +293,7 @@ export function GamePreview() {
             <TouchableOpacity
               style={styles.overlayButton}
               activeOpacity={0.8}
-              onPress={() => router.push("/game")}
+              onPress={() => router.push("/(tabs)/game")}
             >
               <Animated.View
                 style={{ transform: [{ translateX: arrowNudge }] }}

@@ -1,7 +1,15 @@
 import { Joystick, type JoystickDelta } from "@/components/garden/Joystick";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import {
+  getFrameIndexForDay,
+  getPlantIndexForHabitSlot,
+  getPlantSprite,
+  getWeekKey,
+} from "@/lib/game/plantSprites";
+import { useHabitStore } from "@/lib/store";
 import { useFocusEffect } from "@react-navigation/native";
+import { Canvas, Group, Path } from "@shopify/react-native-skia";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -111,7 +119,10 @@ function prefetchOne(assetRef: number): Promise<void> {
   try {
     const resolved = Image.resolveAssetSource(assetRef as number);
     if (resolved?.uri) {
-      return Image.prefetch(resolved.uri).then(() => {}, () => {});
+      return Image.prefetch(resolved.uri).then(
+        () => {},
+        () => {},
+      );
     }
   } catch (_) {
     // ignore
@@ -260,6 +271,136 @@ const A = {
   }, // 290×165
 };
 
+// 5×5 grid per garden area. Each box = one week: top-left=week1, top-right=week2, bottom-left=week3, bottom-right=week4
+const GARDEN_AREAS = [
+  A.gardenTopLeft,
+  A.gardenTopRight,
+  A.gardenBotLeft,
+  A.gardenBotRight,
+] as const;
+const SLOTS_PER_AREA = 25;
+const COLS = 5;
+const ROWS = 5;
+
+/** Current week-of-month 0–3 → which garden box to show plants in (week 1–4). Week 1 = top-left. */
+function getCurrentWeekBoxIndex(date: Date = new Date()): number {
+  const dayOfMonth = date.getDate();
+  return Math.min(Math.floor((dayOfMonth - 1) / 7), 3);
+}
+
+// Diamond from Plants-ground-grid.svg (viewBox 0 0 196 96) — grid fixed to SVG native size
+const DIAMOND_PATH = "M96.5 0L195.5 48L96.5 95.5L0 48L96.5 0Z";
+const DIAMOND_SVG_W = 196;
+const DIAMOND_SVG_H = 96;
+const GRID_FILL = "#E7F069";
+
+// Grid dimensions — smaller than SVG so it sits inside the stone walls comfortably
+const GRID_W = 140;
+const GRID_H = 60;
+// The isometric top wall is thick, so bias the grid toward the lower-center of the area
+const GRID_TOP_BIAS = 0.25;
+
+/** Grid rect: biased down to clear the thick top stone wall */
+function getGridRect(area: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}) {
+  return {
+    left: area.left + (area.width - GRID_W) / 2,
+    top: area.top + area.height * GRID_TOP_BIAS,
+    width: GRID_W,
+    height: GRID_H,
+    cellW: GRID_W / COLS,
+    cellH: GRID_H / ROWS,
+  };
+}
+
+function getGardenSlotPosition(slotIndex: number): { x: number; y: number } {
+  const areaIndex = Math.floor(slotIndex / SLOTS_PER_AREA);
+  const cellIndex = slotIndex % SLOTS_PER_AREA;
+  const area = GARDEN_AREAS[areaIndex];
+  const grid = getGridRect(area);
+  const row = Math.floor(cellIndex / COLS);
+  const col = cellIndex % COLS;
+  return {
+    x: grid.left + (col + 0.5) * grid.cellW,
+    y: grid.top + (row + 0.5) * grid.cellH,
+  };
+}
+
+/** 2×2 grid of diamond “plant boxes” (Plants-ground-grid.svg) for one garden area */
+function GardenGridCells({
+  area,
+}: {
+  area: { left: number; top: number; width: number; height: number };
+}) {
+  const grid = getGridRect(area);
+  const scaleX = grid.cellW / DIAMOND_SVG_W;
+  const scaleY = grid.cellH / DIAMOND_SVG_H;
+
+  return (
+    <View
+      style={[
+        styles.gardenGridWrap,
+        {
+          left: grid.left,
+          top: grid.top,
+          width: grid.width,
+          height: grid.height,
+        },
+      ]}
+      pointerEvents="none"
+    >
+      <Canvas style={{ width: grid.width, height: grid.height }}>
+        {Array.from({ length: ROWS * COLS }, (_, i) => {
+          const row = Math.floor(i / COLS);
+          const col = i % COLS;
+          return (
+            <Group
+              key={i}
+              transform={[
+                { translateX: col * grid.cellW },
+                { translateY: row * grid.cellH },
+                { scaleX },
+                { scaleY },
+              ]}
+            >
+              <Path path={DIAMOND_PATH} color={GRID_FILL} opacity={0} />
+            </Group>
+          );
+        })}
+      </Canvas>
+    </View>
+  );
+}
+
+const PLANT_SIZE = 80;
+
+// ─── Garden trigger circles (in front of each garden's bottom opening) ────────
+
+const TRIGGER_RADIUS = 26;
+const TRIGGER_PROXIMITY = 40;
+
+const GARDEN_TRIGGERS = GARDEN_AREAS.map((area, i) => {
+  const isLeft = i === 0 || i === 2;
+  return {
+    x: isLeft ? area.left + area.width * 0.75 : area.left + area.width * 0.18,
+    y: isLeft ? area.top + area.height * 0.82 : area.top + area.height * 0.74,
+  };
+});
+
+function getActiveGardenIndex(playerX: number, playerY: number): number {
+  for (let i = 0; i < GARDEN_TRIGGERS.length; i++) {
+    const t = GARDEN_TRIGGERS[i];
+    const dx = playerX - t.x;
+    const dy = playerY - t.y;
+    if (Math.sqrt(dx * dx + dy * dy) <= TRIGGER_PROXIMITY) return i;
+  }
+  return -1;
+}
+
 // ─── Game screen ──────────────────────────────────────────────────────────────
 
 const START_X = WORLD_W / 2;
@@ -290,6 +431,14 @@ export default function GameScreen() {
   const [frame, setFrame] = useState(0);
   const [spriteError, setSpriteError] = useState(false);
   const [gameAssetsReady, setGameAssetsReady] = useState(false);
+  const [activeGarden, setActiveGarden] = useState(-1);
+  const [gardenOverlayIdx, setGardenOverlayIdx] = useState(-1);
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+
+  const habits = useHabitStore((s) => s.habits);
+  const weekKey = getWeekKey();
+  const dayFrame = getFrameIndexForDay();
+  const weekBoxIndex = 0; // Week 1 only: plants always in top-left box
 
   // Force initial character position (Expo Go sometimes doesn't apply Animated.ValueXY initial value)
   useEffect(() => {
@@ -301,7 +450,7 @@ export default function GameScreen() {
     cameraAnim.setValue(getCameraOffset(START_X, START_Y));
   }, [charAnim, cameraAnim]);
 
-  // Always start at the middle when the game screen is shown (e.g. opening from preview)
+  // Always start at the middle when the game screen is shown (e.g. opening from preview or switching tabs)
   useFocusEffect(
     useCallback(() => {
       worldPosRef.current = { x: START_X, y: START_Y };
@@ -313,7 +462,7 @@ export default function GameScreen() {
       dirRef.current = "idle";
       setAnimKey("idle");
       setFrame(0);
-    }, [charAnim, cameraAnim])
+    }, [charAnim, cameraAnim]),
   );
 
   // Show game as soon as background + one character frame are ready; load rest in background
@@ -372,6 +521,12 @@ export default function GameScreen() {
         setAnimKey(newDir);
         setFrame(0);
       }
+
+      const nearIdx = getActiveGardenIndex(
+        worldPosRef.current.x,
+        worldPosRef.current.y,
+      );
+      setActiveGarden(nearIdx);
     }, MOVE_INTERVAL);
 
     return () => clearInterval(id);
@@ -385,6 +540,27 @@ export default function GameScreen() {
     }, 1000 / ANIM_FPS);
     return () => clearInterval(id);
   }, [animKey]);
+
+  const openGardenOverlay = useCallback(
+    (idx: number) => {
+      setGardenOverlayIdx(idx);
+      Animated.spring(overlayAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 10,
+      }).start();
+    },
+    [overlayAnim],
+  );
+
+  const closeGardenOverlay = useCallback(() => {
+    Animated.timing(overlayAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => setGardenOverlayIdx(-1));
+  }, [overlayAnim]);
 
   const animRow = ANIM_KEY_TO_ROW[animKey];
   const frameCount = FRAME_COUNTS[animKey];
@@ -467,6 +643,56 @@ export default function GameScreen() {
           resizeMode="contain"
         />
 
+        {/* Plants-ground-grid: 2×2 diamond boxes inside each garden area */}
+        {GARDEN_AREAS.map((area, idx) => (
+          <GardenGridCells key={idx} area={area} />
+        ))}
+
+        {/* Plants: clipped to active garden area so they never escape the stone walls */}
+        {(() => {
+          const activeArea = GARDEN_AREAS[weekBoxIndex];
+          return (
+            <View
+              style={[
+                styles.gardenClip,
+                {
+                  left: activeArea.left,
+                  top: activeArea.top,
+                  width: activeArea.width,
+                  height: activeArea.height,
+                },
+              ]}
+              pointerEvents="none"
+            >
+              {habits.slice(0, SLOTS_PER_AREA).map((habit, i) => {
+                const col = i % COLS;
+                const row = (i * 2) % ROWS;
+                const slotIndex =
+                  weekBoxIndex * SLOTS_PER_AREA + row * COLS + col;
+                const pos = getGardenSlotPosition(slotIndex);
+                const plantIndex = getPlantIndexForHabitSlot(i, weekKey);
+                const source = getPlantSprite(plantIndex, dayFrame);
+                return (
+                  <Image
+                    key={habit.id}
+                    source={source}
+                    style={[
+                      styles.plant,
+                      {
+                        left: pos.x - activeArea.left - PLANT_SIZE / 2,
+                        top: pos.y - activeArea.top - PLANT_SIZE / 2,
+                        width: PLANT_SIZE,
+                        height: PLANT_SIZE,
+                      },
+                    ]}
+                    resizeMode="contain"
+                  />
+                );
+              })}
+            </View>
+          );
+        })()}
+
         {/* Character (sprite sheet: one Image, crop by position so animation has no extra loads) */}
         <Animated.View
           style={[
@@ -533,6 +759,25 @@ export default function GameScreen() {
           />
         </View>
 
+        {/* Trigger circles in front of each garden */}
+        {GARDEN_TRIGGERS.map((t, i) => (
+          <View
+            key={`trigger-${i}`}
+            style={[
+              styles.triggerCircle,
+              {
+                left: t.x - TRIGGER_RADIUS,
+                top: t.y - TRIGGER_RADIUS,
+                width: TRIGGER_RADIUS * 2,
+                height: TRIGGER_RADIUS * 2,
+                borderRadius: TRIGGER_RADIUS,
+                opacity: 0,
+              },
+            ]}
+            pointerEvents="none"
+          />
+        ))}
+
         {/* Collision debug overlay — 60% opacity (only house.png and other collision shapes) */}
         {SHOW_COLLISION_DEBUG &&
           COLLISION_DATA.layers.map((layer, i) => (
@@ -557,12 +802,53 @@ export default function GameScreen() {
       {/* ── UI overlays (always on top, not affected by camera) ── */}
       <TouchableOpacity
         style={styles.backBtn}
-        onPress={() => router.back()}
+        onPress={() => router.push("/(tabs)/garden")}
         activeOpacity={0.7}
       >
         <IconSymbol name="chevron.left" size={18} color="#5A7A3A" />
         <AppText style={styles.backLabel}>Garden</AppText>
       </TouchableOpacity>
+
+      {/* "View Garden" button — appears when standing on a trigger circle */}
+      {activeGarden >= 0 && gardenOverlayIdx < 0 && (
+        <TouchableOpacity
+          style={styles.viewGardenBtn}
+          activeOpacity={0.8}
+          onPress={() => openGardenOverlay(activeGarden)}
+        >
+          <AppText style={styles.viewGardenLabel}>View Garden</AppText>
+        </TouchableOpacity>
+      )}
+
+      {/* White garden overlay — slides up from bottom */}
+      {gardenOverlayIdx >= 0 && (
+        <Animated.View
+          style={[
+            styles.gardenOverlay,
+            {
+              transform: [
+                {
+                  translateY: overlayAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [H, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.overlayCloseBtn}
+            activeOpacity={0.7}
+            onPress={closeGardenOverlay}
+          >
+            <IconSymbol name="xmark" size={20} color="#333" />
+          </TouchableOpacity>
+          <AppText style={styles.overlayTitle}>
+            Garden — Week {gardenOverlayIdx + 1}
+          </AppText>
+        </Animated.View>
+      )}
 
       <Joystick onMove={handleMove} onEnd={handleEnd} />
 
@@ -591,6 +877,17 @@ const styles = StyleSheet.create({
   },
   asset: {
     position: "absolute",
+  },
+  plant: {
+    position: "absolute",
+    pointerEvents: "none",
+  },
+  gardenGridWrap: {
+    position: "absolute",
+  },
+  gardenClip: {
+    position: "absolute",
+    overflow: "hidden",
   },
   houseClip: {
     overflow: "hidden",
@@ -670,5 +967,68 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: "#5A7A3A",
+  },
+  triggerCircle: {
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.5)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.8)",
+  },
+  viewGardenBtn: {
+    position: "absolute",
+    top: H * 0.32,
+    alignSelf: "center",
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+    zIndex: 20,
+  },
+  viewGardenLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#5A7A3A",
+  },
+  gardenOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: H * 0.85,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    zIndex: 30,
+    elevation: 30,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+  },
+  overlayCloseBtn: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.06)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 31,
+  },
+  overlayTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    textAlign: "center",
+    marginTop: 8,
   },
 });
