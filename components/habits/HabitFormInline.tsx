@@ -35,7 +35,17 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
   };
 
   const updateSetup = (setup: HabitSetup) => {
-    onUpdate(habit.id, { setup });
+    const updates: Partial<HabitWithActions> = { setup };
+    if (habit.type === "timer" && "durationMinutes" in setup) {
+      const p = habit.progress as TimerProgress;
+      if (!p.isRunning && !p.completed) {
+        updates.progress = {
+          ...p,
+          secondsRemaining: (setup as TimerSetup).durationMinutes * 60,
+        };
+      }
+    }
+    onUpdate(habit.id, updates);
   };
 
   const renderSetup = () => {
@@ -60,19 +70,22 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
             </View>
             <Text style={styles.customLabel}>Or custom</Text>
             <View style={styles.stepperRow}>
-              <Pressable
-                style={styles.stepperBtn}
-                onPress={() => updateSetup({ durationMinutes: Math.max(1, customMinutes - 1) })}
-              >
-                <Text style={styles.stepperText}>−</Text>
-              </Pressable>
-              <Text style={styles.stepperValue}>{customMinutes} min</Text>
-              <Pressable
-                style={styles.stepperBtn}
-                onPress={() => updateSetup({ durationMinutes: Math.min(120, customMinutes + 1) })}
-              >
-                <Text style={styles.stepperText}>+</Text>
-              </Pressable>
+              <TextInput
+                style={styles.customDurationInput}
+                keyboardType="number-pad"
+                value={String(customMinutes)}
+                onChangeText={(text) => {
+                  const num = parseInt(text, 10);
+                  if (!isNaN(num)) {
+                    updateSetup({ durationMinutes: Math.max(1, Math.min(120, num)) });
+                  } else if (text === "") {
+                    updateSetup({ durationMinutes: 1 });
+                  }
+                }}
+                selectTextOnFocus
+                maxLength={3}
+              />
+              <Text style={styles.customDurationUnit}>min</Text>
             </View>
           </View>
         );
@@ -446,6 +459,24 @@ const styles = StyleSheet.create({
     color: GroveColors.primaryText,
     minWidth: 44,
     textAlign: "center",
+  },
+  customDurationInput: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: GroveColors.primaryText,
+    textAlign: "center",
+    minWidth: 48,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: GroveColors.inactive,
+    borderRadius: 8,
+    backgroundColor: GroveColors.white,
+  },
+  customDurationUnit: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: GroveColors.secondaryText,
   },
   counterRow: {
     flexDirection: "row",

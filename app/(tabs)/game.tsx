@@ -768,8 +768,8 @@ export default function GameScreen() {
               {
                 left: t.x - TRIGGER_RADIUS,
                 top: t.y - TRIGGER_RADIUS,
-                width: TRIGGER_RADIUS * 2,
-                height: TRIGGER_RADIUS * 2,
+                width: TRIGGER_RADIUS * 3,
+                height: TRIGGER_RADIUS * 3,
                 borderRadius: TRIGGER_RADIUS,
                 opacity: 0,
               },
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
   },
   viewGardenBtn: {
     position: "absolute",
-    top: H * 0.32,
+    bottom: 220,
     alignSelf: "center",
     backgroundColor: "#fff",
     paddingVertical: 10,
