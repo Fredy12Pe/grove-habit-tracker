@@ -1,44 +1,192 @@
 import { Joystick, type JoystickDelta } from "@/components/garden/Joystick";
-import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import {
-  getFrameIndexForDay,
+  GARDEN_MAX_PLANTS,
+  getCurrentMonthWeekIndex,
+  getGardenGridDimensionsForPlantCount,
+  getGardenPlantSize,
+  getGridCellMetrics,
+  getPlantSlotCenters,
+  getWeekOfMonthDateRange,
+  makeWeekKeyForPlot,
+} from "@/lib/game/gardenBackupGrid";
+import { getIslandWorldLayout } from "@/lib/game/islandWorldLayout";
+import {
+  FRAMES_PER_PLANT,
   getPlantIndexForHabitSlot,
   getPlantSprite,
-  getWeekKey,
 } from "@/lib/game/plantSprites";
+import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
+import unifiedCollision from "@/lib/game/unifiedCollision.json";
 import { useHabitStore } from "@/lib/store";
+import type { Habit } from "@/lib/types";
 import { useFocusEffect } from "@react-navigation/native";
-import { Canvas, Group, Path } from "@shopify/react-native-skia";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Dimensions,
+  Easing,
   Image,
+  Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ─── Screen & world dimensions ────────────────────────────────────────────────
 
 const { width: W, height: H } = Dimensions.get("window");
 
-// Background is 2181×3072 — display at 1/3 scale
-const SCALE = 1 / 3;
-const WORLD_W = Math.round(2181 * SCALE); // 727
-const WORLD_H = Math.round(3072 * SCALE); // 1024
+const {
+  WORLD_H,
+  WORLD_W,
+  BG,
+  ISLAND,
+  WALK_AREA,
+  ISLAND_W,
+  ISLAND_H,
+  ISLAND_LEFT,
+  ISLAND_TOP,
+  TREE_FALL_FRAMES,
+  TREE_FALL_FRAME_COUNT,
+  TREE_DISPLAY_H,
+  TREE_DISPLAY_W,
+  TREE_WORLD_X,
+  TREE_WORLD_Y,
+  TREE_INTERACT_RADIUS,
+  TREE_DEPTH_Y,
+  TREE_TRUNK_HALF_W,
+  TREE_TRUNK_TOP,
+  HILLS,
+  HILLS_SCALE,
+  HILLS_W,
+  HILLS_H,
+  HILLS_LEFT,
+  HILLS_TOP,
+  HILLS_BTM1,
+  HILLS_BTM2,
+  HBTM1_W,
+  HBTM1_H,
+  HBTM2_W,
+  HBTM2_H,
+  HBTM1_LEFT,
+  HBTM1_TOP,
+  HBTM2_LEFT,
+  HBTM2_TOP,
+  ARROW_X,
+  ARROW_Y,
+  ARROW_SIZE,
+  HOUSE_FRAME,
+  HOUSE_FLOOR,
+  HOUSE_BED,
+  HOUSE_DRAWER,
+  HOUSE_IMAGE,
+  HOUSE_DESK,
+  HOUSE_W,
+  HOUSE_H,
+  HOUSE_LEFT,
+  HOUSE_TOP,
+  INTERIOR_X,
+  INTERIOR_Y,
+  INTERIOR_W,
+  INTERIOR_H,
+  HIMG_X,
+  HIMG_Y,
+  HIMG_W,
+  HIMG_H,
+  HDRAWER_X,
+  HDRAWER_Y,
+  HDRAWER_W,
+  HDRAWER_H,
+  HBED_X,
+  HBED_Y,
+  HBED_W,
+  HBED_H,
+  HDESK_X,
+  HDESK_Y,
+  HDESK_W,
+  HDESK_H,
+  HOUSE_DOOR_X,
+  HOUSE_DOOR_Y,
+  HOUSE_DOOR_RADIUS,
+  HOUSE_EXIT_X,
+  HOUSE_EXIT_Y,
+  HOUSE_EXIT_RADIUS,
+  HOUSE_ENTER_POS,
+  HOUSE_INTERIOR_RECT,
+  GARDEN_FLOOR,
+  GARDEN_BACK,
+  GARDEN_SIDES,
+  GARDEN_FRONTS,
+  G_CONTAINER_W,
+  G_CONTAINER_H,
+  G_FLOOR,
+  G_BACK,
+  G_SIDES,
+  G_FRONT,
+  GW,
+  GH,
+  GARDEN_POSITIONS,
+  BACKUP_GARDEN_FLOOR_RECT,
+  START_X,
+  START_Y,
+} = getIslandWorldLayout(H);
+
+/** Tree AABB intersects the screen after applying the same camera pan as the character. */
+function isTreeVisibleOnScreen(charWorldX: number, charWorldY: number): boolean {
+  const cam = getCameraOffset(charWorldX, charWorldY);
+  const left = TREE_WORLD_X - TREE_DISPLAY_W / 2 + cam.x;
+  const top = TREE_WORLD_Y - TREE_DISPLAY_H + cam.y;
+  const right = TREE_WORLD_X + TREE_DISPLAY_W / 2 + cam.x;
+  const bottom = TREE_WORLD_Y + cam.y;
+  return right > 0 && left < W && bottom > 0 && top < H;
+}
+
+const CHAR_SCALE_INDOOR = 0.5;
+
+/** How much of each grid cell the plant sprite fills (see getGardenPlantSize). */
+const BACKUP_GARDEN_PLANT_FILL = 1.8;
+
+/** Set true to show semi-transparent grid cells over the soil for layout tuning. */
+const BACKUP_GARDEN_GRID_DEBUG = false;
+
+/**
+ * Dev-only plant frame cycling was removed; this stub stays so stale Fast Refresh /
+ * React Compiler bundles don’t reference a missing identifier.
+ */
+/**
+ * Count how many dates in completionDates[habitId] fall within [start, end] (ISO strings).
+ */
+function getWeekCompletionCount(
+  habitId: string,
+  completionDates: CompletionDatesByHabit,
+  start: string,
+  end: string,
+): number {
+  const dates = completionDates[habitId];
+  if (!dates) return 0;
+  return dates.filter((d) => d >= start && d <= end).length;
+}
 
 // ─── Character ────────────────────────────────────────────────────────────────
 
 const CHAR_SIZE = 96;
+const CHAR_SCALE = 0.67;
 const SPEED = 3.5;
 const ANIM_FPS = 8;
-const MOVE_INTERVAL = 16; // ~60 fps
+const MOVE_INTERVAL = 16;
 const DEADZONE = 0.15;
-
-// ─── Character sprite sheet (single atlas = one load, no per-frame source changes) ─
 
 type AnimKey =
   | "idle"
@@ -82,62 +230,10 @@ const FRAME_COUNTS: Record<AnimKey, number> = {
   "south-west": 6,
 };
 
-// ─── World assets (all static requires) ───────────────────────────────────────
-
-// Optimized assets (resized + compressed via npm run optimize-game-assets) for faster load
-const BG = require("@/assets/game/optimized/Background.png");
-const BUSH_TOP_LEFT = require("@/assets/game/optimized/Bushes-top-left.png");
-const GARDEN_TOP_LEFT = require("@/assets/game/optimized/Garden-top-left.png");
-const GARDEN_TOP_RIGHT = require("@/assets/game/optimized/Garden-top-right.png");
-const GARDEN_BOTTOM_LEFT = require("@/assets/game/optimized/Garden-Bottom-left.png");
-const GARDEN_BOTTOM_RIGHT = require("@/assets/game/optimized/Garden-Bottom-right.png");
-const HOUSE = require("@/assets/game/optimized/house.png");
-const POND = require("@/assets/game/optimized/pond.png");
-
-// Minimal set to show full scene + character (one atlas image for character)
-const CRITICAL_IMAGES: number[] = [
-  BG,
-  BUSH_TOP_LEFT,
-  GARDEN_TOP_LEFT,
-  GARDEN_TOP_RIGHT,
-  GARDEN_BOTTOM_LEFT,
-  GARDEN_BOTTOM_RIGHT,
-  HOUSE,
-  POND,
-  CHARACTER_ATLAS,
-];
-
-const REST_OF_IMAGES: number[] = [];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function clamp(val: number, min: number, max: number) {
   return Math.max(min, Math.min(max, val));
-}
-
-function prefetchOne(assetRef: number): Promise<void> {
-  try {
-    const resolved = Image.resolveAssetSource(assetRef as number);
-    if (resolved?.uri) {
-      return Image.prefetch(resolved.uri).then(
-        () => {},
-        () => {},
-      );
-    }
-  } catch (_) {
-    // ignore
-  }
-  return Promise.resolve();
-}
-
-/** Preload only critical assets so the game can show quickly. */
-function preloadCritical(): Promise<void> {
-  return Promise.all(CRITICAL_IMAGES.map(prefetchOne)).then(() => {});
-}
-
-/** Preload remaining assets in background (don't block). */
-function preloadRestInBackground(): void {
-  REST_OF_IMAGES.forEach((ref) => prefetchOne(ref));
 }
 
 function getAnimKey(jx: number, jy: number): AnimKey {
@@ -160,262 +256,172 @@ function getCameraOffset(charX: number, charY: number) {
   };
 }
 
-// ─── Collision (from custom collision-shape PNGs) ─────────────────────────────
+// ─── Island collision ────────────────────────────────────────────────────────
 
-const COLLISION_DATA = require("@/lib/game/collisionData.json") as {
-  cellSize: number;
-  layers: { x: number; y: number; w: number; h: number; grid: number[][] }[];
+const FEET_OFFSET_Y = CHAR_SIZE * 0.32;
+const FEET_HALF_W = 12;
+const GARDEN_PADDING = 4;
+
+// House collision rect (the main rectangular body of the frame)
+const HOUSE_PAD = 2;
+const HOUSE_RECT = {
+  left: HOUSE_LEFT + INTERIOR_X - HOUSE_PAD,
+  top: HOUSE_TOP - HOUSE_PAD,
+  right: HOUSE_LEFT + INTERIOR_X + INTERIOR_W + HOUSE_PAD,
+  bottom: HOUSE_TOP + HOUSE_H * 1 + HOUSE_PAD,
 };
 
-const FEET_OFFSET_Y = 30;
+function isInsideHouse(worldX: number, worldY: number): boolean {
+  return (
+    worldX >= HOUSE_RECT.left &&
+    worldX <= HOUSE_RECT.right &&
+    worldY >= HOUSE_RECT.top &&
+    worldY <= HOUSE_RECT.bottom
+  );
+}
 
-// House only: top portion is pass-through so character can walk behind the roof
-const HOUSE_ROOF_PASS_HEIGHT = 200;
-const HOUSE_LAYER_RECT = { x: 365, y: 0, w: 349, h: 310 };
-const HOUSE_BASE_TOP = 15 + HOUSE_ROOF_PASS_HEIGHT; // world Y where base starts
-const HOUSE_BASE_HEIGHT = HOUSE_LAYER_RECT.h - HOUSE_ROOF_PASS_HEIGHT; // 110
+const GARDEN_BOTTOM_PAD = CHAR_SIZE * CHAR_SCALE * 0.3;
+const GARDEN_RECTS = GARDEN_POSITIONS.map((pos) => {
+  const left = ISLAND_LEFT + pos.x * ISLAND_W - GW / 2 - GARDEN_PADDING;
+  const top = ISLAND_TOP + pos.y * ISLAND_H - GH / 2 - GARDEN_PADDING;
+  return {
+    left,
+    top,
+    right: left + GW + GARDEN_PADDING * 2,
+    bottom: top + GH + GARDEN_PADDING + GARDEN_BOTTOM_PAD,
+  };
+});
 
-function isColliding(cx: number, cy: number): boolean {
-  const fx = cx;
-  const fy = cy + FEET_OFFSET_Y;
-  const cs = COLLISION_DATA.cellSize;
-
-  for (const layer of COLLISION_DATA.layers) {
+function isInsideGarden(worldX: number, worldY: number): boolean {
+  for (const r of GARDEN_RECTS) {
     if (
-      fx < layer.x ||
-      fx >= layer.x + layer.w ||
-      fy < layer.y ||
-      fy >= layer.y + layer.h
-    )
-      continue;
-
-    // House: allow pass-through in the roof zone (go behind the house)
-    if (
-      layer.x === HOUSE_LAYER_RECT.x &&
-      layer.y === HOUSE_LAYER_RECT.y &&
-      layer.w === HOUSE_LAYER_RECT.w
+      worldX >= r.left &&
+      worldX <= r.right &&
+      worldY >= r.top &&
+      worldY <= r.bottom
     ) {
-      if (fy - layer.y < HOUSE_ROOF_PASS_HEIGHT) continue;
+      return true;
     }
-
-    const cellX = Math.floor((fx - layer.x) / cs);
-    const cellY = Math.floor((fy - layer.y) / cs);
-    const gw = layer.grid[0]?.length ?? 0;
-    const gh = layer.grid.length;
-    if (cellX < 0 || cellX >= gw || cellY < 0 || cellY >= gh) continue;
-    if (layer.grid[cellY][cellX] === 1) return true;
   }
   return false;
 }
 
-// Collision debug: show collision shapes at 60% opacity (same order as COLLISION_DATA.layers)
-const SHOW_COLLISION_DEBUG = true;
-const COLLISION_DEBUG_IMAGES = [
-  require("@/assets/game/Collision-shapes/house.png"),
-  require("@/assets/game/Collision-shapes/Bushes-top-left.png"),
-  require("@/assets/game/Collision-shapes/Ellipse 43.png"),
-  require("@/assets/game/Collision-shapes/Garden-top-left.png"),
-  require("@/assets/game/Collision-shapes/Garden-top-right.png"),
-  require("@/assets/game/Collision-shapes/Garden-Bottom-left.png"),
-  require("@/assets/game/Collision-shapes/Garden-Bottom-right.png"),
-  require("@/assets/game/Collision-shapes/Bushes-foreground-left.png"),
-  require("@/assets/game/Collision-shapes/Bushes-foreground-right.png"),
-];
-
-// ─── Asset layout (positions in world-space, scaled at SCALE from source px) ──
-
-// All values derived from source image (2181×3072) divided by 3
-const A = {
-  bg: { left: 0, top: 0, width: WORLD_W, height: WORLD_H },
-  bushTopLeft: {
-    left: 0,
-    top: 0,
-    width: Math.round(825 * SCALE),
-    height: Math.round(381 * SCALE),
-  }, // 275×127
-  house: {
-    left: 365,
-    top: 15,
-    width: Math.round(1047 * SCALE),
-    height: Math.round(929 * SCALE),
-  }, // 349×310
-  pond: {
-    left: 135,
-    top: 200,
-    width: Math.round(360 * SCALE),
-    height: Math.round(231 * SCALE),
-  }, // 120×77
-  gardenTopLeft: {
-    left: 5,
-    top: 340,
-    width: Math.round(870 * SCALE),
-    height: Math.round(495 * SCALE),
-  }, // 290×165
-  gardenTopRight: {
-    left: 380,
-    top: 340,
-    width: Math.round(870 * SCALE),
-    height: Math.round(495 * SCALE),
-  }, // 290×165
-  gardenBotLeft: {
-    left: 5,
-    top: 510,
-    width: Math.round(870 * SCALE),
-    height: Math.round(495 * SCALE),
-  }, // 290×165
-  gardenBotRight: {
-    left: 380,
-    top: 510,
-    width: Math.round(870 * SCALE),
-    height: Math.round(495 * SCALE),
-  }, // 290×165
-};
-
-// 5×5 grid per garden area. Each box = one week: top-left=week1, top-right=week2, bottom-left=week3, bottom-right=week4
-const GARDEN_AREAS = [
-  A.gardenTopLeft,
-  A.gardenTopRight,
-  A.gardenBotLeft,
-  A.gardenBotRight,
-] as const;
-const SLOTS_PER_AREA = 25;
-const COLS = 5;
-const ROWS = 5;
-
-/** Current week-of-month 0–3 → which garden box to show plants in (week 1–4). Week 1 = top-left. */
-function getCurrentWeekBoxIndex(date: Date = new Date()): number {
-  const dayOfMonth = date.getDate();
-  return Math.min(Math.floor((dayOfMonth - 1) / 7), 3);
+function isPointWalkable(worldX: number, worldY: number): boolean {
+  const localX = worldX - ISLAND_LEFT;
+  const localY = worldY - ISLAND_TOP;
+  const imgX = (localX / ISLAND_W) * unifiedCollision.width;
+  const imgY = (localY / ISLAND_H) * unifiedCollision.height;
+  const col = Math.floor(imgX / unifiedCollision.cellSize);
+  const row = Math.floor(imgY / unifiedCollision.cellSize);
+  if (
+    row < 0 ||
+    row >= unifiedCollision.rows ||
+    col < 0 ||
+    col >= unifiedCollision.cols
+  )
+    return false;
+  return unifiedCollision.grid[row][col] === 0;
 }
 
-// Diamond from Plants-ground-grid.svg (viewBox 0 0 196 96) — grid fixed to SVG native size
-const DIAMOND_PATH = "M96.5 0L195.5 48L96.5 95.5L0 48L96.5 0Z";
-const DIAMOND_SVG_W = 196;
-const DIAMOND_SVG_H = 96;
-const GRID_FILL = "#E7F069";
-
-// Grid dimensions — smaller than SVG so it sits inside the stone walls comfortably
-const GRID_W = 140;
-const GRID_H = 60;
-// The isometric top wall is thick, so bias the grid toward the lower-center of the area
-const GRID_TOP_BIAS = 0.25;
-
-/** Grid rect: biased down to clear the thick top stone wall */
-function getGridRect(area: {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}) {
-  return {
-    left: area.left + (area.width - GRID_W) / 2,
-    top: area.top + area.height * GRID_TOP_BIAS,
-    width: GRID_W,
-    height: GRID_H,
-    cellW: GRID_W / COLS,
-    cellH: GRID_H / ROWS,
-  };
-}
-
-function getGardenSlotPosition(slotIndex: number): { x: number; y: number } {
-  const areaIndex = Math.floor(slotIndex / SLOTS_PER_AREA);
-  const cellIndex = slotIndex % SLOTS_PER_AREA;
-  const area = GARDEN_AREAS[areaIndex];
-  const grid = getGridRect(area);
-  const row = Math.floor(cellIndex / COLS);
-  const col = cellIndex % COLS;
-  return {
-    x: grid.left + (col + 0.5) * grid.cellW,
-    y: grid.top + (row + 0.5) * grid.cellH,
-  };
-}
-
-/** 2×2 grid of diamond “plant boxes” (Plants-ground-grid.svg) for one garden area */
-function GardenGridCells({
-  area,
-}: {
-  area: { left: number; top: number; width: number; height: number };
-}) {
-  const grid = getGridRect(area);
-  const scaleX = grid.cellW / DIAMOND_SVG_W;
-  const scaleY = grid.cellH / DIAMOND_SVG_H;
-
+function isTreeTrunkBlocking(worldX: number, feetY: number): boolean {
+  if (feetY < TREE_TRUNK_TOP || feetY > TREE_WORLD_Y) return false;
   return (
-    <View
-      style={[
-        styles.gardenGridWrap,
-        {
-          left: grid.left,
-          top: grid.top,
-          width: grid.width,
-          height: grid.height,
-        },
-      ]}
-      pointerEvents="none"
-    >
-      <Canvas style={{ width: grid.width, height: grid.height }}>
-        {Array.from({ length: ROWS * COLS }, (_, i) => {
-          const row = Math.floor(i / COLS);
-          const col = i % COLS;
-          return (
-            <Group
-              key={i}
-              transform={[
-                { translateX: col * grid.cellW },
-                { translateY: row * grid.cellH },
-                { scaleX },
-                { scaleY },
-              ]}
-            >
-              <Path path={DIAMOND_PATH} color={GRID_FILL} opacity={0} />
-            </Group>
-          );
-        })}
-      </Canvas>
-    </View>
+    worldX >= TREE_WORLD_X - TREE_TRUNK_HALF_W &&
+    worldX <= TREE_WORLD_X + TREE_TRUNK_HALF_W
   );
 }
 
-const PLANT_SIZE = 80;
+function isWalkable(worldX: number, worldY: number): boolean {
+  const feetY = worldY + FEET_OFFSET_Y;
+  if (
+    isInsideGarden(worldX, feetY) ||
+    isInsideGarden(worldX - FEET_HALF_W, feetY) ||
+    isInsideGarden(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
+  if (isInsideHouse(worldX, feetY)) return false;
+  if (
+    isTreeTrunkBlocking(worldX, feetY) ||
+    isTreeTrunkBlocking(worldX - FEET_HALF_W, feetY) ||
+    isTreeTrunkBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
+  return (
+    isPointWalkable(worldX, feetY) &&
+    isPointWalkable(worldX - FEET_HALF_W, feetY) &&
+    isPointWalkable(worldX + FEET_HALF_W, feetY)
+  );
+}
 
-// ─── Garden trigger circles (in front of each garden's bottom opening) ────────
+function isWalkableIndoors(worldX: number, worldY: number): boolean {
+  const feetY = worldY + FEET_OFFSET_Y;
+  const headY = worldY - CHAR_SIZE * CHAR_SCALE_INDOOR * 0.9;
+  const r = HOUSE_INTERIOR_RECT;
+  return (
+    worldX >= r.left && worldX <= r.right && headY >= r.top && feetY <= r.bottom
+  );
+}
 
-const TRIGGER_RADIUS = 26;
-const TRIGGER_PROXIMITY = 40;
+const GARDEN_TRIGGER_RADIUS = GH * 0.35;
+const GARDEN_TRIGGERS = GARDEN_POSITIONS.map((pos) => ({
+  x: ISLAND_LEFT + pos.x * ISLAND_W,
+  y: ISLAND_TOP + pos.y * ISLAND_H + GH / 2 + GARDEN_TRIGGER_RADIUS * 0.6,
+}));
 
-const GARDEN_TRIGGERS = GARDEN_AREAS.map((area, i) => {
-  const isLeft = i === 0 || i === 2;
-  return {
-    x: isLeft ? area.left + area.width * 0.75 : area.left + area.width * 0.18,
-    y: isLeft ? area.top + area.height * 0.82 : area.top + area.height * 0.74,
-  };
-});
-
-function getActiveGardenIndex(playerX: number, playerY: number): number {
+function nearGardenIndex(worldX: number, worldY: number): number {
+  const r2 = GARDEN_TRIGGER_RADIUS * GARDEN_TRIGGER_RADIUS;
   for (let i = 0; i < GARDEN_TRIGGERS.length; i++) {
-    const t = GARDEN_TRIGGERS[i];
-    const dx = playerX - t.x;
-    const dy = playerY - t.y;
-    if (Math.sqrt(dx * dx + dy * dy) <= TRIGGER_PROXIMITY) return i;
+    const dx = worldX - GARDEN_TRIGGERS[i].x;
+    const dy = worldY - GARDEN_TRIGGERS[i].y;
+    if (dx * dx + dy * dy <= r2) return i;
   }
   return -1;
 }
 
-// ─── Game screen ──────────────────────────────────────────────────────────────
+function isNearDoor(worldX: number, worldY: number, indoor: boolean): boolean {
+  if (indoor) {
+    const dx = worldX - HOUSE_EXIT_X;
+    const dy = worldY - HOUSE_EXIT_Y;
+    return dx * dx + dy * dy <= HOUSE_EXIT_RADIUS * HOUSE_EXIT_RADIUS;
+  }
+  const dx = worldX - HOUSE_DOOR_X;
+  const dy = worldY - HOUSE_DOOR_Y;
+  return dx * dx + dy * dy <= HOUSE_DOOR_RADIUS * HOUSE_DOOR_RADIUS;
+}
 
-const START_X = WORLD_W / 2;
-const START_Y = WORLD_H / 2 - 50;
+// ─── Game screen ──────────────────────────────────────────────────────────────
 
 export default function GameScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const habits = useHabitStore((s) => s.habits);
+  const completionDates = useHabitStore((s) => s.completionDates);
+  const ensureDayReset = useHabitStore((s) => s.ensureDayReset);
+  const currentWeekPlot = getCurrentMonthWeekIndex();
 
-  // Joystick input
+  const habitCountForGarden = Math.min(habits.length, GARDEN_MAX_PLANTS);
+  const backupGardenLayout = useMemo(() => {
+    const { cols, rows } = getGardenGridDimensionsForPlantCount(
+      habitCountForGarden,
+      BACKUP_GARDEN_FLOOR_RECT,
+    );
+    return {
+      cols,
+      rows,
+      slotCenters: getPlantSlotCenters(BACKUP_GARDEN_FLOOR_RECT, cols, rows),
+      plantSize: getGardenPlantSize(
+        BACKUP_GARDEN_FLOOR_RECT,
+        cols,
+        rows,
+        BACKUP_GARDEN_PLANT_FILL,
+      ),
+      cellMetrics: getGridCellMetrics(BACKUP_GARDEN_FLOOR_RECT, cols, rows),
+    };
+  }, [habitCountForGarden]);
+
   const joystickRef = useRef<JoystickDelta>({ x: 0, y: 0 });
-
-  // World position (character's feet center in world coords)
   const worldPosRef = useRef({ x: START_X, y: START_Y });
 
-  // Animated: world (camera) transform + character position inside world
   const initialCam = getCameraOffset(START_X, START_Y);
   const cameraAnim = useRef(new Animated.ValueXY(initialCam)).current;
   const charAnim = useRef(
@@ -425,34 +431,58 @@ export default function GameScreen() {
     }),
   ).current;
 
-  // Animation state
   const dirRef = useRef<AnimKey>("idle");
   const [animKey, setAnimKey] = useState<AnimKey>("idle");
   const [frame, setFrame] = useState(0);
   const [spriteError, setSpriteError] = useState(false);
-  const [gameAssetsReady, setGameAssetsReady] = useState(false);
-  const [activeGarden, setActiveGarden] = useState(-1);
-  const [gardenOverlayIdx, setGardenOverlayIdx] = useState(-1);
-  const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  const habits = useHabitStore((s) => s.habits);
-  const weekKey = getWeekKey();
-  const dayFrame = getFrameIndexForDay();
-  const weekBoxIndex = 0; // Week 1 only: plants always in top-left box
+  const [insideHouse, setInsideHouse] = useState(false);
+  const [nearDoor, setNearDoor] = useState(false);
+  const [nearGarden, setNearGarden] = useState(-1);
+  const [nearTree, setNearTree] = useState(false);
+  const [charBehindTree, setCharBehindTree] = useState(false);
+  const [gardenPopupIndex, setGardenPopupIndex] = useState(-1);
+  const [treeFallFrameIndex, setTreeFallFrameIndex] = useState(0);
+  const [treeFallPlaying, setTreeFallPlaying] = useState(false);
+  const treeHasFallenRef = useRef(false);
+  const treeFallAnimatingRef = useRef(false);
+  const treeWasOnScreenRef = useRef(false);
+  const charBehindTreeRef = useRef(false);
+  const insideHouseRef = useRef(false);
 
-  // Force initial character position (Expo Go sometimes doesn't apply Animated.ValueXY initial value)
+  const arrowAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const initialChar = {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(arrowAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(arrowAnim, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [arrowAnim]);
+
+  useEffect(() => {
+    charAnim.setValue({
       x: START_X - CHAR_SIZE / 2,
       y: START_Y - CHAR_SIZE / 2,
-    };
-    charAnim.setValue(initialChar);
+    });
     cameraAnim.setValue(getCameraOffset(START_X, START_Y));
   }, [charAnim, cameraAnim]);
 
-  // Always start at the middle when the game screen is shown (e.g. opening from preview or switching tabs)
   useFocusEffect(
     useCallback(() => {
+      ensureDayReset();
       worldPosRef.current = { x: START_X, y: START_Y };
       charAnim.setValue({
         x: START_X - CHAR_SIZE / 2,
@@ -462,20 +492,35 @@ export default function GameScreen() {
       dirRef.current = "idle";
       setAnimKey("idle");
       setFrame(0);
-    }, [charAnim, cameraAnim]),
+      insideHouseRef.current = false;
+      setInsideHouse(false);
+      setNearDoor(false);
+      // Tree chop state is intentionally NOT reset here — useFocusEffect can re-run when
+      // callback deps change while focused, which was resetting the tree to frame 0.
+    }, [charAnim, cameraAnim, ensureDayReset]),
   );
 
-  // Show game as soon as background + one character frame are ready; load rest in background
-  useEffect(() => {
-    let cancelled = false;
-    preloadCritical().then(() => {
-      if (!cancelled) setGameAssetsReady(true);
-      preloadRestInBackground();
-    });
-    return () => {
-      cancelled = true;
-    };
+  const handleChopTree = useCallback(() => {
+    if (treeHasFallenRef.current || treeFallAnimatingRef.current) return;
+    treeFallAnimatingRef.current = true;
+    setTreeFallPlaying(true);
   }, []);
+
+  useEffect(() => {
+    if (!treeFallPlaying) return;
+    const id = setInterval(() => {
+      setTreeFallFrameIndex((i) => {
+        if (i >= TREE_FALL_FRAME_COUNT - 1) {
+          treeHasFallenRef.current = true;
+          treeFallAnimatingRef.current = false;
+          setTreeFallPlaying(false);
+          return TREE_FALL_FRAME_COUNT - 1;
+        }
+        return i + 1;
+      });
+    }, 55);
+    return () => clearInterval(id);
+  }, [treeFallPlaying]);
 
   const handleMove = useCallback((delta: JoystickDelta) => {
     joystickRef.current = delta;
@@ -485,26 +530,47 @@ export default function GameScreen() {
     joystickRef.current = { x: 0, y: 0 };
   }, []);
 
-  // Movement loop ~60fps — updates Animated values without re-renders
+  const handleEnterHouse = useCallback(() => {
+    insideHouseRef.current = true;
+    setInsideHouse(true);
+    const pos = HOUSE_ENTER_POS;
+    worldPosRef.current = { x: pos.x, y: pos.y };
+    charAnim.setValue({ x: pos.x - CHAR_SIZE / 2, y: pos.y - CHAR_SIZE / 2 });
+    cameraAnim.setValue(getCameraOffset(pos.x, pos.y));
+  }, [charAnim, cameraAnim]);
+
+  const handleExitHouse = useCallback(() => {
+    insideHouseRef.current = false;
+    setInsideHouse(false);
+    const x = HOUSE_DOOR_X;
+    const y = HOUSE_DOOR_Y;
+    worldPosRef.current = { x, y };
+    charAnim.setValue({ x: x - CHAR_SIZE / 2, y: y - CHAR_SIZE / 2 });
+    cameraAnim.setValue(getCameraOffset(x, y));
+  }, [charAnim, cameraAnim]);
+
   useEffect(() => {
     const id = setInterval(() => {
       const { x: jx, y: jy } = joystickRef.current;
       const isMoving = Math.abs(jx) > DEADZONE || Math.abs(jy) > DEADZONE;
+      const indoor = insideHouseRef.current;
+      const canWalk = indoor ? isWalkableIndoors : isWalkable;
 
       if (isMoving) {
         const { x: curX, y: curY } = worldPosRef.current;
-        const tryX = clamp(curX + jx * SPEED, 0, WORLD_W);
-        const tryY = clamp(curY + jy * SPEED, 0, WORLD_H);
+        const wantX = curX + jx * SPEED;
+        const wantY = curY + jy * SPEED;
 
         let finalX = curX;
         let finalY = curY;
-        if (!isColliding(tryX, tryY)) {
-          finalX = tryX;
-          finalY = tryY;
-        } else if (!isColliding(tryX, curY)) {
-          finalX = tryX;
-        } else if (!isColliding(curX, tryY)) {
-          finalY = tryY;
+
+        if (canWalk(wantX, wantY)) {
+          finalX = wantX;
+          finalY = wantY;
+        } else if (canWalk(wantX, curY)) {
+          finalX = wantX;
+        } else if (canWalk(curX, wantY)) {
+          finalY = wantY;
         }
 
         worldPosRef.current = { x: finalX, y: finalY };
@@ -515,24 +581,52 @@ export default function GameScreen() {
         cameraAnim.setValue(getCameraOffset(finalX, finalY));
       }
 
+      const { x: px, y: py } = worldPosRef.current;
+      const feetY = py + FEET_OFFSET_Y;
+      const behind = !indoor && feetY < TREE_DEPTH_Y;
+      if (behind !== charBehindTreeRef.current) {
+        charBehindTreeRef.current = behind;
+        setCharBehindTree(behind);
+      }
+
+      const treeOnScreen = isTreeVisibleOnScreen(px, py);
+      if (treeWasOnScreenRef.current && !treeOnScreen) {
+        treeHasFallenRef.current = false;
+        treeFallAnimatingRef.current = false;
+        setTreeFallFrameIndex(0);
+        setTreeFallPlaying(false);
+        setNearTree(false);
+      }
+      treeWasOnScreenRef.current = treeOnScreen;
+
+      const near = isNearDoor(px, py, indoor);
+      setNearDoor(near);
+      if (!indoor) {
+        setNearGarden(nearGardenIndex(px, py));
+        const tdx = px - TREE_WORLD_X;
+        const tdy = py - TREE_WORLD_Y;
+        const tr2 = TREE_INTERACT_RADIUS * TREE_INTERACT_RADIUS;
+        const inTreeZone = tdx * tdx + tdy * tdy <= tr2;
+        setNearTree(
+          inTreeZone &&
+            !treeHasFallenRef.current &&
+            !treeFallAnimatingRef.current,
+        );
+      } else {
+        setNearTree(false);
+      }
+
       const newDir = getAnimKey(jx, jy);
       if (newDir !== dirRef.current) {
         dirRef.current = newDir;
         setAnimKey(newDir);
         setFrame(0);
       }
-
-      const nearIdx = getActiveGardenIndex(
-        worldPosRef.current.x,
-        worldPosRef.current.y,
-      );
-      setActiveGarden(nearIdx);
     }, MOVE_INTERVAL);
 
     return () => clearInterval(id);
   }, [cameraAnim, charAnim]);
 
-  // Animation loop
   useEffect(() => {
     const count = FRAME_COUNTS[animKey];
     const id = setInterval(() => {
@@ -541,32 +635,10 @@ export default function GameScreen() {
     return () => clearInterval(id);
   }, [animKey]);
 
-  const openGardenOverlay = useCallback(
-    (idx: number) => {
-      setGardenOverlayIdx(idx);
-      Animated.spring(overlayAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 10,
-      }).start();
-    },
-    [overlayAnim],
-  );
-
-  const closeGardenOverlay = useCallback(() => {
-    Animated.timing(overlayAnim, {
-      toValue: 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => setGardenOverlayIdx(-1));
-  }, [overlayAnim]);
-
   const animRow = ANIM_KEY_TO_ROW[animKey];
   const frameCount = FRAME_COUNTS[animKey];
   const safeFrame = frame % frameCount;
 
-  // Shadow shrinks/grows slightly in sync with walk cycle (idle = no pulse)
   const isWalking = animKey !== "idle";
   const shadowScale = isWalking
     ? 1 + 0.12 * Math.sin((safeFrame / Math.max(1, frameCount)) * Math.PI * 2)
@@ -574,7 +646,19 @@ export default function GameScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ── World (camera-translated) ── */}
+      <TouchableOpacity
+        onPress={() => router.replace("/(tabs)/garden")}
+        style={[
+          styles.homeButton,
+          { top: insets.top + 10, left: insets.left + 12 },
+        ]}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Back to Garden"
+      >
+        <IconSymbol name="house.fill" size={22} color="#3a5a20" />
+      </TouchableOpacity>
+
       <Animated.View
         style={[
           styles.world,
@@ -582,122 +666,397 @@ export default function GameScreen() {
         ]}
       >
         {/* Background */}
-        <Image source={BG} style={[styles.asset, A.bg]} resizeMode="cover" />
+        <Image
+          source={BG}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: WORLD_W,
+            height: WORLD_H,
+          }}
+          resizeMode="cover"
+        />
 
-        {/* Mid-ground assets (behind character) */}
+        {/* Island */}
         <Image
-          source={BUSH_TOP_LEFT}
-          style={[styles.asset, A.bushTopLeft]}
+          source={ISLAND}
+          style={{
+            position: "absolute",
+            left: ISLAND_LEFT,
+            top: ISLAND_TOP,
+            width: ISLAND_W,
+            height: ISLAND_H,
+          }}
           resizeMode="contain"
         />
-        <Image
-          source={POND}
-          style={[styles.asset, A.pond]}
-          resizeMode="contain"
-        />
-        {/* House lower part (drawn before character so character can be in front of it) */}
+
+        {/* Interactive tree (falls when character walks into trigger radius) */}
         <View
-          style={[
-            styles.asset,
-            styles.houseClip,
-            {
-              left: A.house.left,
-              top: HOUSE_BASE_TOP,
-              width: A.house.width,
-              height: HOUSE_BASE_HEIGHT,
-            },
-          ]}
           pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: TREE_WORLD_X - TREE_DISPLAY_W / 2,
+            top: TREE_WORLD_Y - TREE_DISPLAY_H,
+            width: TREE_DISPLAY_W,
+            height: TREE_DISPLAY_H,
+            alignItems: "center",
+            justifyContent: "flex-end",
+            zIndex: charBehindTree && !insideHouse ? 26 : 12,
+            elevation:
+              Platform.OS === "android" && charBehindTree && !insideHouse
+                ? 26
+                : 0,
+          }}
         >
           <Image
-            source={HOUSE}
-            style={[
-              styles.houseClipImage,
-              {
-                width: A.house.width,
-                height: A.house.height,
-                top: -HOUSE_ROOF_PASS_HEIGHT,
-              },
-            ]}
+            source={TREE_FALL_FRAMES[treeFallFrameIndex]}
+            style={{
+              width: TREE_DISPLAY_W,
+              height: TREE_DISPLAY_H,
+            }}
             resizeMode="contain"
           />
         </View>
-        <Image
-          source={GARDEN_TOP_LEFT}
-          style={[styles.asset, A.gardenTopLeft]}
-          resizeMode="contain"
-        />
-        <Image
-          source={GARDEN_TOP_RIGHT}
-          style={[styles.asset, A.gardenTopRight]}
-          resizeMode="contain"
-        />
-        <Image
-          source={GARDEN_BOTTOM_LEFT}
-          style={[styles.asset, A.gardenBotLeft]}
-          resizeMode="contain"
-        />
-        <Image
-          source={GARDEN_BOTTOM_RIGHT}
-          style={[styles.asset, A.gardenBotRight]}
-          resizeMode="contain"
-        />
 
-        {/* Plants-ground-grid: 2×2 diamond boxes inside each garden area */}
-        {GARDEN_AREAS.map((area, idx) => (
-          <GardenGridCells key={idx} area={area} />
-        ))}
-
-        {/* Plants: clipped to active garden area so they never escape the stone walls */}
-        {(() => {
-          const activeArea = GARDEN_AREAS[weekBoxIndex];
+        {/* Gardens */}
+        {GARDEN_POSITIONS.map((pos, i) => {
+          const gLeft = ISLAND_LEFT + pos.x * ISLAND_W - GW / 2;
+          const gTop = ISLAND_TOP + pos.y * ISLAND_H - GH / 2;
           return (
             <View
-              style={[
-                styles.gardenClip,
-                {
-                  left: activeArea.left,
-                  top: activeArea.top,
-                  width: activeArea.width,
-                  height: activeArea.height,
-                },
-              ]}
-              pointerEvents="none"
+              key={i}
+              style={{
+                position: "absolute",
+                left: gLeft,
+                top: gTop,
+                width: GW,
+                height: GH,
+              }}
             >
-              {habits.slice(0, SLOTS_PER_AREA).map((habit, i) => {
-                const col = i % COLS;
-                const row = (i * 2) % ROWS;
-                const slotIndex =
-                  weekBoxIndex * SLOTS_PER_AREA + row * COLS + col;
-                const pos = getGardenSlotPosition(slotIndex);
-                const plantIndex = getPlantIndexForHabitSlot(i, weekKey);
-                const source = getPlantSprite(plantIndex, dayFrame);
-                return (
-                  <Image
-                    key={habit.id}
-                    source={source}
-                    style={[
-                      styles.plant,
-                      {
-                        left: pos.x - activeArea.left - PLANT_SIZE / 2,
-                        top: pos.y - activeArea.top - PLANT_SIZE / 2,
-                        width: PLANT_SIZE,
-                        height: PLANT_SIZE,
-                      },
-                    ]}
-                    resizeMode="contain"
-                  />
-                );
-              })}
+              {/* 1. Floor */}
+              <Image
+                source={GARDEN_FLOOR}
+                style={{
+                  position: "absolute",
+                  left: ((G_CONTAINER_W - G_FLOOR.w) / 2 / G_CONTAINER_W) * GW,
+                  top: ((G_CONTAINER_H - G_FLOOR.h) / 2 / G_CONTAINER_H) * GH,
+                  width: (G_FLOOR.w / G_CONTAINER_W) * GW,
+                  height: (G_FLOOR.h / G_CONTAINER_H) * GH,
+                }}
+                resizeMode="stretch"
+              />
+              {/* 2. Back fence */}
+              <Image
+                source={GARDEN_BACK}
+                style={{
+                  position: "absolute",
+                  left: ((G_CONTAINER_W - G_BACK.w) / 2 / G_CONTAINER_W) * GW,
+                  top: 0,
+                  width: (G_BACK.w / G_CONTAINER_W) * GW,
+                  height: (G_BACK.h / G_CONTAINER_H) * GH,
+                }}
+                resizeMode="stretch"
+              />
+              {/* 3. Sides */}
+              <Image
+                source={GARDEN_SIDES}
+                style={{
+                  position: "absolute",
+                  left: ((G_CONTAINER_W - G_SIDES.w) / 2 / G_CONTAINER_W) * GW,
+                  top: 0,
+                  width: (G_SIDES.w / G_CONTAINER_W) * GW,
+                  height: (G_SIDES.h / G_CONTAINER_H) * GH,
+                }}
+                resizeMode="stretch"
+              />
+              {/* Plants: current week uses completion-based frames; past weeks fully grown; future weeks empty */}
+              {i <= currentWeekPlot &&
+                habits
+                  .slice(0, GARDEN_MAX_PLANTS)
+                  .map((habit, habitIndex) => {
+                    const slot = backupGardenLayout.slotCenters[habitIndex];
+                    if (!slot) return null;
+                    const weekKey = makeWeekKeyForPlot(new Date(), i);
+                    const plantIndex = getPlantIndexForHabitSlot(
+                      habitIndex,
+                      weekKey,
+                    );
+                    let frame: number;
+                    if (i < currentWeekPlot) {
+                      frame = FRAMES_PER_PLANT - 1;
+                    } else {
+                      const weekRange = getWeekOfMonthDateRange(i);
+                      const count = getWeekCompletionCount(
+                        habit.id,
+                        completionDates,
+                        weekRange.start,
+                        weekRange.end,
+                      );
+                      frame = Math.min(count, FRAMES_PER_PLANT - 1);
+                    }
+                    const source = getPlantSprite(plantIndex, frame);
+                    const ps = backupGardenLayout.plantSize;
+                    return (
+                      <Image
+                        key={`${i}-${habit.id}`}
+                        source={source}
+                        style={{
+                          position: "absolute",
+                          left: slot.x - ps / 2,
+                          top: slot.y - ps / 2,
+                          width: ps,
+                          height: ps,
+                          zIndex: 2,
+                        }}
+                        resizeMode="contain"
+                      />
+                    );
+                  })}
+              {BACKUP_GARDEN_GRID_DEBUG &&
+                Array.from(
+                  {
+                    length: backupGardenLayout.cols * backupGardenLayout.rows,
+                  },
+                  (_, idx) => {
+                    const col = idx % backupGardenLayout.cols;
+                    const row = Math.floor(idx / backupGardenLayout.cols);
+                    const m = backupGardenLayout.cellMetrics;
+                    return (
+                      <View
+                        key={`gdbg-${i}-${idx}`}
+                        pointerEvents="none"
+                        style={{
+                          position: "absolute",
+                          left: m.originLeft + col * m.cellW,
+                          top: m.originTop + row * m.cellH,
+                          width: m.cellW,
+                          height: m.cellH,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: "rgba(0, 160, 0, 0.45)",
+                          opacity: 0.35,
+                          zIndex: 5,
+                        }}
+                      />
+                    );
+                  },
+                )}
+              {/* 4. Front fence — must draw above plants (Android needs elevation + wrapper for z-order). */}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: ((G_CONTAINER_W - G_FRONT.w) / 2 / G_CONTAINER_W) * GW,
+                  top: GH - (G_FRONT.h / G_CONTAINER_H) * GH,
+                  width: (G_FRONT.w / G_CONTAINER_W) * GW,
+                  height: (G_FRONT.h / G_CONTAINER_H) * GH,
+                  zIndex: 20,
+                  elevation: Platform.OS === "android" ? 16 : 0,
+                }}
+              >
+                <Image
+                  source={GARDEN_FRONTS[i]}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="stretch"
+                />
+              </View>
             </View>
           );
-        })()}
+        })}
 
-        {/* Character (sprite sheet: one Image, crop by position so animation has no extra loads) */}
+        {/* House floor (behind character when inside) */}
+        <Image
+          source={HOUSE_FLOOR}
+          style={{
+            position: "absolute",
+            left: HOUSE_LEFT + INTERIOR_X,
+            top: HOUSE_TOP + INTERIOR_Y,
+            width: INTERIOR_W,
+            height: INTERIOR_H,
+            zIndex: 1,
+          }}
+          resizeMode="stretch"
+        />
+
+        {/* House frame + furniture (above character when inside) */}
+        <View
+          style={{
+            position: "absolute",
+            left: HOUSE_LEFT,
+            top: HOUSE_TOP,
+            width: HOUSE_W,
+            height: HOUSE_H,
+            zIndex: insideHouse ? 15 : 1,
+            elevation: insideHouse ? 15 : 1,
+          }}
+        >
+          <Image
+            source={HOUSE_FRAME}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: HOUSE_W,
+              height: HOUSE_H,
+            }}
+            resizeMode="stretch"
+          />
+          <Image
+            source={HOUSE_IMAGE}
+            style={{
+              position: "absolute",
+              left: HIMG_X,
+              top: HIMG_Y,
+              width: HIMG_W,
+              height: HIMG_H,
+            }}
+            resizeMode="stretch"
+          />
+          <Image
+            source={HOUSE_DRAWER}
+            style={{
+              position: "absolute",
+              left: HDRAWER_X,
+              top: HDRAWER_Y,
+              width: HDRAWER_W,
+              height: HDRAWER_H,
+            }}
+            resizeMode="stretch"
+          />
+          <Image
+            source={HOUSE_BED}
+            style={{
+              position: "absolute",
+              left: HBED_X,
+              top: HBED_Y,
+              width: HBED_W,
+              height: HBED_H,
+            }}
+            resizeMode="stretch"
+          />
+          <Image
+            source={HOUSE_DESK}
+            style={{
+              position: "absolute",
+              left: HDESK_X,
+              top: HDESK_Y,
+              width: HDESK_W,
+              height: HDESK_H,
+            }}
+            resizeMode="stretch"
+          />
+        </View>
+
+        {/* House entrance trigger circle */}
+        <View
+          style={{
+            position: "absolute",
+            left: HOUSE_DOOR_X - HOUSE_DOOR_RADIUS,
+            top: HOUSE_DOOR_Y - HOUSE_DOOR_RADIUS,
+            width: HOUSE_DOOR_RADIUS * 2,
+            height: HOUSE_DOOR_RADIUS * 2,
+            borderRadius: HOUSE_DOOR_RADIUS,
+            backgroundColor: "rgba(255,255,255,0.3)",
+            opacity: 0,
+          }}
+        />
+
+        {/* Hill cliff bottoms (behind hills) */}
+        <Image
+          source={HILLS_BTM1}
+          style={{
+            position: "absolute",
+            left: HBTM1_LEFT,
+            top: HBTM1_TOP,
+            width: HBTM1_W,
+            height: HBTM1_H,
+          }}
+          resizeMode="stretch"
+        />
+        <Image
+          source={HILLS_BTM2}
+          style={{
+            position: "absolute",
+            left: HBTM2_LEFT,
+            top: HBTM2_TOP,
+            width: HBTM2_W,
+            height: HBTM2_H,
+          }}
+          resizeMode="stretch"
+        />
+
+        {/* Hills */}
+        <Image
+          source={HILLS}
+          style={{
+            position: "absolute",
+            left: HILLS_LEFT,
+            top: HILLS_TOP,
+            width: HILLS_W,
+            height: HILLS_H,
+          }}
+          resizeMode="stretch"
+        />
+
+        {/* Entrance arrow */}
+        <Animated.View
+          style={{
+            position: "absolute",
+            left: ARROW_X - ARROW_SIZE / 2,
+            top: ARROW_Y,
+            width: ARROW_SIZE,
+            height: ARROW_SIZE,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: 0.8,
+            transform: [
+              {
+                translateY: arrowAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -ARROW_SIZE * 0.4],
+                }),
+              },
+            ],
+          }}
+        >
+          <View
+            style={{
+              width: 0,
+              height: 0,
+              borderLeftWidth: ARROW_SIZE * 0.4,
+              borderRightWidth: ARROW_SIZE * 0.4,
+              borderBottomWidth: ARROW_SIZE * 0.6,
+              borderLeftColor: "transparent",
+              borderRightColor: "transparent",
+              borderBottomColor: "rgba(255,255,255,0.8)",
+            }}
+          />
+        </Animated.View>
+
+        {/* Walk area overlays */}
+        <Image
+          source={WALK_AREA}
+          style={{
+            position: "absolute",
+            left: ISLAND_LEFT,
+            top: ISLAND_TOP,
+            width: ISLAND_W,
+            height: ISLAND_H,
+            opacity: 0,
+          }}
+          resizeMode="contain"
+        />
+
+        {/* Character */}
         <Animated.View
           style={[
             styles.character,
-            { transform: charAnim.getTranslateTransform() },
+            {
+              transform: [
+                ...charAnim.getTranslateTransform(),
+                { scale: insideHouse ? CHAR_SCALE_INDOOR : CHAR_SCALE },
+              ],
+            },
           ]}
         >
           <View
@@ -729,138 +1088,333 @@ export default function GameScreen() {
             </View>
           )}
         </Animated.View>
-
-        {/* House roof (drawn after character, higher zIndex so it layers on top when character is "behind") */}
-        <View
-          style={[
-            styles.asset,
-            styles.houseClip,
-            styles.houseRoofLayer,
-            {
-              left: A.house.left,
-              top: A.house.top,
-              width: A.house.width,
-              height: HOUSE_ROOF_PASS_HEIGHT,
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Image
-            source={HOUSE}
-            style={[
-              styles.houseClipImage,
-              {
-                width: A.house.width,
-                height: A.house.height,
-                top: 0,
-              },
-            ]}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Trigger circles in front of each garden */}
-        {GARDEN_TRIGGERS.map((t, i) => (
-          <View
-            key={`trigger-${i}`}
-            style={[
-              styles.triggerCircle,
-              {
-                left: t.x - TRIGGER_RADIUS,
-                top: t.y - TRIGGER_RADIUS,
-                width: TRIGGER_RADIUS * 3,
-                height: TRIGGER_RADIUS * 3,
-                borderRadius: TRIGGER_RADIUS,
-                opacity: 0,
-              },
-            ]}
-            pointerEvents="none"
-          />
-        ))}
-
-        {/* Collision debug overlay — 60% opacity (only house.png and other collision shapes) */}
-        {SHOW_COLLISION_DEBUG &&
-          COLLISION_DATA.layers.map((layer, i) => (
-            <Image
-              key={i}
-              source={COLLISION_DEBUG_IMAGES[i]}
-              style={[
-                styles.asset,
-                {
-                  left: layer.x,
-                  top: layer.y,
-                  width: layer.w,
-                  height: layer.h,
-                  opacity: 0,
-                },
-              ]}
-              resizeMode="contain"
-            />
-          ))}
       </Animated.View>
 
-      {/* ── UI overlays (always on top, not affected by camera) ── */}
-      <TouchableOpacity
-        style={styles.backBtn}
-        onPress={() => router.push("/(tabs)/garden")}
-        activeOpacity={0.7}
-      >
-        <IconSymbol name="chevron.left" size={18} color="#5A7A3A" />
-        <AppText style={styles.backLabel}>Garden</AppText>
-      </TouchableOpacity>
-
-      {/* "View Garden" button — appears when standing on a trigger circle */}
-      {activeGarden >= 0 && gardenOverlayIdx < 0 && (
+      {nearDoor && (
         <TouchableOpacity
-          style={styles.viewGardenBtn}
+          onPress={insideHouse ? handleExitHouse : handleEnterHouse}
+          style={styles.doorButton}
           activeOpacity={0.8}
-          onPress={() => openGardenOverlay(activeGarden)}
         >
-          <AppText style={styles.viewGardenLabel}>View Garden</AppText>
+          <Text style={styles.doorButtonText}>
+            {insideHouse ? "Exit" : "Enter"}
+          </Text>
         </TouchableOpacity>
       )}
 
-      {/* White garden overlay — slides up from bottom */}
-      {gardenOverlayIdx >= 0 && (
-        <Animated.View
-          style={[
-            styles.gardenOverlay,
-            {
-              transform: [
-                {
-                  translateY: overlayAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [H, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
+      {nearGarden >= 0 && !insideHouse && (
+        <TouchableOpacity
+          onPress={() => setGardenPopupIndex(nearGarden)}
+          style={styles.gardenButton}
+          activeOpacity={0.8}
         >
-          <TouchableOpacity
-            style={styles.overlayCloseBtn}
-            activeOpacity={0.7}
-            onPress={closeGardenOverlay}
-          >
-            <IconSymbol name="xmark" size={20} color="#333" />
-          </TouchableOpacity>
-          <AppText style={styles.overlayTitle}>
-            Garden — Week {gardenOverlayIdx + 1}
-          </AppText>
-        </Animated.View>
+          <Text style={styles.gardenButtonText}>View Garden</Text>
+        </TouchableOpacity>
       )}
+
+      {nearTree && !insideHouse && (
+        <TouchableOpacity
+          onPress={handleChopTree}
+          style={styles.chopTreeButton}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.chopTreeButtonText}>Chop tree</Text>
+        </TouchableOpacity>
+      )}
+
+      <GardenDetailsModal
+        visible={gardenPopupIndex >= 0}
+        plotIndex={gardenPopupIndex}
+        habits={habits}
+        completionDates={completionDates}
+        currentWeekPlot={currentWeekPlot}
+        onClose={() => setGardenPopupIndex(-1)}
+      />
 
       <Joystick onMove={handleMove} onEnd={handleEnd} />
-
-      {/* Loading overlay until assets are preloaded (reduces delay in Expo Go) */}
-      {!gameAssetsReady && (
-        <View style={styles.loadingOverlay} pointerEvents="none">
-          <AppText style={styles.loadingText}>Loading…</AppText>
-        </View>
-      )}
     </View>
   );
 }
+
+// ─── Garden Details Modal ─────────────────────────────────────────────────────
+
+const GARDEN_NAMES = [
+  "Sunrise Garden",
+  "Moonlight Garden",
+  "River Garden",
+  "Twilight Garden",
+];
+
+function getWeekRangeLabel(weekIndex: number): string {
+  const { startDate, endDate } = getWeekOfMonthDateRange(weekIndex);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `Week of ${fmt(startDate)}\u2013${fmt(endDate)}`;
+}
+
+function getGrowthLabel(completionCount: number): string {
+  if (completionCount >= 5) return "Blooming";
+  if (completionCount >= 3) return "Growing";
+  if (completionCount >= 1) return "Sprouting";
+  return "Seed";
+}
+
+function GardenDetailsModal({
+  visible,
+  plotIndex,
+  habits,
+  completionDates,
+  currentWeekPlot,
+  onClose,
+}: {
+  visible: boolean;
+  plotIndex: number;
+  habits: Habit[];
+  completionDates: CompletionDatesByHabit;
+  currentWeekPlot: number;
+  onClose: () => void;
+}) {
+  const safeIndex = Math.max(plotIndex, 0);
+  const isFuture = safeIndex > currentWeekPlot;
+  const isPast = safeIndex < currentWeekPlot;
+  const weekKey = makeWeekKeyForPlot(new Date(), safeIndex);
+  const weekRange = getWeekOfMonthDateRange(safeIndex);
+  const gardenHabits = habits.slice(0, GARDEN_MAX_PLANTS);
+
+  const habitCompletions = gardenHabits.map((h) =>
+    isPast
+      ? FRAMES_PER_PLANT - 1
+      : getWeekCompletionCount(h.id, completionDates, weekRange.start, weekRange.end),
+  );
+  const totalCompletions = habitCompletions.reduce((a, b) => a + b, 0);
+  const maxPossible = gardenHabits.length * 7;
+  const pct = maxPossible > 0 ? Math.round((totalCompletions / maxPossible) * 100) : 0;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.sheet}>
+          <View style={modalStyles.header}>
+            <View>
+              <Text style={modalStyles.title}>
+                {GARDEN_NAMES[plotIndex] ?? "Garden"}
+              </Text>
+              <Text style={modalStyles.subtitle}>
+                {getWeekRangeLabel(safeIndex)}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} hitSlop={12}>
+              <Text style={modalStyles.closeBtn}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isFuture ? (
+            <View style={modalStyles.emptyState}>
+              <Text style={modalStyles.emptyText}>
+                This week hasn't started yet.
+              </Text>
+              <Text style={modalStyles.emptySubtext}>
+                Check back when the week begins to see your garden grow.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={modalStyles.statsRow}>
+                <View style={modalStyles.statBadge}>
+                  <Text style={modalStyles.statValue}>{pct}%</Text>
+                  <Text style={modalStyles.statLabel}>Complete</Text>
+                </View>
+                <View style={modalStyles.statBadge}>
+                  <Text style={modalStyles.statValue}>
+                    {totalCompletions}/{maxPossible}
+                  </Text>
+                  <Text style={modalStyles.statLabel}>This Week</Text>
+                </View>
+              </View>
+
+              <Text style={modalStyles.sectionTitle}>This Week's Plants</Text>
+
+              <ScrollView
+                style={modalStyles.plantList}
+                contentContainerStyle={modalStyles.plantGrid}
+              >
+                {gardenHabits.map((habit, idx) => {
+                  const plantIndex = getPlantIndexForHabitSlot(idx, weekKey);
+                  const count = habitCompletions[idx];
+                  const frame = Math.min(count, FRAMES_PER_PLANT - 1);
+                  const sprite = getPlantSprite(plantIndex, frame);
+                  const growthLabel = getGrowthLabel(count);
+                  return (
+                    <View key={habit.id} style={modalStyles.plantCard}>
+                      <Image
+                        source={sprite}
+                        style={modalStyles.plantImage}
+                        resizeMode="contain"
+                      />
+                      <Text style={modalStyles.plantName} numberOfLines={1}>
+                        {habit.name}
+                      </Text>
+                      <Text style={modalStyles.plantStatus}>{growthLabel}</Text>
+                      <Text style={modalStyles.plantStreak}>
+                        {count}/7 days
+                      </Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
+
+          <TouchableOpacity
+            onPress={onClose}
+            style={modalStyles.closeButton}
+            activeOpacity={0.8}
+          >
+            <Text style={modalStyles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: "80%",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1a1a1a",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#888",
+    marginTop: 2,
+  },
+  closeBtn: {
+    fontSize: 22,
+    color: "#aaa",
+    fontWeight: "600",
+    paddingLeft: 12,
+  },
+  statsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  statBadge: {
+    flex: 1,
+    backgroundColor: "#f4f7f0",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#3a5a20",
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 12,
+  },
+  plantList: {
+    maxHeight: 300,
+  },
+  plantGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  plantCard: {
+    width: "47%",
+    backgroundColor: "#f9faf6",
+    borderRadius: 14,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e8ecdf",
+  },
+  plantImage: {
+    width: 56,
+    height: 56,
+    marginBottom: 6,
+  },
+  plantName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2a2a2a",
+    textAlign: "center",
+  },
+  plantStatus: {
+    fontSize: 12,
+    color: "#6a9a3a",
+    marginTop: 2,
+  },
+  plantStreak: {
+    fontSize: 11,
+    color: "#aaa",
+    marginTop: 2,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#555",
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#aaa",
+    marginTop: 8,
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  closeButton: {
+    backgroundColor: "#3a5a20",
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  closeButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -870,35 +1424,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#C5E8A0",
     overflow: "hidden",
   },
+  homeButton: {
+    position: "absolute",
+    zIndex: 30,
+    elevation: 30,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+  },
   world: {
     position: "absolute",
     width: WORLD_W,
     height: WORLD_H,
-  },
-  asset: {
-    position: "absolute",
-  },
-  plant: {
-    position: "absolute",
-    pointerEvents: "none",
-  },
-  gardenGridWrap: {
-    position: "absolute",
-  },
-  gardenClip: {
-    position: "absolute",
-    overflow: "hidden",
-  },
-  houseClip: {
-    overflow: "hidden",
-  },
-  houseRoofLayer: {
-    zIndex: 15,
-    elevation: 15,
-  },
-  houseClipImage: {
-    position: "absolute",
-    left: 0,
   },
   character: {
     position: "absolute",
@@ -906,8 +1450,8 @@ const styles = StyleSheet.create({
     top: 0,
     width: CHAR_SIZE,
     height: CHAR_SIZE,
-    zIndex: 10,
-    elevation: 10,
+    zIndex: 25,
+    elevation: 25,
   },
   shadow: {
     position: "absolute",
@@ -940,95 +1484,52 @@ const styles = StyleSheet.create({
   spriteFallback: {
     backgroundColor: "rgba(255,100,100,0.8)",
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(197,232,160,0.85)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: 18,
-    color: "#5A7A3A",
-  },
-  backBtn: {
+  doorButton: {
     position: "absolute",
-    top: 60,
-    left: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(255,255,255,0.6)",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    zIndex: 10,
-  },
-  backLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#5A7A3A",
-  },
-  triggerCircle: {
-    position: "absolute",
-    backgroundColor: "rgba(255,255,255,0.5)",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.8)",
-  },
-  viewGardenBtn: {
-    position: "absolute",
-    bottom: 220,
+    bottom: 180,
     alignSelf: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    paddingHorizontal: 28,
     paddingVertical: 10,
-    paddingHorizontal: 24,
     borderRadius: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
     zIndex: 20,
+    elevation: 20,
   },
-  viewGardenLabel: {
+  doorButtonText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#5A7A3A",
-  },
-  gardenOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: H * 0.85,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    zIndex: 30,
-    elevation: 30,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-  },
-  overlayCloseBtn: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.06)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 31,
-  },
-  overlayTitle: {
-    fontSize: 20,
     fontWeight: "700",
-    color: "#333",
-    textAlign: "center",
-    marginTop: 8,
+    color: "#3a5a20",
+  },
+  gardenButton: {
+    position: "absolute",
+    bottom: 180,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    paddingHorizontal: 28,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 20,
+    elevation: 20,
+  },
+  gardenButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3a5a20",
+  },
+  chopTreeButton: {
+    position: "absolute",
+    bottom: 245,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 21,
+    elevation: 21,
+  },
+  chopTreeButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#5a3d20",
   },
 });

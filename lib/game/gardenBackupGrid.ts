@@ -1,8 +1,8 @@
 /**
- * Garden plot layout for game-backup: aligns plant slots to the soil area
+ * Garden plot layout for the island game: aligns plant slots to the soil area
  * (garden-floor.png) inside each garden container.
  *
- * Ratios MUST match app/(tabs)/game-backup.tsx (G_CONTAINER_*, G_FLOOR).
+ * Ratios MUST match app/(tabs)/game.tsx (G_CONTAINER_*, G_FLOOR).
  */
 
 /** Max plant slots per plot; habits beyond this are omitted until Phase 2 (denser grid / scroll). */
@@ -22,7 +22,7 @@ export type GardenFloorRect = {
   height: number;
 };
 
-/** Soil rect in garden-local coordinates (same math as the floor Image in game-backup). */
+/** Soil rect in garden-local coordinates (same math as the floor Image in game.tsx). */
 export function getGardenFloorRect(gw: number, gh: number): GardenFloorRect {
   return {
     left: ((G_CONTAINER_W - G_FLOOR_W) / 2 / G_CONTAINER_W) * gw,
