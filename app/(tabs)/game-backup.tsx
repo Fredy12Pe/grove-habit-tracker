@@ -1,12 +1,40 @@
 import { Joystick, type JoystickDelta } from "@/components/garden/Joystick";
+import {
+  GARDEN_MAX_PLANTS,
+  getCurrentMonthWeekIndex,
+  getGardenFloorRect,
+  getGardenGridDimensionsForPlantCount,
+  getGardenPlantSize,
+  getGridCellMetrics,
+  getPlantSlotCenters,
+  getWeekOfMonthDateRange,
+  makeWeekKeyForPlot,
+} from "@/lib/game/gardenBackupGrid";
+import {
+  FRAMES_PER_PLANT,
+  getPlantIndexForHabitSlot,
+  getPlantSprite,
+} from "@/lib/game/plantSprites";
+import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 import unifiedCollision from "@/lib/game/unifiedCollision.json";
+import { useHabitStore } from "@/lib/store";
+import type { Habit } from "@/lib/types";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Dimensions,
   Easing,
   Image,
+  Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -30,6 +58,41 @@ const ISLAND_W = Math.round(1751 * (WORLD_H / 1000));
 const ISLAND_H = Math.round(705 * (WORLD_H / 1000));
 const ISLAND_LEFT = (WORLD_W - ISLAND_W) / 2;
 const ISLAND_TOP = (WORLD_H - ISLAND_H) / 2 - WORLD_H * 0.102;
+
+/** Fall animation: individual frames in Tree_falling/ (static requires for Metro). */
+const TREE_FALL_FRAMES = [
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-01.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-02.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-03.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-04.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-05.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-06.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-07.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-08.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-09.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-10.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-11.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-12.png"),
+  require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-13.png"),
+] as const;
+const TREE_FALL_FRAME_COUNT = TREE_FALL_FRAMES.length;
+const TREE_DISPLAY_H = Math.round(ISLAND_H * 0.22);
+const TREE_DISPLAY_W = Math.round(ISLAND_W * 0.1);
+const TREE_WORLD_X = ISLAND_LEFT + ISLAND_W * 0.9;
+const TREE_WORLD_Y = ISLAND_TOP + ISLAND_H * 0.44;
+const TREE_INTERACT_RADIUS = Math.max(56, Math.min(TREE_DISPLAY_W, TREE_DISPLAY_H) * 0.9);
+/** Feet Y above this line = “north” of tree base → draw character behind tree. */
+const TREE_DEPTH_Y = TREE_WORLD_Y;
+
+/** Tree AABB intersects the screen after applying the same camera pan as the character. */
+function isTreeVisibleOnScreen(charWorldX: number, charWorldY: number): boolean {
+  const cam = getCameraOffset(charWorldX, charWorldY);
+  const left = TREE_WORLD_X - TREE_DISPLAY_W / 2 + cam.x;
+  const top = TREE_WORLD_Y - TREE_DISPLAY_H + cam.y;
+  const right = TREE_WORLD_X + TREE_DISPLAY_W / 2 + cam.x;
+  const bottom = TREE_WORLD_Y + cam.y;
+  return right > 0 && left < W && bottom > 0 && top < H;
+}
 
 // ─── Hills ───────────────────────────────────────────────────────────────────
 
@@ -167,6 +230,32 @@ const GARDEN_POSITIONS = [
   { x: G_CENTER_X + G_GAP_X, y: G_CENTER_Y + G_GAP_Y }, // bottom-right
 ];
 
+/** Soil rect for plants (must match floor Image math). Grid cols/rows depend on habit count. */
+const BACKUP_GARDEN_FLOOR_RECT = getGardenFloorRect(GW, GH);
+/** How much of each grid cell the plant sprite fills (see getGardenPlantSize). */
+const BACKUP_GARDEN_PLANT_FILL = 1.8;
+
+/** Set true to show semi-transparent grid cells over the soil for layout tuning. */
+const BACKUP_GARDEN_GRID_DEBUG = false;
+
+/**
+ * Dev-only plant frame cycling was removed; this stub stays so stale Fast Refresh /
+ * React Compiler bundles don’t reference a missing identifier.
+ */
+/**
+ * Count how many dates in completionDates[habitId] fall within [start, end] (ISO strings).
+ */
+function getWeekCompletionCount(
+  habitId: string,
+  completionDates: CompletionDatesByHabit,
+  start: string,
+  end: string,
+): number {
+  const dates = completionDates[habitId];
+  if (!dates) return 0;
+  return dates.filter((d) => d >= start && d <= end).length;
+}
+
 // ─── Character ────────────────────────────────────────────────────────────────
 
 const CHAR_SIZE = 96;
@@ -268,6 +357,7 @@ function isInsideHouse(worldX: number, worldY: number): boolean {
   );
 }
 
+const GARDEN_BOTTOM_PAD = CHAR_SIZE * CHAR_SCALE * 0.3;
 const GARDEN_RECTS = GARDEN_POSITIONS.map((pos) => {
   const left = ISLAND_LEFT + pos.x * ISLAND_W - GW / 2 - GARDEN_PADDING;
   const top = ISLAND_TOP + pos.y * ISLAND_H - GH / 2 - GARDEN_PADDING;
@@ -275,7 +365,7 @@ const GARDEN_RECTS = GARDEN_POSITIONS.map((pos) => {
     left,
     top,
     right: left + GW + GARDEN_PADDING * 2,
-    bottom: top + GH + GARDEN_PADDING * 2,
+    bottom: top + GH + GARDEN_PADDING + GARDEN_BOTTOM_PAD,
   };
 });
 
@@ -310,10 +400,32 @@ function isPointWalkable(worldX: number, worldY: number): boolean {
   return unifiedCollision.grid[row][col] === 0;
 }
 
+const TREE_TRUNK_HALF_W = Math.max(14, Math.round(TREE_DISPLAY_W * 0.22));
+const TREE_TRUNK_TOP = TREE_WORLD_Y - Math.round(TREE_DISPLAY_H * 0.38);
+
+function isTreeTrunkBlocking(worldX: number, feetY: number): boolean {
+  if (feetY < TREE_TRUNK_TOP || feetY > TREE_WORLD_Y) return false;
+  return (
+    worldX >= TREE_WORLD_X - TREE_TRUNK_HALF_W &&
+    worldX <= TREE_WORLD_X + TREE_TRUNK_HALF_W
+  );
+}
+
 function isWalkable(worldX: number, worldY: number): boolean {
   const feetY = worldY + FEET_OFFSET_Y;
-  if (isInsideGarden(worldX, feetY)) return false;
+  if (
+    isInsideGarden(worldX, feetY) ||
+    isInsideGarden(worldX - FEET_HALF_W, feetY) ||
+    isInsideGarden(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
   if (isInsideHouse(worldX, feetY)) return false;
+  if (
+    isTreeTrunkBlocking(worldX, feetY) ||
+    isTreeTrunkBlocking(worldX - FEET_HALF_W, feetY) ||
+    isTreeTrunkBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
   return (
     isPointWalkable(worldX, feetY) &&
     isPointWalkable(worldX - FEET_HALF_W, feetY) &&
@@ -330,6 +442,22 @@ function isWalkableIndoors(worldX: number, worldY: number): boolean {
   );
 }
 
+const GARDEN_TRIGGER_RADIUS = GH * 0.35;
+const GARDEN_TRIGGERS = GARDEN_POSITIONS.map((pos) => ({
+  x: ISLAND_LEFT + pos.x * ISLAND_W,
+  y: ISLAND_TOP + pos.y * ISLAND_H + GH / 2 + GARDEN_TRIGGER_RADIUS * 0.6,
+}));
+
+function nearGardenIndex(worldX: number, worldY: number): number {
+  const r2 = GARDEN_TRIGGER_RADIUS * GARDEN_TRIGGER_RADIUS;
+  for (let i = 0; i < GARDEN_TRIGGERS.length; i++) {
+    const dx = worldX - GARDEN_TRIGGERS[i].x;
+    const dy = worldY - GARDEN_TRIGGERS[i].y;
+    if (dx * dx + dy * dy <= r2) return i;
+  }
+  return -1;
+}
+
 function isNearDoor(worldX: number, worldY: number, indoor: boolean): boolean {
   if (indoor) {
     const dx = worldX - HOUSE_EXIT_X;
@@ -343,10 +471,35 @@ function isNearDoor(worldX: number, worldY: number, indoor: boolean): boolean {
 
 // ─── Game screen ──────────────────────────────────────────────────────────────
 
-const START_X = WORLD_W / 2;
+const START_X = WORLD_W / 2 + 20;
 const START_Y = WORLD_H / 2 - 50;
 
 export default function GameBackupScreen() {
+  const habits = useHabitStore((s) => s.habits);
+  const completionDates = useHabitStore((s) => s.completionDates);
+  const ensureDayReset = useHabitStore((s) => s.ensureDayReset);
+  const currentWeekPlot = getCurrentMonthWeekIndex();
+
+  const habitCountForGarden = Math.min(habits.length, GARDEN_MAX_PLANTS);
+  const backupGardenLayout = useMemo(() => {
+    const { cols, rows } = getGardenGridDimensionsForPlantCount(
+      habitCountForGarden,
+      BACKUP_GARDEN_FLOOR_RECT,
+    );
+    return {
+      cols,
+      rows,
+      slotCenters: getPlantSlotCenters(BACKUP_GARDEN_FLOOR_RECT, cols, rows),
+      plantSize: getGardenPlantSize(
+        BACKUP_GARDEN_FLOOR_RECT,
+        cols,
+        rows,
+        BACKUP_GARDEN_PLANT_FILL,
+      ),
+      cellMetrics: getGridCellMetrics(BACKUP_GARDEN_FLOOR_RECT, cols, rows),
+    };
+  }, [habitCountForGarden]);
+
   const joystickRef = useRef<JoystickDelta>({ x: 0, y: 0 });
   const worldPosRef = useRef({ x: START_X, y: START_Y });
 
@@ -366,6 +519,16 @@ export default function GameBackupScreen() {
 
   const [insideHouse, setInsideHouse] = useState(false);
   const [nearDoor, setNearDoor] = useState(false);
+  const [nearGarden, setNearGarden] = useState(-1);
+  const [nearTree, setNearTree] = useState(false);
+  const [charBehindTree, setCharBehindTree] = useState(false);
+  const [gardenPopupIndex, setGardenPopupIndex] = useState(-1);
+  const [treeFallFrameIndex, setTreeFallFrameIndex] = useState(0);
+  const [treeFallPlaying, setTreeFallPlaying] = useState(false);
+  const treeHasFallenRef = useRef(false);
+  const treeFallAnimatingRef = useRef(false);
+  const treeWasOnScreenRef = useRef(false);
+  const charBehindTreeRef = useRef(false);
   const insideHouseRef = useRef(false);
 
   const arrowAnim = useRef(new Animated.Value(0)).current;
@@ -400,6 +563,7 @@ export default function GameBackupScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      ensureDayReset();
       worldPosRef.current = { x: START_X, y: START_Y };
       charAnim.setValue({
         x: START_X - CHAR_SIZE / 2,
@@ -412,8 +576,32 @@ export default function GameBackupScreen() {
       insideHouseRef.current = false;
       setInsideHouse(false);
       setNearDoor(false);
-    }, [charAnim, cameraAnim]),
+      // Tree chop state is intentionally NOT reset here — useFocusEffect can re-run when
+      // callback deps change while focused, which was resetting the tree to frame 0.
+    }, [charAnim, cameraAnim, ensureDayReset]),
   );
+
+  const handleChopTree = useCallback(() => {
+    if (treeHasFallenRef.current || treeFallAnimatingRef.current) return;
+    treeFallAnimatingRef.current = true;
+    setTreeFallPlaying(true);
+  }, []);
+
+  useEffect(() => {
+    if (!treeFallPlaying) return;
+    const id = setInterval(() => {
+      setTreeFallFrameIndex((i) => {
+        if (i >= TREE_FALL_FRAME_COUNT - 1) {
+          treeHasFallenRef.current = true;
+          treeFallAnimatingRef.current = false;
+          setTreeFallPlaying(false);
+          return TREE_FALL_FRAME_COUNT - 1;
+        }
+        return i + 1;
+      });
+    }, 55);
+    return () => clearInterval(id);
+  }, [treeFallPlaying]);
 
   const handleMove = useCallback((delta: JoystickDelta) => {
     joystickRef.current = delta;
@@ -475,8 +663,39 @@ export default function GameBackupScreen() {
       }
 
       const { x: px, y: py } = worldPosRef.current;
+      const feetY = py + FEET_OFFSET_Y;
+      const behind = !indoor && feetY < TREE_DEPTH_Y;
+      if (behind !== charBehindTreeRef.current) {
+        charBehindTreeRef.current = behind;
+        setCharBehindTree(behind);
+      }
+
+      const treeOnScreen = isTreeVisibleOnScreen(px, py);
+      if (treeWasOnScreenRef.current && !treeOnScreen) {
+        treeHasFallenRef.current = false;
+        treeFallAnimatingRef.current = false;
+        setTreeFallFrameIndex(0);
+        setTreeFallPlaying(false);
+        setNearTree(false);
+      }
+      treeWasOnScreenRef.current = treeOnScreen;
+
       const near = isNearDoor(px, py, indoor);
       setNearDoor(near);
+      if (!indoor) {
+        setNearGarden(nearGardenIndex(px, py));
+        const tdx = px - TREE_WORLD_X;
+        const tdy = py - TREE_WORLD_Y;
+        const tr2 = TREE_INTERACT_RADIUS * TREE_INTERACT_RADIUS;
+        const inTreeZone = tdx * tdx + tdy * tdy <= tr2;
+        setNearTree(
+          inTreeZone &&
+            !treeHasFallenRef.current &&
+            !treeFallAnimatingRef.current,
+        );
+      } else {
+        setNearTree(false);
+      }
 
       const newDir = getAnimKey(jx, jy);
       if (newDir !== dirRef.current) {
@@ -540,6 +759,34 @@ export default function GameBackupScreen() {
           resizeMode="contain"
         />
 
+        {/* Interactive tree (falls when character walks into trigger radius) */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: TREE_WORLD_X - TREE_DISPLAY_W / 2,
+            top: TREE_WORLD_Y - TREE_DISPLAY_H,
+            width: TREE_DISPLAY_W,
+            height: TREE_DISPLAY_H,
+            alignItems: "center",
+            justifyContent: "flex-end",
+            zIndex: charBehindTree && !insideHouse ? 26 : 12,
+            elevation:
+              Platform.OS === "android" && charBehindTree && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={TREE_FALL_FRAMES[treeFallFrameIndex]}
+            style={{
+              width: TREE_DISPLAY_W,
+              height: TREE_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+
         {/* Gardens */}
         {GARDEN_POSITIONS.map((pos, i) => {
           const gLeft = ISLAND_LEFT + pos.x * ISLAND_W - GW / 2;
@@ -591,18 +838,96 @@ export default function GameBackupScreen() {
                 }}
                 resizeMode="stretch"
               />
-              {/* 4. Front fence */}
-              <Image
-                source={GARDEN_FRONTS[i]}
+              {/* Plants: current week uses completion-based frames; past weeks fully grown; future weeks empty */}
+              {i <= currentWeekPlot &&
+                habits
+                  .slice(0, GARDEN_MAX_PLANTS)
+                  .map((habit, habitIndex) => {
+                    const slot = backupGardenLayout.slotCenters[habitIndex];
+                    if (!slot) return null;
+                    const weekKey = makeWeekKeyForPlot(new Date(), i);
+                    const plantIndex = getPlantIndexForHabitSlot(
+                      habitIndex,
+                      weekKey,
+                    );
+                    let frame: number;
+                    if (i < currentWeekPlot) {
+                      frame = FRAMES_PER_PLANT - 1;
+                    } else {
+                      const weekRange = getWeekOfMonthDateRange(i);
+                      const count = getWeekCompletionCount(
+                        habit.id,
+                        completionDates,
+                        weekRange.start,
+                        weekRange.end,
+                      );
+                      frame = Math.min(count, FRAMES_PER_PLANT - 1);
+                    }
+                    const source = getPlantSprite(plantIndex, frame);
+                    const ps = backupGardenLayout.plantSize;
+                    return (
+                      <Image
+                        key={`${i}-${habit.id}`}
+                        source={source}
+                        style={{
+                          position: "absolute",
+                          left: slot.x - ps / 2,
+                          top: slot.y - ps / 2,
+                          width: ps,
+                          height: ps,
+                          zIndex: 2,
+                        }}
+                        resizeMode="contain"
+                      />
+                    );
+                  })}
+              {BACKUP_GARDEN_GRID_DEBUG &&
+                Array.from(
+                  {
+                    length: backupGardenLayout.cols * backupGardenLayout.rows,
+                  },
+                  (_, idx) => {
+                    const col = idx % backupGardenLayout.cols;
+                    const row = Math.floor(idx / backupGardenLayout.cols);
+                    const m = backupGardenLayout.cellMetrics;
+                    return (
+                      <View
+                        key={`gdbg-${i}-${idx}`}
+                        pointerEvents="none"
+                        style={{
+                          position: "absolute",
+                          left: m.originLeft + col * m.cellW,
+                          top: m.originTop + row * m.cellH,
+                          width: m.cellW,
+                          height: m.cellH,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: "rgba(0, 160, 0, 0.45)",
+                          opacity: 0.35,
+                          zIndex: 5,
+                        }}
+                      />
+                    );
+                  },
+                )}
+              {/* 4. Front fence — must draw above plants (Android needs elevation + wrapper for z-order). */}
+              <View
+                pointerEvents="none"
                 style={{
                   position: "absolute",
                   left: ((G_CONTAINER_W - G_FRONT.w) / 2 / G_CONTAINER_W) * GW,
                   top: GH - (G_FRONT.h / G_CONTAINER_H) * GH,
                   width: (G_FRONT.w / G_CONTAINER_W) * GW,
                   height: (G_FRONT.h / G_CONTAINER_H) * GH,
+                  zIndex: 20,
+                  elevation: Platform.OS === "android" ? 16 : 0,
                 }}
-                resizeMode="stretch"
-              />
+              >
+                <Image
+                  source={GARDEN_FRONTS[i]}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="stretch"
+                />
+              </View>
             </View>
           );
         })}
@@ -845,10 +1170,319 @@ export default function GameBackupScreen() {
         </TouchableOpacity>
       )}
 
+      {nearGarden >= 0 && !insideHouse && (
+        <TouchableOpacity
+          onPress={() => setGardenPopupIndex(nearGarden)}
+          style={styles.gardenButton}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.gardenButtonText}>View Garden</Text>
+        </TouchableOpacity>
+      )}
+
+      {nearTree && !insideHouse && (
+        <TouchableOpacity
+          onPress={handleChopTree}
+          style={styles.chopTreeButton}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.chopTreeButtonText}>Chop tree</Text>
+        </TouchableOpacity>
+      )}
+
+      <GardenDetailsModal
+        visible={gardenPopupIndex >= 0}
+        plotIndex={gardenPopupIndex}
+        habits={habits}
+        completionDates={completionDates}
+        currentWeekPlot={currentWeekPlot}
+        onClose={() => setGardenPopupIndex(-1)}
+      />
+
       <Joystick onMove={handleMove} onEnd={handleEnd} />
     </View>
   );
 }
+
+// ─── Garden Details Modal ─────────────────────────────────────────────────────
+
+const GARDEN_NAMES = [
+  "Sunrise Garden",
+  "Moonlight Garden",
+  "River Garden",
+  "Twilight Garden",
+];
+
+function getWeekRangeLabel(weekIndex: number): string {
+  const { startDate, endDate } = getWeekOfMonthDateRange(weekIndex);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `Week of ${fmt(startDate)}\u2013${fmt(endDate)}`;
+}
+
+function getGrowthLabel(completionCount: number): string {
+  if (completionCount >= 5) return "Blooming";
+  if (completionCount >= 3) return "Growing";
+  if (completionCount >= 1) return "Sprouting";
+  return "Seed";
+}
+
+function GardenDetailsModal({
+  visible,
+  plotIndex,
+  habits,
+  completionDates,
+  currentWeekPlot,
+  onClose,
+}: {
+  visible: boolean;
+  plotIndex: number;
+  habits: Habit[];
+  completionDates: CompletionDatesByHabit;
+  currentWeekPlot: number;
+  onClose: () => void;
+}) {
+  const safeIndex = Math.max(plotIndex, 0);
+  const isFuture = safeIndex > currentWeekPlot;
+  const isPast = safeIndex < currentWeekPlot;
+  const weekKey = makeWeekKeyForPlot(new Date(), safeIndex);
+  const weekRange = getWeekOfMonthDateRange(safeIndex);
+  const gardenHabits = habits.slice(0, GARDEN_MAX_PLANTS);
+
+  const habitCompletions = gardenHabits.map((h) =>
+    isPast
+      ? FRAMES_PER_PLANT - 1
+      : getWeekCompletionCount(h.id, completionDates, weekRange.start, weekRange.end),
+  );
+  const totalCompletions = habitCompletions.reduce((a, b) => a + b, 0);
+  const maxPossible = gardenHabits.length * 7;
+  const pct = maxPossible > 0 ? Math.round((totalCompletions / maxPossible) * 100) : 0;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.sheet}>
+          <View style={modalStyles.header}>
+            <View>
+              <Text style={modalStyles.title}>
+                {GARDEN_NAMES[plotIndex] ?? "Garden"}
+              </Text>
+              <Text style={modalStyles.subtitle}>
+                {getWeekRangeLabel(safeIndex)}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} hitSlop={12}>
+              <Text style={modalStyles.closeBtn}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isFuture ? (
+            <View style={modalStyles.emptyState}>
+              <Text style={modalStyles.emptyText}>
+                This week hasn't started yet.
+              </Text>
+              <Text style={modalStyles.emptySubtext}>
+                Check back when the week begins to see your garden grow.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={modalStyles.statsRow}>
+                <View style={modalStyles.statBadge}>
+                  <Text style={modalStyles.statValue}>{pct}%</Text>
+                  <Text style={modalStyles.statLabel}>Complete</Text>
+                </View>
+                <View style={modalStyles.statBadge}>
+                  <Text style={modalStyles.statValue}>
+                    {totalCompletions}/{maxPossible}
+                  </Text>
+                  <Text style={modalStyles.statLabel}>This Week</Text>
+                </View>
+              </View>
+
+              <Text style={modalStyles.sectionTitle}>This Week's Plants</Text>
+
+              <ScrollView
+                style={modalStyles.plantList}
+                contentContainerStyle={modalStyles.plantGrid}
+              >
+                {gardenHabits.map((habit, idx) => {
+                  const plantIndex = getPlantIndexForHabitSlot(idx, weekKey);
+                  const count = habitCompletions[idx];
+                  const frame = Math.min(count, FRAMES_PER_PLANT - 1);
+                  const sprite = getPlantSprite(plantIndex, frame);
+                  const growthLabel = getGrowthLabel(count);
+                  return (
+                    <View key={habit.id} style={modalStyles.plantCard}>
+                      <Image
+                        source={sprite}
+                        style={modalStyles.plantImage}
+                        resizeMode="contain"
+                      />
+                      <Text style={modalStyles.plantName} numberOfLines={1}>
+                        {habit.name}
+                      </Text>
+                      <Text style={modalStyles.plantStatus}>{growthLabel}</Text>
+                      <Text style={modalStyles.plantStreak}>
+                        {count}/7 days
+                      </Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
+
+          <TouchableOpacity
+            onPress={onClose}
+            style={modalStyles.closeButton}
+            activeOpacity={0.8}
+          >
+            <Text style={modalStyles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: "80%",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1a1a1a",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#888",
+    marginTop: 2,
+  },
+  closeBtn: {
+    fontSize: 22,
+    color: "#aaa",
+    fontWeight: "600",
+    paddingLeft: 12,
+  },
+  statsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  statBadge: {
+    flex: 1,
+    backgroundColor: "#f4f7f0",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#3a5a20",
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 12,
+  },
+  plantList: {
+    maxHeight: 300,
+  },
+  plantGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  plantCard: {
+    width: "47%",
+    backgroundColor: "#f9faf6",
+    borderRadius: 14,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e8ecdf",
+  },
+  plantImage: {
+    width: 56,
+    height: 56,
+    marginBottom: 6,
+  },
+  plantName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2a2a2a",
+    textAlign: "center",
+  },
+  plantStatus: {
+    fontSize: 12,
+    color: "#6a9a3a",
+    marginTop: 2,
+  },
+  plantStreak: {
+    fontSize: 11,
+    color: "#aaa",
+    marginTop: 2,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#555",
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#aaa",
+    marginTop: 8,
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  closeButton: {
+    backgroundColor: "#3a5a20",
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  closeButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -869,8 +1503,8 @@ const styles = StyleSheet.create({
     top: 0,
     width: CHAR_SIZE,
     height: CHAR_SIZE,
-    zIndex: 10,
-    elevation: 10,
+    zIndex: 25,
+    elevation: 25,
   },
   shadow: {
     position: "absolute",
@@ -918,5 +1552,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#3a5a20",
+  },
+  gardenButton: {
+    position: "absolute",
+    bottom: 180,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    paddingHorizontal: 28,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 20,
+    elevation: 20,
+  },
+  gardenButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3a5a20",
+  },
+  chopTreeButton: {
+    position: "absolute",
+    bottom: 245,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 21,
+    elevation: 21,
+  },
+  chopTreeButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#5a3d20",
   },
 });
