@@ -3,32 +3,41 @@ import {
   Dimensions,
   Image,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { AppText } from '@/components/ui/AppText';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { GroveBorderRadius, GroveColors, GroveSpacing } from '@/styles/theme';
-import { HABIT_SECTIONS } from '@/lib/habitCatalog';
+import { CATALOG_ID_SET, HABIT_SECTIONS } from '@/lib/habitCatalog';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
 
 interface AddHabitSheetProps {
-  visible: boolean;
   activeHabitIds: string[];
   onClose: () => void;
   onUpdate: (selectedIds: string[]) => void;
 }
 
-export function AddHabitSheet({ visible, activeHabitIds, onClose, onUpdate }: AddHabitSheetProps) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(activeHabitIds));
+/**
+ * Mount only while the sheet should be on screen (parent gates with `sheetVisible`).
+ * Avoids leaving a mounted Modal with `visible={false}`, which can block touches on some platforms.
+ */
+export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitSheetProps) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(activeHabitIds.filter((id) => CATALOG_ID_SET.has(id))),
+  );
 
   useEffect(() => {
-    if (visible) setSelected(new Set(activeHabitIds));
-  }, [visible]);
+    const catalogOnly = activeHabitIds.filter((id) => CATALOG_ID_SET.has(id));
+    setSelected(new Set(catalogOnly));
+  }, [activeHabitIds]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -44,36 +53,51 @@ export function AddHabitSheet({ visible, activeHabitIds, onClose, onUpdate }: Ad
     onClose();
   };
 
+  const openAddCustom = () => {
+    onClose();
+    router.push('/add-custom-habit');
+  };
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={styles.sheet}>
-          {/* Handle */}
           <View style={styles.handle} />
 
-          {/* Title row */}
           <View style={styles.titleRow}>
-            <AppText variant="h2" style={styles.title}>Add Habits</AppText>
-            <TouchableOpacity onPress={onClose} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <IconSymbol name="xmark" size={18} color={GroveColors.secondaryText} />
-            </TouchableOpacity>
+            <AppText variant="h2" style={styles.title}>
+              Add Habits
+            </AppText>
+            <View style={styles.titleActions}>
+              <Pressable
+                onPress={openAddCustom}
+                style={({ pressed }) => [styles.addCustomBtn, pressed && styles.addCustomBtnPressed]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Add a custom habit"
+              >
+                <AppText style={styles.addCustomBtnText}>+</AppText>
+              </Pressable>
+              <TouchableOpacity
+                onPress={onClose}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <IconSymbol name="xmark" size={18} color={GroveColors.secondaryText} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {HABIT_SECTIONS.map((section) => (
               <View key={section.title} style={styles.section}>
-                {/* Section header */}
                 <View style={styles.sectionHeader}>
                   <AppText variant="paragraph" style={styles.sectionTitle}>
                     {section.title}
@@ -81,7 +105,6 @@ export function AddHabitSheet({ visible, activeHabitIds, onClose, onUpdate }: Ad
                   <IconSymbol name="chevron.right" size={14} color={GroveColors.secondaryText} />
                 </View>
 
-                {/* Habits in this section */}
                 <View style={styles.habitList}>
                   {section.habits.map((habit) => {
                     const isChecked = selected.has(habit.id);
@@ -100,7 +123,12 @@ export function AddHabitSheet({ visible, activeHabitIds, onClose, onUpdate }: Ad
                         </AppText>
                         <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
                           {isChecked && (
-                            <IconSymbol name="checkmark" size={12} color={GroveColors.white} weight="bold" />
+                            <IconSymbol
+                              name="checkmark"
+                              size={12}
+                              color={GroveColors.white}
+                              weight="bold"
+                            />
                           )}
                         </View>
                       </TouchableOpacity>
@@ -111,10 +139,11 @@ export function AddHabitSheet({ visible, activeHabitIds, onClose, onUpdate }: Ad
             ))}
           </ScrollView>
 
-          {/* Update button */}
           <View style={styles.footer}>
             <TouchableOpacity style={styles.updateBtn} onPress={handleUpdate} activeOpacity={0.85}>
-              <AppText variant="paragraph" style={styles.updateBtnText}>Update</AppText>
+              <AppText variant="paragraph" style={styles.updateBtnText}>
+                Update
+              </AppText>
             </TouchableOpacity>
           </View>
         </View>
@@ -131,6 +160,7 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.3)',
+    zIndex: 0,
   },
   sheet: {
     height: SHEET_HEIGHT,
@@ -138,6 +168,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 32,
+    zIndex: 1,
+    elevation: 12,
   },
   handle: {
     width: 40,
@@ -154,11 +186,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
     paddingVertical: 14,
+    gap: 12,
   },
   title: {
+    flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: GroveColors.primaryText,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addCustomBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: GroveColors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addCustomBtnPressed: {
+    opacity: 0.75,
+  },
+  addCustomBtnText: {
+    fontSize: 22,
+    color: GroveColors.primaryGreen,
+    fontWeight: '400',
+    lineHeight: 26,
   },
   scroll: {
     flex: 1,

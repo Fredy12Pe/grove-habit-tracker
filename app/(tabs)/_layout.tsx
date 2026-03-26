@@ -30,13 +30,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="all-habits"
-        options={{
-          title: 'All habits',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="progress"
         options={{
           title: 'Progress',
@@ -53,8 +46,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="game"
         options={{
+          // Keep the route accessible (e.g. from Garden preview) but hide it from the tab bar.
+          href: null,
           title: 'Game',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gamecontroller.fill" color={color} />,
           tabBarStyle: { display: 'none' },
         }}
       />

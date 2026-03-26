@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, View, TouchableOpacity } from 'react-native';
+import { Image, StyleSheet, View, TouchableOpacity, Pressable } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { AppText } from '@/components/ui/AppText';
 import { GroveColors } from '@/styles/theme';
@@ -16,37 +16,41 @@ const cardText = {
 
 export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
   return (
-    <Card style={styles.card}>
-      <View style={styles.content}>
-        <View style={styles.mascotWrap}>
-          <Image
-            source={require('@/assets/garden/Sprout.png')}
-            style={styles.mascotImage}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.textBlock}>
-          <AppText variant="h2" style={styles.heading} numberOfLines={1} adjustsFontSizeToFit>
-            Feeling Overwhelmed?
-          </AppText>
-          <AppText variant="paragraphRegular" style={styles.bodyLine1}>
-            Let's take a few calm breaths
-          </AppText>
-          <View style={styles.bodyLine2Wrap}>
-            <AppText variant="paragraphRegular" style={styles.bodyLine2} boldSprout>
-              with Sprout.
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel="Breathe with Sprout"
+    >
+      <Card style={styles.card}>
+        <View style={styles.content}>
+          <View style={styles.mascotWrap}>
+            <Image
+              source={require('@/assets/garden/Sprout.png')}
+              style={styles.mascotImage}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.textBlock}>
+            <AppText variant="h2" style={styles.heading} numberOfLines={1} adjustsFontSizeToFit>
+              Feeling Overwhelmed?
             </AppText>
+            <AppText variant="paragraphRegular" style={styles.bodyLine1}>
+              Let's take a few calm breaths
+            </AppText>
+            <View style={styles.bodyLine2Wrap}>
+              <AppText variant="paragraphRegular" style={styles.bodyLine2} boldSprout>
+                with Sprout.
+              </AppText>
+            </View>
+          </View>
+          <View style={styles.arrowButton}>
+            <IconSymbol name="chevron.right" size={22} color={GroveColors.primaryGreen} />
           </View>
         </View>
-        <TouchableOpacity style={styles.arrowButton} onPress={onPress} activeOpacity={0.7}>
-          <IconSymbol
-            name="chevron.right"
-            size={22}
-            color={GroveColors.primaryGreen}
-          />
-        </TouchableOpacity>
-      </View>
-    </Card>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -54,6 +58,12 @@ const MASCOT_SIZE = 100;
 const V_PAD = 24;
 
 const styles = StyleSheet.create({
+  pressable: {
+    borderRadius: 24,
+  },
+  pressed: {
+    opacity: 0.9,
+  },
   card: {
     paddingTop: 0,
     paddingBottom: 0,

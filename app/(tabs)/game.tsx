@@ -20,7 +20,8 @@ import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 import unifiedCollision from "@/lib/game/unifiedCollision.json";
 import { useHabitStore } from "@/lib/store";
 import type { Habit } from "@/lib/types";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { Image as ExpoImage } from "expo-image";
 import { useRouter } from "expo-router";
 import React, {
   useCallback,
@@ -68,6 +69,67 @@ const {
   TREE_DEPTH_Y,
   TREE_TRUNK_HALF_W,
   TREE_TRUNK_TOP,
+  COW_EATING_FRAMES,
+  COW_HEART_FRAMES,
+  COW_FRAME_COUNT,
+  COW_HEART_FRAME_COUNT,
+  COW_ANIM_INTERVAL_MS,
+  COW_HEART_ANIM_INTERVAL_MS,
+  COW_DISPLAY_W,
+  COW_DISPLAY_H,
+  COW_WORLD_X,
+  COW_WORLD_Y,
+  COW_DEPTH_Y,
+  COW_INTERACT_RADIUS,
+  COW_TRUNK_HALF_W,
+  COW_TRUNK_TOP,
+  CHICKEN_IDLE_FRAMES,
+  CHICKEN_IDLE_FRAME_COUNT,
+  CHICKEN_PECK_FRAMES,
+  CHICKEN_PECK_FRAME_COUNT,
+  CHICKEN_ANIM_INTERVAL_MS,
+  CHICKEN_IDLE_BEFORE_PECK_MS,
+  CHICKEN_DISPLAY_W,
+  CHICKEN_DISPLAY_H,
+  CHICKEN_WORLD_X,
+  CHICKEN_WORLD_Y,
+  CHICKEN_DEPTH_Y,
+  CHICKEN_TRUNK_HALF_W,
+  CHICKEN_TRUNK_TOP,
+  BIG_TREE,
+  BIG_TREE_DISPLAY_W,
+  BIG_TREE_DISPLAY_H,
+  BIG_TREE_WORLD_X,
+  BIG_TREE_WORLD_Y,
+  BIG_TREE_DEPTH_Y,
+  BIG_TREE_TRUNK_HALF_W,
+  BIG_TREE_TRUNK_TOP,
+  WELL,
+  WELL_DISPLAY_W,
+  WELL_DISPLAY_H,
+  WELL_LEFT,
+  WELL_TOP,
+  WELL_WORLD_X,
+  WELL_WORLD_Y,
+  WELL_DEPTH_Y,
+  WELL_TRUNK_HALF_W,
+  WELL_TRUNK_TOP,
+  PLANT,
+  PLANT_DISPLAY_W,
+  PLANT_DISPLAY_H,
+  PLANT_LEFT,
+  PLANT_TOP,
+  PLANT_DEPTH_Y,
+  TREE_SHAKE_FRAMES,
+  TREE_SHAKE_FRAME_COUNT,
+  SHAKE_TREE_DISPLAY_W,
+  SHAKE_TREE_DISPLAY_H,
+  SHAKE_TREE_WORLD_X,
+  SHAKE_TREE_WORLD_Y,
+  SHAKE_TREE_INTERACT_RADIUS,
+  SHAKE_TREE_DEPTH_Y,
+  SHAKE_TREE_TRUNK_HALF_W,
+  SHAKE_TREE_TRUNK_TOP,
   HILLS,
   HILLS_SCALE,
   HILLS_W,
@@ -84,6 +146,22 @@ const {
   HBTM1_TOP,
   HBTM2_LEFT,
   HBTM2_TOP,
+  BUSH_2,
+  BUSH_2_W,
+  BUSH_2_H,
+  BUSH_2_LEFT,
+  BUSH_2_TOP,
+  ROCK,
+  ROCK_W,
+  ROCK_H,
+  ROCK_LEFT,
+  ROCK_TOP,
+  TALL_BUSH,
+  TALL_BUSH_DISPLAY_W,
+  TALL_BUSH_DISPLAY_H,
+  TALL_BUSH_LEFT,
+  TALL_BUSH_TOP,
+  TALL_BUSH_DEPTH_Y,
   ARROW_X,
   ARROW_Y,
   ARROW_SIZE,
@@ -93,6 +171,16 @@ const {
   HOUSE_DRAWER,
   HOUSE_IMAGE,
   HOUSE_DESK,
+  HOUSE_FRONT,
+  HOUSE_FRONT_LEFT,
+  HOUSE_FRONT_TOP,
+  HOUSE_FRONT_W,
+  HOUSE_FRONT_H,
+  HOUSE_ROOFTOP,
+  HOUSE_ROOFTOP_LEFT,
+  HOUSE_ROOFTOP_TOP,
+  HOUSE_ROOFTOP_W,
+  HOUSE_ROOFTOP_H,
   HOUSE_W,
   HOUSE_H,
   HOUSE_LEFT,
@@ -117,14 +205,20 @@ const {
   HDESK_Y,
   HDESK_W,
   HDESK_H,
-  HOUSE_DOOR_X,
-  HOUSE_DOOR_Y,
-  HOUSE_DOOR_RADIUS,
+  HIMG_DEPTH_Y,
+  HDRAWER_DEPTH_Y,
+  HBED_DEPTH_Y,
+  HDESK_DEPTH_Y,
   HOUSE_EXIT_X,
   HOUSE_EXIT_Y,
   HOUSE_EXIT_RADIUS,
   HOUSE_ENTER_POS,
   HOUSE_INTERIOR_RECT,
+  WALKWAY,
+  WALKWAY_DISPLAY_W,
+  WALKWAY_DISPLAY_H,
+  WALKWAY_LEFT,
+  WALKWAY_TOP,
   GARDEN_FLOOR,
   GARDEN_BACK,
   GARDEN_SIDES,
@@ -150,6 +244,19 @@ function isTreeVisibleOnScreen(charWorldX: number, charWorldY: number): boolean 
   const top = TREE_WORLD_Y - TREE_DISPLAY_H + cam.y;
   const right = TREE_WORLD_X + TREE_DISPLAY_W / 2 + cam.x;
   const bottom = TREE_WORLD_Y + cam.y;
+  return right > 0 && left < W && bottom > 0 && top < H;
+}
+
+/** Shake tree AABB intersects the screen (same camera as character). */
+function isShakeTreeVisibleOnScreen(
+  charWorldX: number,
+  charWorldY: number,
+): boolean {
+  const cam = getCameraOffset(charWorldX, charWorldY);
+  const left = SHAKE_TREE_WORLD_X - SHAKE_TREE_DISPLAY_W / 2 + cam.x;
+  const top = SHAKE_TREE_WORLD_Y - SHAKE_TREE_DISPLAY_H + cam.y;
+  const right = SHAKE_TREE_WORLD_X + SHAKE_TREE_DISPLAY_W / 2 + cam.x;
+  const bottom = SHAKE_TREE_WORLD_Y + cam.y;
   return right > 0 && left < W && bottom > 0 && top < H;
 }
 
@@ -186,6 +293,8 @@ const CHAR_SCALE = 0.67;
 const SPEED = 3.5;
 const ANIM_FPS = 8;
 const MOVE_INTERVAL = 16;
+/** When idle, run door/garden/proximity every Nth tick only. */
+const IDLE_PROXIMITY_TICK_MOD = 3;
 const DEADZONE = 0.15;
 
 type AnimKey =
@@ -260,6 +369,15 @@ function getCameraOffset(charX: number, charY: number) {
 
 const FEET_OFFSET_Y = CHAR_SIZE * 0.32;
 const FEET_HALF_W = 12;
+/** Feet / footprint vs world Y while indoors (sprite uses `CHAR_SCALE_INDOOR`). */
+const INDOOR_FEET_OFFSET_Y = FEET_OFFSET_Y * CHAR_SCALE_INDOOR;
+/** Shift furniture hitboxes down to align with visible bases (sprites vs layout). */
+const INDOOR_FURNITURE_COLLISION_Y_OFFSET = Math.round(HOUSE_H * 0.045);
+/** Inflate rects so feet cannot slip past edges (same idea as outdoor FEET_HALF_W). */
+const INDOOR_FURNITURE_COLLISION_PAD = Math.max(6, Math.round(HOUSE_H * 0.028));
+/** Substeps per tick so diagonal slides cannot tunnel through thin furniture rects. */
+/** Fewer = cheaper; raise if indoor collision tunnels. */
+const INDOOR_MOVE_SUBSTEPS = 4;
 const GARDEN_PADDING = 4;
 
 // House collision rect (the main rectangular body of the frame)
@@ -331,6 +449,46 @@ function isTreeTrunkBlocking(worldX: number, feetY: number): boolean {
   );
 }
 
+function isShakeTreeTrunkBlocking(worldX: number, feetY: number): boolean {
+  if (feetY < SHAKE_TREE_TRUNK_TOP || feetY > SHAKE_TREE_WORLD_Y) return false;
+  return (
+    worldX >= SHAKE_TREE_WORLD_X - SHAKE_TREE_TRUNK_HALF_W &&
+    worldX <= SHAKE_TREE_WORLD_X + SHAKE_TREE_TRUNK_HALF_W
+  );
+}
+
+function isCowBodyBlocking(worldX: number, feetY: number): boolean {
+  if (feetY < COW_TRUNK_TOP || feetY > COW_WORLD_Y) return false;
+  return (
+    worldX >= COW_WORLD_X - COW_TRUNK_HALF_W &&
+    worldX <= COW_WORLD_X + COW_TRUNK_HALF_W
+  );
+}
+
+function isChickenBodyBlocking(worldX: number, feetY: number): boolean {
+  if (feetY < CHICKEN_TRUNK_TOP || feetY > CHICKEN_WORLD_Y) return false;
+  return (
+    worldX >= CHICKEN_WORLD_X - CHICKEN_TRUNK_HALF_W &&
+    worldX <= CHICKEN_WORLD_X + CHICKEN_TRUNK_HALF_W
+  );
+}
+
+function isBigTreeTrunkBlocking(worldX: number, feetY: number): boolean {
+  if (feetY < BIG_TREE_TRUNK_TOP || feetY > BIG_TREE_WORLD_Y) return false;
+  return (
+    worldX >= BIG_TREE_WORLD_X - BIG_TREE_TRUNK_HALF_W &&
+    worldX <= BIG_TREE_WORLD_X + BIG_TREE_TRUNK_HALF_W
+  );
+}
+
+function isWellTrunkBlocking(worldX: number, feetY: number): boolean {
+  if (feetY < WELL_TRUNK_TOP || feetY > WELL_WORLD_Y) return false;
+  return (
+    worldX >= WELL_WORLD_X - WELL_TRUNK_HALF_W &&
+    worldX <= WELL_WORLD_X + WELL_TRUNK_HALF_W
+  );
+}
+
 function isWalkable(worldX: number, worldY: number): boolean {
   const feetY = worldY + FEET_OFFSET_Y;
   if (
@@ -339,27 +497,143 @@ function isWalkable(worldX: number, worldY: number): boolean {
     isInsideGarden(worldX + FEET_HALF_W, feetY)
   )
     return false;
-  if (isInsideHouse(worldX, feetY)) return false;
+  if (isInsideHouse(worldX, feetY) && !isOnWalkway(worldX, feetY)) return false;
+  if (
+    isCowBodyBlocking(worldX, feetY) ||
+    isCowBodyBlocking(worldX - FEET_HALF_W, feetY) ||
+    isCowBodyBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
+  if (
+    isChickenBodyBlocking(worldX, feetY) ||
+    isChickenBodyBlocking(worldX - FEET_HALF_W, feetY) ||
+    isChickenBodyBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
+  if (
+    isBigTreeTrunkBlocking(worldX, feetY) ||
+    isBigTreeTrunkBlocking(worldX - FEET_HALF_W, feetY) ||
+    isBigTreeTrunkBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
+  if (
+    isWellTrunkBlocking(worldX, feetY) ||
+    isWellTrunkBlocking(worldX - FEET_HALF_W, feetY) ||
+    isWellTrunkBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
+  if (
+    isShakeTreeTrunkBlocking(worldX, feetY) ||
+    isShakeTreeTrunkBlocking(worldX - FEET_HALF_W, feetY) ||
+    isShakeTreeTrunkBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
   if (
     isTreeTrunkBlocking(worldX, feetY) ||
     isTreeTrunkBlocking(worldX - FEET_HALF_W, feetY) ||
     isTreeTrunkBlocking(worldX + FEET_HALF_W, feetY)
   )
     return false;
+  const footWalkMesh = (wx: number) =>
+    isPointWalkable(wx, feetY) || isOnWalkway(wx, feetY);
   return (
-    isPointWalkable(worldX, feetY) &&
-    isPointWalkable(worldX - FEET_HALF_W, feetY) &&
-    isPointWalkable(worldX + FEET_HALF_W, feetY)
+    footWalkMesh(worldX) &&
+    footWalkMesh(worldX - FEET_HALF_W) &&
+    footWalkMesh(worldX + FEET_HALF_W)
   );
 }
 
+function isIndoorFurnitureBlocking(worldX: number, feetY: number): boolean {
+  const oy = INDOOR_FURNITURE_COLLISION_Y_OFFSET;
+  const pad = INDOOR_FURNITURE_COLLISION_PAD;
+  const pieces: { left: number; top: number; right: number; bottom: number }[] =
+    [
+      {
+        left: HOUSE_LEFT + HIMG_X - pad,
+        top: HOUSE_TOP + HIMG_Y + oy - pad,
+        right: HOUSE_LEFT + HIMG_X + HIMG_W + pad,
+        bottom: HOUSE_TOP + HIMG_Y + HIMG_H + oy + pad,
+      },
+      {
+        left: HOUSE_LEFT + HDRAWER_X - pad,
+        top: HOUSE_TOP + HDRAWER_Y + oy - pad,
+        right: HOUSE_LEFT + HDRAWER_X + HDRAWER_W + pad,
+        bottom: HOUSE_TOP + HDRAWER_Y + HDRAWER_H + oy + pad,
+      },
+      {
+        left: HOUSE_LEFT + HBED_X - pad,
+        top: HOUSE_TOP + HBED_Y + oy - pad,
+        right: HOUSE_LEFT + HBED_X + HBED_W + pad,
+        bottom: HOUSE_TOP + HBED_Y + HBED_H + oy + pad,
+      },
+      {
+        left: HOUSE_LEFT + HDESK_X - pad,
+        top: HOUSE_TOP + HDESK_Y + oy - pad,
+        right: HOUSE_LEFT + HDESK_X + HDESK_W + pad,
+        bottom: HOUSE_TOP + HDESK_Y + HDESK_H + oy + pad,
+      },
+    ];
+  const footL = worldX - FEET_HALF_W;
+  const footR = worldX + FEET_HALF_W;
+  for (const p of pieces) {
+    if (feetY < p.top || feetY > p.bottom) continue;
+    if (footR >= p.left && footL <= p.right) return true;
+  }
+  return false;
+}
+
 function isWalkableIndoors(worldX: number, worldY: number): boolean {
-  const feetY = worldY + FEET_OFFSET_Y;
+  const feetY = worldY + INDOOR_FEET_OFFSET_Y;
   const headY = worldY - CHAR_SIZE * CHAR_SCALE_INDOOR * 0.9;
   const r = HOUSE_INTERIOR_RECT;
-  return (
-    worldX >= r.left && worldX <= r.right && headY >= r.top && feetY <= r.bottom
-  );
+  if (
+    !(
+      worldX >= r.left &&
+      worldX <= r.right &&
+      headY >= r.top &&
+      feetY <= r.bottom
+    )
+  ) {
+    return false;
+  }
+  if (isIndoorFurnitureBlocking(worldX, feetY)) return false;
+  return true;
+}
+
+/**
+ * When feet are north of a prop's sprite bottom (smaller Y) and overlap it on X,
+ * the character should draw below that furniture (same idea as TREE_DEPTH_Y).
+ */
+function isCharBehindIndoorFurniture(worldX: number, feetY: number): boolean {
+  const footL = worldX - FEET_HALF_W;
+  const footR = worldX + FEET_HALF_W;
+  const pieces: { left: number; right: number; depthY: number }[] = [
+    {
+      left: HOUSE_LEFT + HIMG_X,
+      right: HOUSE_LEFT + HIMG_X + HIMG_W,
+      depthY: HIMG_DEPTH_Y,
+    },
+    {
+      left: HOUSE_LEFT + HDRAWER_X,
+      right: HOUSE_LEFT + HDRAWER_X + HDRAWER_W,
+      depthY: HDRAWER_DEPTH_Y,
+    },
+    {
+      left: HOUSE_LEFT + HBED_X,
+      right: HOUSE_LEFT + HBED_X + HBED_W,
+      depthY: HBED_DEPTH_Y,
+    },
+    {
+      left: HOUSE_LEFT + HDESK_X,
+      right: HOUSE_LEFT + HDESK_X + HDESK_W,
+      depthY: HDESK_DEPTH_Y,
+    },
+  ];
+  for (const p of pieces) {
+    if (footR < p.left || footL > p.right) continue;
+    if (feetY < p.depthY) return true;
+  }
+  return false;
 }
 
 const GARDEN_TRIGGER_RADIUS = GH * 0.35;
@@ -378,15 +652,23 @@ function nearGardenIndex(worldX: number, worldY: number): number {
   return -1;
 }
 
+function isOnWalkway(worldX: number, feetY: number): boolean {
+  const padX = Math.max(6, Math.round(WALKWAY_DISPLAY_W * 0.15));
+  return (
+    worldX >= WALKWAY_LEFT - padX &&
+    worldX <= WALKWAY_LEFT + WALKWAY_DISPLAY_W + padX &&
+    feetY >= WALKWAY_TOP &&
+    feetY <= WALKWAY_TOP + WALKWAY_DISPLAY_H
+  );
+}
+
 function isNearDoor(worldX: number, worldY: number, indoor: boolean): boolean {
   if (indoor) {
     const dx = worldX - HOUSE_EXIT_X;
     const dy = worldY - HOUSE_EXIT_Y;
     return dx * dx + dy * dy <= HOUSE_EXIT_RADIUS * HOUSE_EXIT_RADIUS;
   }
-  const dx = worldX - HOUSE_DOOR_X;
-  const dy = worldY - HOUSE_DOOR_Y;
-  return dx * dx + dy * dy <= HOUSE_DOOR_RADIUS * HOUSE_DOOR_RADIUS;
+  return isOnWalkway(worldX, worldY + FEET_OFFSET_Y);
 }
 
 // ─── Game screen ──────────────────────────────────────────────────────────────
@@ -440,15 +722,51 @@ export default function GameScreen() {
   const [nearDoor, setNearDoor] = useState(false);
   const [nearGarden, setNearGarden] = useState(-1);
   const [nearTree, setNearTree] = useState(false);
+  const [nearShakeTree, setNearShakeTree] = useState(false);
+  const [nearCow, setNearCow] = useState(false);
   const [charBehindTree, setCharBehindTree] = useState(false);
+  const [charBehindShakeTree, setCharBehindShakeTree] = useState(false);
+  const [charBehindCow, setCharBehindCow] = useState(false);
+  const [charBehindChicken, setCharBehindChicken] = useState(false);
+  const [charBehindBigTree, setCharBehindBigTree] = useState(false);
+  const [charBehindWell, setCharBehindWell] = useState(false);
+  const [charBehindPlant, setCharBehindPlant] = useState(false);
+  const [charBehindTallBush, setCharBehindTallBush] = useState(false);
+  const [charBehindIndoorFurniture, setCharBehindIndoorFurniture] =
+    useState(false);
   const [gardenPopupIndex, setGardenPopupIndex] = useState(-1);
   const [treeFallFrameIndex, setTreeFallFrameIndex] = useState(0);
   const [treeFallPlaying, setTreeFallPlaying] = useState(false);
+  const [cowFrameIndex, setCowFrameIndex] = useState(0);
+  const [cowPetPlaying, setCowPetPlaying] = useState(false);
+  const [cowHeartFrameIndex, setCowHeartFrameIndex] = useState(0);
+  const [chickenIdleFrameIndex, setChickenIdleFrameIndex] = useState(0);
+  const [chickenPeckFrameIndex, setChickenPeckFrameIndex] = useState(0);
+  const [chickenPeckPlaying, setChickenPeckPlaying] = useState(false);
+  const [shakeTreeFrameIndex, setShakeTreeFrameIndex] = useState(0);
+  const shakeTreeSeqRef = useRef(false);
   const treeHasFallenRef = useRef(false);
   const treeFallAnimatingRef = useRef(false);
   const treeWasOnScreenRef = useRef(false);
+  const shakeTreeWasOnScreenRef = useRef(false);
   const charBehindTreeRef = useRef(false);
+  const charBehindShakeTreeRef = useRef(false);
+  const charBehindCowRef = useRef(false);
+  const charBehindChickenRef = useRef(false);
+  const charBehindBigTreeRef = useRef(false);
+  const charBehindWellRef = useRef(false);
+  const charBehindPlantRef = useRef(false);
+  const charBehindTallBushRef = useRef(false);
+  const charBehindIndoorFurnitureRef = useRef(false);
   const insideHouseRef = useRef(false);
+  const nearDoorRef = useRef(false);
+  const nearGardenRef = useRef(-1);
+  const nearTreeRef = useRef(false);
+  const nearShakeTreeRef = useRef(false);
+  const nearCowRef = useRef(false);
+  const idleProximityPhaseRef = useRef(0);
+
+  const isFocused = useIsFocused();
 
   const arrowAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -494,7 +812,17 @@ export default function GameScreen() {
       setFrame(0);
       insideHouseRef.current = false;
       setInsideHouse(false);
+      nearDoorRef.current = false;
       setNearDoor(false);
+      nearGardenRef.current = -1;
+      setNearGarden(-1);
+      nearTreeRef.current = false;
+      nearShakeTreeRef.current = false;
+      nearCowRef.current = false;
+      setNearTree(false);
+      setNearShakeTree(false);
+      setNearCow(false);
+      idleProximityPhaseRef.current = 0;
       // Tree chop state is intentionally NOT reset here — useFocusEffect can re-run when
       // callback deps change while focused, which was resetting the tree to frame 0.
     }, [charAnim, cameraAnim, ensureDayReset]),
@@ -522,6 +850,91 @@ export default function GameScreen() {
     return () => clearInterval(id);
   }, [treeFallPlaying]);
 
+  useEffect(() => {
+    if (cowPetPlaying) return;
+    const id = setInterval(() => {
+      setCowFrameIndex((i) => (i + 1) % COW_FRAME_COUNT);
+    }, COW_ANIM_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [cowPetPlaying, COW_FRAME_COUNT, COW_ANIM_INTERVAL_MS]);
+
+  useEffect(() => {
+    if (!cowPetPlaying) return;
+    const id = setInterval(() => {
+      setCowHeartFrameIndex((prev) => {
+        if (prev >= COW_HEART_FRAME_COUNT - 1) {
+          clearInterval(id);
+          setCowPetPlaying(false);
+          return 0;
+        }
+        return prev + 1;
+      });
+    }, COW_HEART_ANIM_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [cowPetPlaying, COW_HEART_FRAME_COUNT, COW_HEART_ANIM_INTERVAL_MS]);
+
+  const handlePetCow = useCallback(() => {
+    if (cowPetPlaying) return;
+    setCowHeartFrameIndex(0);
+    setCowPetPlaying(true);
+  }, [cowPetPlaying]);
+
+  useEffect(() => {
+    if (chickenPeckPlaying) return;
+    const id = setInterval(() => {
+      setChickenIdleFrameIndex((i) => (i + 1) % CHICKEN_IDLE_FRAME_COUNT);
+    }, CHICKEN_ANIM_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [
+    chickenPeckPlaying,
+    CHICKEN_IDLE_FRAME_COUNT,
+    CHICKEN_ANIM_INTERVAL_MS,
+  ]);
+
+  useEffect(() => {
+    if (!chickenPeckPlaying) return;
+    setChickenPeckFrameIndex(0);
+    const id = setInterval(() => {
+      setChickenPeckFrameIndex((prev) => {
+        if (prev >= CHICKEN_PECK_FRAME_COUNT - 1) {
+          clearInterval(id);
+          setChickenPeckPlaying(false);
+          return 0;
+        }
+        return prev + 1;
+      });
+    }, CHICKEN_ANIM_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [
+    chickenPeckPlaying,
+    CHICKEN_PECK_FRAME_COUNT,
+    CHICKEN_ANIM_INTERVAL_MS,
+  ]);
+
+  useEffect(() => {
+    if (chickenPeckPlaying) return;
+    const t = setTimeout(() => {
+      setChickenPeckPlaying(true);
+    }, CHICKEN_IDLE_BEFORE_PECK_MS);
+    return () => clearTimeout(t);
+  }, [chickenPeckPlaying, CHICKEN_IDLE_BEFORE_PECK_MS]);
+
+  const handleShakeTree = useCallback(() => {
+    if (shakeTreeSeqRef.current) return;
+    shakeTreeSeqRef.current = true;
+    setShakeTreeFrameIndex(0);
+    const id = setInterval(() => {
+      setShakeTreeFrameIndex((prev) => {
+        if (prev >= TREE_SHAKE_FRAME_COUNT - 1) {
+          clearInterval(id);
+          shakeTreeSeqRef.current = false;
+          return TREE_SHAKE_FRAME_COUNT - 1;
+        }
+        return prev + 1;
+      });
+    }, 72);
+  }, []);
+
   const handleMove = useCallback((delta: JoystickDelta) => {
     joystickRef.current = delta;
   }, []);
@@ -542,14 +955,16 @@ export default function GameScreen() {
   const handleExitHouse = useCallback(() => {
     insideHouseRef.current = false;
     setInsideHouse(false);
-    const x = HOUSE_DOOR_X;
-    const y = HOUSE_DOOR_Y;
+    const feetY = WALKWAY_TOP + Math.round(WALKWAY_DISPLAY_H * 0.58);
+    const x = Math.round(WALKWAY_LEFT + WALKWAY_DISPLAY_W / 2);
+    const y = feetY - FEET_OFFSET_Y;
     worldPosRef.current = { x, y };
     charAnim.setValue({ x: x - CHAR_SIZE / 2, y: y - CHAR_SIZE / 2 });
     cameraAnim.setValue(getCameraOffset(x, y));
   }, [charAnim, cameraAnim]);
 
   useEffect(() => {
+    if (!isFocused) return;
     const id = setInterval(() => {
       const { x: jx, y: jy } = joystickRef.current;
       const isMoving = Math.abs(jx) > DEADZONE || Math.abs(jy) > DEADZONE;
@@ -557,20 +972,52 @@ export default function GameScreen() {
       const canWalk = indoor ? isWalkableIndoors : isWalkable;
 
       if (isMoving) {
+        idleProximityPhaseRef.current = 0;
+      } else {
+        idleProximityPhaseRef.current += 1;
+        if (idleProximityPhaseRef.current % IDLE_PROXIMITY_TICK_MOD !== 0) {
+          const newDirEarly = getAnimKey(jx, jy);
+          if (newDirEarly !== dirRef.current) {
+            dirRef.current = newDirEarly;
+            setAnimKey(newDirEarly);
+            setFrame(0);
+          }
+          return;
+        }
+      }
+
+      if (isMoving) {
         const { x: curX, y: curY } = worldPosRef.current;
-        const wantX = curX + jx * SPEED;
-        const wantY = curY + jy * SPEED;
+        const stepX = (jx * SPEED) / INDOOR_MOVE_SUBSTEPS;
+        const stepY = (jy * SPEED) / INDOOR_MOVE_SUBSTEPS;
 
         let finalX = curX;
         let finalY = curY;
 
-        if (canWalk(wantX, wantY)) {
-          finalX = wantX;
-          finalY = wantY;
-        } else if (canWalk(wantX, curY)) {
-          finalX = wantX;
-        } else if (canWalk(curX, wantY)) {
-          finalY = wantY;
+        if (indoor) {
+          for (let s = 0; s < INDOOR_MOVE_SUBSTEPS; s++) {
+            const wantX = finalX + stepX;
+            const wantY = finalY + stepY;
+            if (canWalk(wantX, wantY)) {
+              finalX = wantX;
+              finalY = wantY;
+            } else if (canWalk(wantX, finalY)) {
+              finalX = wantX;
+            } else if (canWalk(finalX, wantY)) {
+              finalY = wantY;
+            }
+          }
+        } else {
+          const wantX = curX + jx * SPEED;
+          const wantY = curY + jy * SPEED;
+          if (canWalk(wantX, wantY)) {
+            finalX = wantX;
+            finalY = wantY;
+          } else if (canWalk(wantX, curY)) {
+            finalX = wantX;
+          } else if (canWalk(curX, wantY)) {
+            finalY = wantY;
+          }
         }
 
         worldPosRef.current = { x: finalX, y: finalY };
@@ -589,31 +1036,133 @@ export default function GameScreen() {
         setCharBehindTree(behind);
       }
 
+      const behindShake = !indoor && feetY < SHAKE_TREE_DEPTH_Y;
+      if (behindShake !== charBehindShakeTreeRef.current) {
+        charBehindShakeTreeRef.current = behindShake;
+        setCharBehindShakeTree(behindShake);
+      }
+
+      const behindCow = !indoor && feetY < COW_DEPTH_Y;
+      if (behindCow !== charBehindCowRef.current) {
+        charBehindCowRef.current = behindCow;
+        setCharBehindCow(behindCow);
+      }
+
+      const behindChicken = !indoor && feetY < CHICKEN_DEPTH_Y;
+      if (behindChicken !== charBehindChickenRef.current) {
+        charBehindChickenRef.current = behindChicken;
+        setCharBehindChicken(behindChicken);
+      }
+
+      const behindBigTree = !indoor && feetY < BIG_TREE_DEPTH_Y;
+      if (behindBigTree !== charBehindBigTreeRef.current) {
+        charBehindBigTreeRef.current = behindBigTree;
+        setCharBehindBigTree(behindBigTree);
+      }
+
+      const behindWell = !indoor && feetY < WELL_DEPTH_Y;
+      if (behindWell !== charBehindWellRef.current) {
+        charBehindWellRef.current = behindWell;
+        setCharBehindWell(behindWell);
+      }
+
+      const behindPlant = !indoor && feetY < PLANT_DEPTH_Y;
+      if (behindPlant !== charBehindPlantRef.current) {
+        charBehindPlantRef.current = behindPlant;
+        setCharBehindPlant(behindPlant);
+      }
+
+      const behindTallBush = !indoor && feetY < TALL_BUSH_DEPTH_Y;
+      if (behindTallBush !== charBehindTallBushRef.current) {
+        charBehindTallBushRef.current = behindTallBush;
+        setCharBehindTallBush(behindTallBush);
+      }
+
+      const feetYIndoor = py + INDOOR_FEET_OFFSET_Y;
+      const behindIndoorFurniture =
+        indoor && isCharBehindIndoorFurniture(px, feetYIndoor);
+      if (behindIndoorFurniture !== charBehindIndoorFurnitureRef.current) {
+        charBehindIndoorFurnitureRef.current = behindIndoorFurniture;
+        setCharBehindIndoorFurniture(behindIndoorFurniture);
+      }
+
       const treeOnScreen = isTreeVisibleOnScreen(px, py);
       if (treeWasOnScreenRef.current && !treeOnScreen) {
         treeHasFallenRef.current = false;
         treeFallAnimatingRef.current = false;
         setTreeFallFrameIndex(0);
         setTreeFallPlaying(false);
-        setNearTree(false);
+        if (nearTreeRef.current) {
+          nearTreeRef.current = false;
+          setNearTree(false);
+        }
       }
       treeWasOnScreenRef.current = treeOnScreen;
 
+      const shakeTreeOnScreen = isShakeTreeVisibleOnScreen(px, py);
+      if (shakeTreeWasOnScreenRef.current && !shakeTreeOnScreen) {
+        setShakeTreeFrameIndex(0);
+        shakeTreeSeqRef.current = false;
+        if (nearShakeTreeRef.current) {
+          nearShakeTreeRef.current = false;
+          setNearShakeTree(false);
+        }
+      }
+      shakeTreeWasOnScreenRef.current = shakeTreeOnScreen;
+
       const near = isNearDoor(px, py, indoor);
-      setNearDoor(near);
+      if (near !== nearDoorRef.current) {
+        nearDoorRef.current = near;
+        setNearDoor(near);
+      }
       if (!indoor) {
-        setNearGarden(nearGardenIndex(px, py));
+        const ng = nearGardenIndex(px, py);
+        if (ng !== nearGardenRef.current) {
+          nearGardenRef.current = ng;
+          setNearGarden(ng);
+        }
         const tdx = px - TREE_WORLD_X;
         const tdy = py - TREE_WORLD_Y;
         const tr2 = TREE_INTERACT_RADIUS * TREE_INTERACT_RADIUS;
         const inTreeZone = tdx * tdx + tdy * tdy <= tr2;
-        setNearTree(
+        const wantNearTree =
           inTreeZone &&
-            !treeHasFallenRef.current &&
-            !treeFallAnimatingRef.current,
-        );
+          !treeHasFallenRef.current &&
+          !treeFallAnimatingRef.current;
+        if (wantNearTree !== nearTreeRef.current) {
+          nearTreeRef.current = wantNearTree;
+          setNearTree(wantNearTree);
+        }
+        const sdx = px - SHAKE_TREE_WORLD_X;
+        const sdy = py - SHAKE_TREE_WORLD_Y;
+        const sr2 =
+          SHAKE_TREE_INTERACT_RADIUS * SHAKE_TREE_INTERACT_RADIUS;
+        const wantNearShake = sdx * sdx + sdy * sdy <= sr2;
+        if (wantNearShake !== nearShakeTreeRef.current) {
+          nearShakeTreeRef.current = wantNearShake;
+          setNearShakeTree(wantNearShake);
+        }
+        const cdx = px - COW_WORLD_X;
+        const cdy = py - COW_WORLD_Y;
+        const cr2 = COW_INTERACT_RADIUS * COW_INTERACT_RADIUS;
+        const wantNearCow = cdx * cdx + cdy * cdy <= cr2;
+        if (wantNearCow !== nearCowRef.current) {
+          nearCowRef.current = wantNearCow;
+          setNearCow(wantNearCow);
+        }
       } else {
-        setNearTree(false);
+        if (nearTreeRef.current) {
+          nearTreeRef.current = false;
+          setNearTree(false);
+        }
+        if (nearShakeTreeRef.current) {
+          nearShakeTreeRef.current = false;
+          setNearShakeTree(false);
+        }
+        if (nearCowRef.current) {
+          nearCowRef.current = false;
+          setNearCow(false);
+        }
       }
 
       const newDir = getAnimKey(jx, jy);
@@ -625,15 +1174,16 @@ export default function GameScreen() {
     }, MOVE_INTERVAL);
 
     return () => clearInterval(id);
-  }, [cameraAnim, charAnim]);
+  }, [cameraAnim, charAnim, isFocused]);
 
   useEffect(() => {
+    if (!isFocused) return;
     const count = FRAME_COUNTS[animKey];
     const id = setInterval(() => {
       setFrame((f) => (f + 1) % count);
     }, 1000 / ANIM_FPS);
     return () => clearInterval(id);
-  }, [animKey]);
+  }, [animKey, isFocused]);
 
   const animRow = ANIM_KEY_TO_ROW[animKey];
   const frameCount = FRAME_COUNTS[animKey];
@@ -666,7 +1216,7 @@ export default function GameScreen() {
         ]}
       >
         {/* Background */}
-        <Image
+        <ExpoImage
           source={BG}
           style={{
             position: "absolute",
@@ -675,11 +1225,12 @@ export default function GameScreen() {
             width: WORLD_W,
             height: WORLD_H,
           }}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
         />
 
         {/* Island */}
-        <Image
+        <ExpoImage
           source={ISLAND}
           style={{
             position: "absolute",
@@ -688,8 +1239,180 @@ export default function GameScreen() {
             width: ISLAND_W,
             height: ISLAND_H,
           }}
-          resizeMode="contain"
+          contentFit="contain"
+          cachePolicy="memory-disk"
         />
+
+        {/* Big tree — left of the house */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: BIG_TREE_WORLD_X - BIG_TREE_DISPLAY_W / 2,
+            top: BIG_TREE_WORLD_Y - BIG_TREE_DISPLAY_H,
+            width: BIG_TREE_DISPLAY_W,
+            height: BIG_TREE_DISPLAY_H,
+            zIndex: charBehindBigTree && !insideHouse ? 26 : 0,
+            elevation:
+              Platform.OS === "android" && charBehindBigTree && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={BIG_TREE}
+            style={{
+              width: BIG_TREE_DISPLAY_W,
+              height: BIG_TREE_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: WELL_LEFT,
+            top: WELL_TOP,
+            width: WELL_DISPLAY_W,
+            height: WELL_DISPLAY_H,
+            zIndex: charBehindWell && !insideHouse ? 26 : 1,
+            elevation:
+              Platform.OS === "android" && charBehindWell && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={WELL}
+            style={{
+              width: WELL_DISPLAY_W,
+              height: WELL_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: PLANT_LEFT,
+            top: PLANT_TOP,
+            width: PLANT_DISPLAY_W,
+            height: PLANT_DISPLAY_H,
+            zIndex: charBehindPlant && !insideHouse ? 26 : 2,
+            elevation:
+              Platform.OS === "android" && charBehindPlant && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={PLANT}
+            style={{
+              width: PLANT_DISPLAY_W,
+              height: PLANT_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* Right side: ambient shaking tree + cow */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: SHAKE_TREE_WORLD_X - SHAKE_TREE_DISPLAY_W / 2,
+            top: SHAKE_TREE_WORLD_Y - SHAKE_TREE_DISPLAY_H,
+            width: SHAKE_TREE_DISPLAY_W,
+            height: SHAKE_TREE_DISPLAY_H,
+            overflow: "hidden",
+            zIndex: charBehindShakeTree && !insideHouse ? 26 : 11,
+            elevation:
+              Platform.OS === "android" && charBehindShakeTree && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={TREE_SHAKE_FRAMES[shakeTreeFrameIndex]}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              width: SHAKE_TREE_DISPLAY_W,
+              height: SHAKE_TREE_DISPLAY_H,
+            }}
+            resizeMode="cover"
+          />
+        </View>
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: COW_WORLD_X - COW_DISPLAY_W / 2,
+            top: COW_WORLD_Y - COW_DISPLAY_H,
+            width: COW_DISPLAY_W,
+            height: COW_DISPLAY_H,
+            overflow: "hidden",
+            zIndex: charBehindCow && !insideHouse ? 26 : 12,
+            elevation:
+              Platform.OS === "android" && charBehindCow && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={
+              cowPetPlaying
+                ? COW_HEART_FRAMES[cowHeartFrameIndex]
+                : COW_EATING_FRAMES[cowFrameIndex]
+            }
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              width: COW_DISPLAY_W,
+              height: COW_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: CHICKEN_WORLD_X - CHICKEN_DISPLAY_W / 2,
+            top: CHICKEN_WORLD_Y - CHICKEN_DISPLAY_H,
+            width: CHICKEN_DISPLAY_W,
+            height: CHICKEN_DISPLAY_H,
+            overflow: "hidden",
+            zIndex: charBehindChicken && !insideHouse ? 26 : 13,
+            elevation:
+              Platform.OS === "android" && charBehindChicken && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={
+              chickenPeckPlaying
+                ? CHICKEN_PECK_FRAMES[chickenPeckFrameIndex]
+                : CHICKEN_IDLE_FRAMES[chickenIdleFrameIndex]
+            }
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              width: CHICKEN_DISPLAY_W,
+              height: CHICKEN_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
 
         {/* Interactive tree (falls when character walks into trigger radius) */}
         <View
@@ -864,8 +1587,25 @@ export default function GameScreen() {
           );
         })}
 
+        {/* Walkway from door (under house frame; hidden when inside) */}
+        {!insideHouse && (
+          <ExpoImage
+            source={WALKWAY}
+            style={{
+              position: "absolute",
+              left: WALKWAY_LEFT,
+              top: WALKWAY_TOP,
+              width: WALKWAY_DISPLAY_W,
+              height: WALKWAY_DISPLAY_H,
+              zIndex: 0,
+            }}
+            contentFit="fill"
+            cachePolicy="memory-disk"
+          />
+        )}
+
         {/* House floor (behind character when inside) */}
-        <Image
+        <ExpoImage
           source={HOUSE_FLOOR}
           style={{
             position: "absolute",
@@ -875,10 +1615,11 @@ export default function GameScreen() {
             height: INTERIOR_H,
             zIndex: 1,
           }}
-          resizeMode="stretch"
+          contentFit="fill"
+          cachePolicy="memory-disk"
         />
 
-        {/* House frame + furniture (above character when inside) */}
+        {/* House frame only; furniture drawn above frame (z16) when inside */}
         <View
           style={{
             position: "absolute",
@@ -901,68 +1642,106 @@ export default function GameScreen() {
             }}
             resizeMode="stretch"
           />
-          <Image
-            source={HOUSE_IMAGE}
-            style={{
-              position: "absolute",
-              left: HIMG_X,
-              top: HIMG_Y,
-              width: HIMG_W,
-              height: HIMG_H,
-            }}
-            resizeMode="stretch"
-          />
-          <Image
-            source={HOUSE_DRAWER}
-            style={{
-              position: "absolute",
-              left: HDRAWER_X,
-              top: HDRAWER_Y,
-              width: HDRAWER_W,
-              height: HDRAWER_H,
-            }}
-            resizeMode="stretch"
-          />
-          <Image
-            source={HOUSE_BED}
-            style={{
-              position: "absolute",
-              left: HBED_X,
-              top: HBED_Y,
-              width: HBED_W,
-              height: HBED_H,
-            }}
-            resizeMode="stretch"
-          />
-          <Image
-            source={HOUSE_DESK}
-            style={{
-              position: "absolute",
-              left: HDESK_X,
-              top: HDESK_Y,
-              width: HDESK_W,
-              height: HDESK_H,
-            }}
-            resizeMode="stretch"
-          />
         </View>
 
-        {/* House entrance trigger circle */}
+        {!insideHouse && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: HOUSE_ROOFTOP_LEFT,
+              top: HOUSE_ROOFTOP_TOP,
+              width: HOUSE_ROOFTOP_W,
+              height: HOUSE_ROOFTOP_H,
+              zIndex: 2,
+              elevation: Platform.OS === "android" ? 2 : 0,
+            }}
+          >
+            <Image
+              source={HOUSE_ROOFTOP}
+              style={{ width: "100%", height: "100%" }}
+              resizeMode="stretch"
+            />
+          </View>
+        )}
+
+        {/* Interior furniture — z16 when inside (above frame 15, above char 14); single-frame tradeoff */}
+        <Image
+          source={HOUSE_IMAGE}
+          style={{
+            position: "absolute",
+            left: HOUSE_LEFT + HIMG_X,
+            top: HOUSE_TOP + HIMG_Y,
+            width: HIMG_W,
+            height: HIMG_H,
+            ...(insideHouse && {
+              zIndex: 16,
+              elevation: Platform.OS === "android" ? 16 : 0,
+            }),
+          }}
+          resizeMode="stretch"
+        />
+        <Image
+          source={HOUSE_DRAWER}
+          style={{
+            position: "absolute",
+            left: HOUSE_LEFT + HDRAWER_X,
+            top: HOUSE_TOP + HDRAWER_Y,
+            width: HDRAWER_W,
+            height: HDRAWER_H,
+            ...(insideHouse && {
+              zIndex: 16,
+              elevation: Platform.OS === "android" ? 16 : 0,
+            }),
+          }}
+          resizeMode="stretch"
+        />
+        <Image
+          source={HOUSE_BED}
+          style={{
+            position: "absolute",
+            left: HOUSE_LEFT + HBED_X,
+            top: HOUSE_TOP + HBED_Y,
+            width: HBED_W,
+            height: HBED_H,
+            ...(insideHouse && {
+              zIndex: 16,
+              elevation: Platform.OS === "android" ? 16 : 0,
+            }),
+          }}
+          resizeMode="stretch"
+        />
+        <Image
+          source={HOUSE_DESK}
+          style={{
+            position: "absolute",
+            left: HOUSE_LEFT + HDESK_X,
+            top: HOUSE_TOP + HDESK_Y,
+            width: HDESK_W,
+            height: HDESK_H,
+            ...(insideHouse && {
+              zIndex: 16,
+              elevation: Platform.OS === "android" ? 16 : 0,
+            }),
+          }}
+          resizeMode="stretch"
+        />
+
+        {/* House entrance trigger (walkway bounds; invisible) */}
         <View
           style={{
             position: "absolute",
-            left: HOUSE_DOOR_X - HOUSE_DOOR_RADIUS,
-            top: HOUSE_DOOR_Y - HOUSE_DOOR_RADIUS,
-            width: HOUSE_DOOR_RADIUS * 2,
-            height: HOUSE_DOOR_RADIUS * 2,
-            borderRadius: HOUSE_DOOR_RADIUS,
+            left: WALKWAY_LEFT,
+            top: WALKWAY_TOP,
+            width: WALKWAY_DISPLAY_W,
+            height: WALKWAY_DISPLAY_H,
             backgroundColor: "rgba(255,255,255,0.3)",
             opacity: 0,
           }}
         />
 
         {/* Hill cliff bottoms (behind hills) */}
-        <Image
+        <ExpoImage
           source={HILLS_BTM1}
           style={{
             position: "absolute",
@@ -971,9 +1750,10 @@ export default function GameScreen() {
             width: HBTM1_W,
             height: HBTM1_H,
           }}
-          resizeMode="stretch"
+          contentFit="fill"
+          cachePolicy="memory-disk"
         />
-        <Image
+        <ExpoImage
           source={HILLS_BTM2}
           style={{
             position: "absolute",
@@ -982,11 +1762,12 @@ export default function GameScreen() {
             width: HBTM2_W,
             height: HBTM2_H,
           }}
-          resizeMode="stretch"
+          contentFit="fill"
+          cachePolicy="memory-disk"
         />
 
         {/* Hills */}
-        <Image
+        <ExpoImage
           source={HILLS}
           style={{
             position: "absolute",
@@ -995,8 +1776,60 @@ export default function GameScreen() {
             width: HILLS_W,
             height: HILLS_H,
           }}
-          resizeMode="stretch"
+          contentFit="fill"
+          cachePolicy="memory-disk"
         />
+
+        <Image
+          source={BUSH_2}
+          style={{
+            position: "absolute",
+            left: BUSH_2_LEFT,
+            top: BUSH_2_TOP,
+            width: BUSH_2_W,
+            height: BUSH_2_H,
+            zIndex: 2,
+          }}
+          resizeMode="contain"
+        />
+
+        <Image
+          source={ROCK}
+          style={{
+            position: "absolute",
+            left: ROCK_LEFT,
+            top: ROCK_TOP,
+            width: ROCK_W,
+            height: ROCK_H,
+            zIndex: 2,
+          }}
+          resizeMode="contain"
+        />
+
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: TALL_BUSH_LEFT,
+            top: TALL_BUSH_TOP,
+            width: TALL_BUSH_DISPLAY_W,
+            height: TALL_BUSH_DISPLAY_H,
+            zIndex: charBehindTallBush && !insideHouse ? 26 : 2,
+            elevation:
+              Platform.OS === "android" && charBehindTallBush && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={TALL_BUSH}
+            style={{
+              width: TALL_BUSH_DISPLAY_W,
+              height: TALL_BUSH_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
 
         {/* Entrance arrow */}
         <Animated.View
@@ -1034,7 +1867,7 @@ export default function GameScreen() {
         </Animated.View>
 
         {/* Walk area overlays */}
-        <Image
+        <ExpoImage
           source={WALK_AREA}
           style={{
             position: "absolute",
@@ -1044,14 +1877,28 @@ export default function GameScreen() {
             height: ISLAND_H,
             opacity: 0,
           }}
-          resizeMode="contain"
+          contentFit="contain"
+          cachePolicy="memory-disk"
         />
 
-        {/* Character */}
+        {/* Character — inside: z14 when north of props (behind), z17 when south (in front); frame z15, props z16 */}
         <Animated.View
           style={[
             styles.character,
             {
+              zIndex: insideHouse
+                ? charBehindIndoorFurniture
+                  ? 14
+                  : 17
+                : 25,
+              elevation:
+                Platform.OS === "android"
+                  ? insideHouse
+                    ? charBehindIndoorFurniture
+                      ? 14
+                      : 17
+                    : 25
+                  : 0,
               transform: [
                 ...charAnim.getTranslateTransform(),
                 { scale: insideHouse ? CHAR_SCALE_INDOOR : CHAR_SCALE },
@@ -1088,6 +1935,27 @@ export default function GameScreen() {
             </View>
           )}
         </Animated.View>
+
+        {insideHouse && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: HOUSE_FRONT_LEFT,
+              top: HOUSE_FRONT_TOP,
+              width: HOUSE_FRONT_W,
+              height: HOUSE_FRONT_H,
+              zIndex: 18,
+              elevation: Platform.OS === "android" ? 18 : 0,
+            }}
+          >
+            <Image
+              source={HOUSE_FRONT}
+              style={{ width: "100%", height: "100%" }}
+              resizeMode="stretch"
+            />
+          </View>
+        )}
       </Animated.View>
 
       {nearDoor && (
@@ -1119,6 +1987,30 @@ export default function GameScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.chopTreeButtonText}>Chop tree</Text>
+        </TouchableOpacity>
+      )}
+
+      {nearShakeTree && !insideHouse && (
+        <TouchableOpacity
+          onPress={handleShakeTree}
+          style={styles.shakeTreeButton}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.shakeTreeButtonText}>Shake tree</Text>
+        </TouchableOpacity>
+      )}
+
+      {nearCow && !insideHouse && (
+        <TouchableOpacity
+          onPress={handlePetCow}
+          style={[
+            styles.petCowButton,
+            cowPetPlaying && styles.petCowButtonDisabled,
+          ]}
+          activeOpacity={0.8}
+          disabled={cowPetPlaying}
+        >
+          <Text style={styles.petCowButtonText}>Pet cow</Text>
         </TouchableOpacity>
       )}
 
@@ -1486,7 +2378,7 @@ const styles = StyleSheet.create({
   },
   doorButton: {
     position: "absolute",
-    bottom: 180,
+    bottom: 228,
     alignSelf: "center",
     backgroundColor: "rgba(255,255,255,0.9)",
     paddingHorizontal: 28,
@@ -1502,7 +2394,7 @@ const styles = StyleSheet.create({
   },
   gardenButton: {
     position: "absolute",
-    bottom: 180,
+    bottom: 228,
     alignSelf: "center",
     backgroundColor: "rgba(255,255,255,0.9)",
     paddingHorizontal: 28,
@@ -1518,7 +2410,7 @@ const styles = StyleSheet.create({
   },
   chopTreeButton: {
     position: "absolute",
-    bottom: 245,
+    bottom: 293,
     alignSelf: "center",
     backgroundColor: "rgba(255,255,255,0.95)",
     paddingHorizontal: 24,
@@ -1531,5 +2423,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#5a3d20",
+  },
+  shakeTreeButton: {
+    position: "absolute",
+    bottom: 358,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 21,
+    elevation: 21,
+  },
+  shakeTreeButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3d4a20",
+  },
+  petCowButton: {
+    position: "absolute",
+    bottom: 423,
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 21,
+    elevation: 21,
+  },
+  petCowButtonDisabled: {
+    opacity: 0.5,
+  },
+  petCowButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#4a3d2a",
   },
 });

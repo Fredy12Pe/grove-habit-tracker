@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Habit, PlantGrowthState } from '@/lib/types';
-import { HABIT_CATALOG, CATALOG_NAME_MAP } from '@/lib/habitCatalog';
+import { CATALOG_ID_SET, HABIT_CATALOG, CATALOG_NAME_MAP } from '@/lib/habitCatalog';
 
 /** ISO date string (YYYY-MM-DD) per habit for progress heatmaps */
 export type CompletionDatesByHabit = Record<string, string[]>;
@@ -22,7 +22,7 @@ interface HabitStore {
   /** Action payloads per habit per date (journal text, note, duration, count). */
   habitEntries: HabitEntriesByHabit;
   lastResetDate: string | null;
-  addHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'updatedAt' | 'plantId'>) => void;
   updateHabit: (id: string, updates: Partial<Habit>) => void;
   completeHabit: (id: string) => void;
   toggleHabit: (id: string) => void;
@@ -68,9 +68,11 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   addHabit: (habit) =>
     set((state) => {
       const now = new Date().toISOString();
+      const id = `habit_${Date.now()}`;
       const newHabit: Habit = {
         ...habit,
-        id: `habit_${Date.now()}`,
+        id,
+        plantId: id,
         createdAt: now,
         updatedAt: now,
       };
@@ -146,10 +148,11 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   syncHabits: (selectedIds) =>
     set((state) => {
       const existing = new Map(state.habits.map((h) => [h.id, h]));
-      const ordered = HABIT_CATALOG.filter((c) => selectedIds.includes(c.id));
-      return {
-        habits: ordered.map((c) => existing.get(c.id) ?? makeHabit(c.id)),
-      };
+      const catalogOrdered = HABIT_CATALOG.filter((c) =>
+        selectedIds.includes(c.id),
+      ).map((c) => existing.get(c.id) ?? makeHabit(c.id));
+      const custom = state.habits.filter((h) => !CATALOG_ID_SET.has(h.id));
+      return { habits: [...catalogOrdered, ...custom] };
     }),
 
   ensureDayReset: () =>

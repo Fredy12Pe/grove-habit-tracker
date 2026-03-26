@@ -1,6 +1,6 @@
 /**
  * Habit-with-actions data model: types, initial data, and helpers.
- * Used by All habits tab (dropdown form).
+ * Used by Habits tab expanded row (inline form).
  */
 
 export type HabitCategory = "Faith" | "Fitness" | "Well Being";

@@ -105,6 +105,48 @@ export function GamePreview() {
     TREE_WORLD_X,
     TREE_WORLD_Y,
     TREE_DEPTH_Y,
+    COW_EATING_FRAMES,
+    COW_FRAME_COUNT,
+    COW_ANIM_INTERVAL_MS,
+    COW_DISPLAY_W,
+    COW_DISPLAY_H,
+    COW_WORLD_X,
+    COW_WORLD_Y,
+    COW_DEPTH_Y,
+    CHICKEN_IDLE_FRAMES,
+    CHICKEN_IDLE_FRAME_COUNT,
+    CHICKEN_PECK_FRAMES,
+    CHICKEN_PECK_FRAME_COUNT,
+    CHICKEN_ANIM_INTERVAL_MS,
+    CHICKEN_IDLE_BEFORE_PECK_MS,
+    CHICKEN_DISPLAY_W,
+    CHICKEN_DISPLAY_H,
+    CHICKEN_WORLD_X,
+    CHICKEN_WORLD_Y,
+    CHICKEN_DEPTH_Y,
+    BIG_TREE,
+    BIG_TREE_DISPLAY_W,
+    BIG_TREE_DISPLAY_H,
+    BIG_TREE_WORLD_X,
+    BIG_TREE_WORLD_Y,
+    BIG_TREE_DEPTH_Y,
+    WELL,
+    WELL_DISPLAY_W,
+    WELL_DISPLAY_H,
+    WELL_LEFT,
+    WELL_TOP,
+    WELL_DEPTH_Y,
+    PLANT,
+    PLANT_DISPLAY_W,
+    PLANT_DISPLAY_H,
+    PLANT_LEFT,
+    PLANT_TOP,
+    PLANT_DEPTH_Y,
+    TREE_SHAKE_FRAMES,
+    SHAKE_TREE_DISPLAY_W,
+    SHAKE_TREE_DISPLAY_H,
+    SHAKE_TREE_WORLD_X,
+    SHAKE_TREE_WORLD_Y,
     HILLS,
     HILLS_W,
     HILLS_H,
@@ -120,6 +162,22 @@ export function GamePreview() {
     HBTM1_TOP,
     HBTM2_LEFT,
     HBTM2_TOP,
+    BUSH_2,
+    BUSH_2_W,
+    BUSH_2_H,
+    BUSH_2_LEFT,
+    BUSH_2_TOP,
+    ROCK,
+    ROCK_W,
+    ROCK_H,
+    ROCK_LEFT,
+    ROCK_TOP,
+    TALL_BUSH,
+    TALL_BUSH_DISPLAY_W,
+    TALL_BUSH_DISPLAY_H,
+    TALL_BUSH_LEFT,
+    TALL_BUSH_TOP,
+    TALL_BUSH_DEPTH_Y,
     ARROW_X,
     ARROW_Y,
     ARROW_SIZE,
@@ -129,6 +187,11 @@ export function GamePreview() {
     HOUSE_DRAWER,
     HOUSE_IMAGE,
     HOUSE_DESK,
+    HOUSE_FRONT,
+    HOUSE_FRONT_LEFT,
+    HOUSE_FRONT_TOP,
+    HOUSE_FRONT_W,
+    HOUSE_FRONT_H,
     HOUSE_W,
     HOUSE_H,
     HOUSE_LEFT,
@@ -169,6 +232,11 @@ export function GamePreview() {
     BACKUP_GARDEN_FLOOR_RECT,
     START_X,
     START_Y,
+    WALKWAY,
+    WALKWAY_DISPLAY_W,
+    WALKWAY_DISPLAY_H,
+    WALKWAY_LEFT,
+    WALKWAY_TOP,
   } = island;
 
   const habitCountForGarden = Math.min(habits.length, GARDEN_MAX_PLANTS);
@@ -193,12 +261,22 @@ export function GamePreview() {
 
   const feetY = START_Y + FEET_OFFSET_Y;
   const charBehindTree = feetY < TREE_DEPTH_Y;
+  const charBehindCow = feetY < COW_DEPTH_Y;
+  const charBehindChicken = feetY < CHICKEN_DEPTH_Y;
+  const charBehindBigTree = feetY < BIG_TREE_DEPTH_Y;
+  const charBehindWell = feetY < WELL_DEPTH_Y;
+  const charBehindPlant = feetY < PLANT_DEPTH_Y;
+  const charBehindTallBush = feetY < TALL_BUSH_DEPTH_Y;
 
   const [layout, setLayout] = useState<{
     width: number;
     height: number;
   } | null>(null);
   const [idleFrame, setIdleFrame] = useState(0);
+  const [cowFrameIndex, setCowFrameIndex] = useState(0);
+  const [chickenIdleFrameIndex, setChickenIdleFrameIndex] = useState(0);
+  const [chickenPeckFrameIndex, setChickenPeckFrameIndex] = useState(0);
+  const [chickenPeckPlaying, setChickenPeckPlaying] = useState(false);
   const arrowNudge = useRef(new Animated.Value(0)).current;
   const arrowAnim = useRef(new Animated.Value(0)).current;
 
@@ -208,6 +286,53 @@ export function GamePreview() {
     }, IDLE_ANIM_INTERVAL_MS);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCowFrameIndex((i) => (i + 1) % COW_FRAME_COUNT);
+    }, COW_ANIM_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [COW_FRAME_COUNT, COW_ANIM_INTERVAL_MS]);
+
+  useEffect(() => {
+    if (chickenPeckPlaying) return;
+    const id = setInterval(() => {
+      setChickenIdleFrameIndex((i) => (i + 1) % CHICKEN_IDLE_FRAME_COUNT);
+    }, CHICKEN_ANIM_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [
+    chickenPeckPlaying,
+    CHICKEN_IDLE_FRAME_COUNT,
+    CHICKEN_ANIM_INTERVAL_MS,
+  ]);
+
+  useEffect(() => {
+    if (!chickenPeckPlaying) return;
+    setChickenPeckFrameIndex(0);
+    const id = setInterval(() => {
+      setChickenPeckFrameIndex((prev) => {
+        if (prev >= CHICKEN_PECK_FRAME_COUNT - 1) {
+          clearInterval(id);
+          setChickenPeckPlaying(false);
+          return 0;
+        }
+        return prev + 1;
+      });
+    }, CHICKEN_ANIM_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [
+    chickenPeckPlaying,
+    CHICKEN_PECK_FRAME_COUNT,
+    CHICKEN_ANIM_INTERVAL_MS,
+  ]);
+
+  useEffect(() => {
+    if (chickenPeckPlaying) return;
+    const t = setTimeout(() => {
+      setChickenPeckPlaying(true);
+    }, CHICKEN_IDLE_BEFORE_PECK_MS);
+    return () => clearTimeout(t);
+  }, [chickenPeckPlaying, CHICKEN_IDLE_BEFORE_PECK_MS]);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -307,6 +432,153 @@ export function GamePreview() {
               }}
               resizeMode="contain"
             />
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: BIG_TREE_WORLD_X - BIG_TREE_DISPLAY_W / 2,
+                top: BIG_TREE_WORLD_Y - BIG_TREE_DISPLAY_H,
+                width: BIG_TREE_DISPLAY_W,
+                height: BIG_TREE_DISPLAY_H,
+                zIndex: charBehindBigTree ? 26 : 0,
+                elevation: Platform.OS === "android" && charBehindBigTree ? 26 : 0,
+              }}
+            >
+              <Image
+                source={BIG_TREE}
+                style={{
+                  width: BIG_TREE_DISPLAY_W,
+                  height: BIG_TREE_DISPLAY_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: WELL_LEFT,
+                top: WELL_TOP,
+                width: WELL_DISPLAY_W,
+                height: WELL_DISPLAY_H,
+                zIndex: charBehindWell ? 26 : 1,
+                elevation: Platform.OS === "android" && charBehindWell ? 26 : 0,
+              }}
+            >
+              <Image
+                source={WELL}
+                style={{
+                  width: WELL_DISPLAY_W,
+                  height: WELL_DISPLAY_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: PLANT_LEFT,
+                top: PLANT_TOP,
+                width: PLANT_DISPLAY_W,
+                height: PLANT_DISPLAY_H,
+                zIndex: charBehindPlant ? 26 : 2,
+                elevation:
+                  Platform.OS === "android" && charBehindPlant ? 26 : 0,
+              }}
+            >
+              <Image
+                source={PLANT}
+                style={{
+                  width: PLANT_DISPLAY_W,
+                  height: PLANT_DISPLAY_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: SHAKE_TREE_WORLD_X - SHAKE_TREE_DISPLAY_W / 2,
+                top: SHAKE_TREE_WORLD_Y - SHAKE_TREE_DISPLAY_H,
+                width: SHAKE_TREE_DISPLAY_W,
+                height: SHAKE_TREE_DISPLAY_H,
+                overflow: "hidden",
+                zIndex: 11,
+              }}
+            >
+              <Image
+                source={TREE_SHAKE_FRAMES[0]}
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  width: SHAKE_TREE_DISPLAY_W,
+                  height: SHAKE_TREE_DISPLAY_H,
+                }}
+                resizeMode="cover"
+              />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: COW_WORLD_X - COW_DISPLAY_W / 2,
+                top: COW_WORLD_Y - COW_DISPLAY_H,
+                width: COW_DISPLAY_W,
+                height: COW_DISPLAY_H,
+                overflow: "hidden",
+                zIndex: charBehindCow ? 26 : 12,
+                elevation: Platform.OS === "android" && charBehindCow ? 26 : 0,
+              }}
+            >
+              <Image
+                source={COW_EATING_FRAMES[cowFrameIndex]}
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  width: COW_DISPLAY_W,
+                  height: COW_DISPLAY_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: CHICKEN_WORLD_X - CHICKEN_DISPLAY_W / 2,
+                top: CHICKEN_WORLD_Y - CHICKEN_DISPLAY_H,
+                width: CHICKEN_DISPLAY_W,
+                height: CHICKEN_DISPLAY_H,
+                overflow: "hidden",
+                zIndex: charBehindChicken ? 26 : 13,
+                elevation: Platform.OS === "android" && charBehindChicken ? 26 : 0,
+              }}
+            >
+              <Image
+                source={
+                  chickenPeckPlaying
+                    ? CHICKEN_PECK_FRAMES[chickenPeckFrameIndex]
+                    : CHICKEN_IDLE_FRAMES[chickenIdleFrameIndex]
+                }
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  width: CHICKEN_DISPLAY_W,
+                  height: CHICKEN_DISPLAY_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
 
             <View
               pointerEvents="none"
@@ -478,6 +750,19 @@ export function GamePreview() {
             })}
 
             <Image
+              source={WALKWAY}
+              style={{
+                position: "absolute",
+                left: WALKWAY_LEFT,
+                top: WALKWAY_TOP,
+                width: WALKWAY_DISPLAY_W,
+                height: WALKWAY_DISPLAY_H,
+                zIndex: 0,
+              }}
+              resizeMode="stretch"
+            />
+
+            <Image
               source={HOUSE_FLOOR}
               style={{
                 position: "absolute",
@@ -512,48 +797,76 @@ export function GamePreview() {
                 }}
                 resizeMode="stretch"
               />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: HOUSE_LEFT + HIMG_X,
+                top: HOUSE_TOP + HIMG_Y,
+                width: HIMG_W,
+                height: HIMG_H,
+                zIndex: 2,
+                elevation: Platform.OS === "android" ? 2 : 0,
+              }}
+            >
               <Image
                 source={HOUSE_IMAGE}
-                style={{
-                  position: "absolute",
-                  left: HIMG_X,
-                  top: HIMG_Y,
-                  width: HIMG_W,
-                  height: HIMG_H,
-                }}
+                style={{ width: "100%", height: "100%" }}
                 resizeMode="stretch"
               />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: HOUSE_LEFT + HDRAWER_X,
+                top: HOUSE_TOP + HDRAWER_Y,
+                width: HDRAWER_W,
+                height: HDRAWER_H,
+                zIndex: 2,
+                elevation: Platform.OS === "android" ? 2 : 0,
+              }}
+            >
               <Image
                 source={HOUSE_DRAWER}
-                style={{
-                  position: "absolute",
-                  left: HDRAWER_X,
-                  top: HDRAWER_Y,
-                  width: HDRAWER_W,
-                  height: HDRAWER_H,
-                }}
+                style={{ width: "100%", height: "100%" }}
                 resizeMode="stretch"
               />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: HOUSE_LEFT + HBED_X,
+                top: HOUSE_TOP + HBED_Y,
+                width: HBED_W,
+                height: HBED_H,
+                zIndex: 2,
+                elevation: Platform.OS === "android" ? 2 : 0,
+              }}
+            >
               <Image
                 source={HOUSE_BED}
-                style={{
-                  position: "absolute",
-                  left: HBED_X,
-                  top: HBED_Y,
-                  width: HBED_W,
-                  height: HBED_H,
-                }}
+                style={{ width: "100%", height: "100%" }}
                 resizeMode="stretch"
               />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: HOUSE_LEFT + HDESK_X,
+                top: HOUSE_TOP + HDESK_Y,
+                width: HDESK_W,
+                height: HDESK_H,
+                zIndex: 2,
+                elevation: Platform.OS === "android" ? 2 : 0,
+              }}
+            >
               <Image
                 source={HOUSE_DESK}
-                style={{
-                  position: "absolute",
-                  left: HDESK_X,
-                  top: HDESK_Y,
-                  width: HDESK_W,
-                  height: HDESK_H,
-                }}
+                style={{ width: "100%", height: "100%" }}
                 resizeMode="stretch"
               />
             </View>
@@ -592,6 +905,55 @@ export function GamePreview() {
               }}
               resizeMode="stretch"
             />
+
+            <Image
+              source={BUSH_2}
+              style={{
+                position: "absolute",
+                left: BUSH_2_LEFT,
+                top: BUSH_2_TOP,
+                width: BUSH_2_W,
+                height: BUSH_2_H,
+                zIndex: 2,
+              }}
+              resizeMode="contain"
+            />
+
+            <Image
+              source={ROCK}
+              style={{
+                position: "absolute",
+                left: ROCK_LEFT,
+                top: ROCK_TOP,
+                width: ROCK_W,
+                height: ROCK_H,
+                zIndex: 2,
+              }}
+              resizeMode="contain"
+            />
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: TALL_BUSH_LEFT,
+                top: TALL_BUSH_TOP,
+                width: TALL_BUSH_DISPLAY_W,
+                height: TALL_BUSH_DISPLAY_H,
+                zIndex: charBehindTallBush ? 26 : 2,
+                elevation:
+                  Platform.OS === "android" && charBehindTallBush ? 26 : 0,
+              }}
+            >
+              <Image
+                source={TALL_BUSH}
+                style={{
+                  width: TALL_BUSH_DISPLAY_W,
+                  height: TALL_BUSH_DISPLAY_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
 
             <Animated.View
               style={{
@@ -656,6 +1018,25 @@ export function GamePreview() {
                 />
               </View>
             </View>
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: HOUSE_FRONT_LEFT,
+                top: HOUSE_FRONT_TOP,
+                width: HOUSE_FRONT_W,
+                height: HOUSE_FRONT_H,
+                zIndex: 26,
+                elevation: Platform.OS === "android" ? 26 : 0,
+              }}
+            >
+              <Image
+                source={HOUSE_FRONT}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="stretch"
+              />
+            </View>
           </View>
         )}
 
@@ -668,7 +1049,7 @@ export function GamePreview() {
             <TouchableOpacity
               style={styles.overlayButton}
               activeOpacity={0.8}
-              onPress={() => router.push("/(tabs)/game")}
+              onPress={() => router.navigate("/(tabs)/game")}
             >
               <Animated.View
                 style={{ transform: [{ translateX: arrowNudge }] }}

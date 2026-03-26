@@ -20,6 +20,9 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+            <Stack.Screen name="breathe" options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="add-custom-habit" options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="habit-settings/[habitId]" options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <StatusBar style="auto" />

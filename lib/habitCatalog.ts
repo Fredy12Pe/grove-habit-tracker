@@ -94,6 +94,9 @@ export const HABIT_SECTIONS: CatalogSection[] = [
 
 export const HABIT_CATALOG = HABIT_SECTIONS.flatMap((s) => s.habits);
 
+/** Slugs that exist in the habit picker catalog (excludes `habit_*` custom ids). */
+export const CATALOG_ID_SET = new Set(HABIT_CATALOG.map((c) => c.id));
+
 export const CATALOG_ICON_MAP: Record<string, number> = Object.fromEntries(
   HABIT_CATALOG.map((h) => [h.id, h.icon])
 );

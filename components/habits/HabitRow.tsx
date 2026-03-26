@@ -4,6 +4,7 @@ import { GroveBorderRadius, GroveColors } from "@/styles/theme";
 import React, { useState, type ReactNode } from "react";
 import {
   Image,
+  Platform,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -23,8 +24,10 @@ export interface HabitData {
 interface HabitRowProps {
   habit: HabitData;
   onToggle: (id: string) => void;
-  /** When provided, tapping the chevron opens this habit's action (e.g. in All habits tab). */
+  /** When provided, tapping the chevron opens this habit's action. */
   onOpenAction?: (habitId: string) => void;
+  /** When provided and row is expanded, shows a settings button. */
+  onPressSettings?: (habitId: string) => void;
   /** When provided, row expand shows this content instead of default message. Use with expanded + onExpandToggle for controlled mode. */
   expandedContent?: ReactNode;
   /** Controlled expanded state (use with onExpandToggle). */
@@ -33,7 +36,7 @@ interface HabitRowProps {
   onExpandToggle?: () => void;
 }
 
-export function HabitRow({ habit, onToggle, onOpenAction, expandedContent, expanded: expandedProp, onExpandToggle }: HabitRowProps) {
+export function HabitRow({ habit, onToggle, onOpenAction, onPressSettings, expandedContent, expanded: expandedProp, onExpandToggle }: HabitRowProps) {
   const [internalExpanded, setInternalExpanded] = useState(false);
 
   const isControlled = expandedProp !== undefined && onExpandToggle !== undefined;
@@ -117,6 +120,24 @@ export function HabitRow({ habit, onToggle, onOpenAction, expandedContent, expan
 
       {expanded && (
         <View style={styles.expandedArea}>
+          {onPressSettings ? (
+            <View style={styles.expandedHeaderRow}>
+              <View style={styles.expandedHeaderSpacer} />
+              <TouchableOpacity
+                onPress={() => onPressSettings(habit.id)}
+                style={styles.settingsBtn}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <IconSymbol
+                  name="ellipsis"
+                  size={18}
+                  color={GroveColors.secondaryText}
+                  style={Platform.OS === "ios" ? { transform: [{ rotate: "90deg" }] } : undefined}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {expandedContent ?? (
             <AppText variant="small" style={styles.expandedText}>
               Keep going! Complete this habit to grow your garden.
@@ -187,6 +208,23 @@ const styles = StyleSheet.create({
   expandedArea: {
     paddingHorizontal: 16,
     paddingBottom: 14,
+  },
+  expandedHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingTop: 6,
+    paddingBottom: 8,
+  },
+  expandedHeaderSpacer: {
+    flex: 1,
+  },
+  settingsBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   expandedText: {
     color: GroveColors.secondaryText,

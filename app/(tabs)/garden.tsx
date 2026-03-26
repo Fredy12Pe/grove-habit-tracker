@@ -11,7 +11,6 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -49,13 +48,6 @@ export default function GardenScreen() {
                 12 day Streak
               </AppText>
             </View>
-            <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-              <IconSymbol
-                name="bell.fill"
-                size={18}
-                color={GroveColors.secondaryText}
-              />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -79,7 +71,7 @@ export default function GardenScreen() {
 
         {/* Sprout Support */}
         <View style={styles.section}>
-          <SproutSupportCard onPress={() => {}} />
+          <SproutSupportCard onPress={() => router.push("/breathe")} />
         </View>
 
         <View style={styles.bottomSpacer} />
