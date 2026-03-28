@@ -1,75 +1,78 @@
+import { BreathingRivePlayer } from "@/components/breathe/BreathingRivePlayer";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
+import { GroveColors, GroveSpacing } from "@/styles/theme";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
-  Image,
-  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  TextInput,
+  Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import BreathingPerimeterCard from "../components/breathe/BreathingPerimeterCard";
 
-type Phase = "inhale" | "hold" | "exhale";
+type Phase = "inhale" | "holdAfterInhale" | "exhale" | "holdAfterExhale";
+
+/** Breathe route chrome (setup safe area + active session). */
+const BREATHE_SCREEN_BG = "#F3FBDE";
 
 const PRESETS_MIN = [1, 2, 3, 5] as const;
-const PATTERN = { inhale: 4, hold: 4, exhale: 4 } as const;
+const PATTERN = {
+  inhale: 4,
+  holdAfterInhale: 4,
+  exhale: 4,
+  holdAfterExhale: 4,
+} as const;
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const h = hex.replace("#", "").trim();
-  const v =
-    h.length === 3
-      ? h
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : h;
-  const n = parseInt(v, 16);
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+const BOX_CYCLE_SECONDS =
+  PATTERN.inhale +
+  PATTERN.holdAfterInhale +
+  PATTERN.exhale +
+  PATTERN.holdAfterExhale;
+
+const PHASE_SEGMENTS: { phase: Phase; duration: number }[] = [
+  { phase: "inhale", duration: PATTERN.inhale },
+  { phase: "holdAfterInhale", duration: PATTERN.holdAfterInhale },
+  { phase: "exhale", duration: PATTERN.exhale },
+  { phase: "holdAfterExhale", duration: PATTERN.holdAfterExhale },
+];
+
+/** Position within one 4+4+4+4 box from session elapsed time (seconds). */
+function phaseFromElapsedInCycle(elapsedSec: number): {
+  phase: Phase;
+  phaseSecondsRemaining: number;
+} {
+  const p =
+    ((elapsedSec % BOX_CYCLE_SECONDS) + BOX_CYCLE_SECONDS) % BOX_CYCLE_SECONDS;
+  let acc = 0;
+  for (const { phase, duration } of PHASE_SEGMENTS) {
+    const end = acc + duration;
+    if (p < end) {
+      return {
+        phase,
+        phaseSecondsRemaining: Math.max(1, Math.ceil(end - p)),
+      };
+    }
+    acc = end;
+  }
+  return { phase: "inhale", phaseSecondsRemaining: PATTERN.inhale };
 }
 
-function rgbToHex(r: number, g: number, b: number): string {
-  const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
-  const to2 = (x: number) => clamp(x).toString(16).padStart(2, "0");
-  return `#${to2(r)}${to2(g)}${to2(b)}`;
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-function buildGradientStops(
-  fromHex: string,
-  toHex: string,
-  steps: number,
-): string[] {
-  const a = hexToRgb(fromHex);
-  const b = hexToRgb(toHex);
-  const n = Math.max(2, Math.floor(steps));
-  return Array.from({ length: n }).map((_, i) => {
-    const t = i / (n - 1);
-    return rgbToHex(lerp(a.r, b.r, t), lerp(a.g, b.g, t), lerp(a.b, b.b, t));
-  });
-}
-
-function GradientBackground() {
-  // Approximate a vertical gradient without external libraries.
-  const stops = useMemo(() => buildGradientStops("#A7DE33", "#BFE64A", 14), []);
-  return (
-    <View style={styles.gradientWrap} pointerEvents="none">
-      {stops.map((c, i) => (
-        <View
-          key={`${c}_${i}`}
-          style={[styles.gradientStop, { backgroundColor: c }]}
-        />
-      ))}
-    </View>
-  );
+/** One full lap of the perimeter stroke = one 16s box-breathing cycle (repeats). */
+function cycleProgressFromElapsed(elapsedSec: number): number {
+  const p =
+    ((elapsedSec % BOX_CYCLE_SECONDS) + BOX_CYCLE_SECONDS) % BOX_CYCLE_SECONDS;
+  return p / BOX_CYCLE_SECONDS;
 }
 
 function formatMmSs(totalSeconds: number): string {
@@ -79,14 +82,15 @@ function formatMmSs(totalSeconds: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
-function phaseLabel(phase: Phase): string {
+function phaseInstruction(phase: Phase): string {
   switch (phase) {
     case "inhale":
-      return "Inhale";
-    case "hold":
-      return "Hold";
+      return "breathe in";
+    case "holdAfterInhale":
+    case "holdAfterExhale":
+      return "hold";
     case "exhale":
-      return "Exhale";
+      return "breathe out";
   }
 }
 
@@ -94,92 +98,137 @@ export default function BreatheScreen() {
   const router = useRouter();
 
   const [selectedMinutes, setSelectedMinutes] = useState<number>(1);
-  const [customModalVisible, setCustomModalVisible] = useState(false);
-  const [customText, setCustomText] = useState("");
 
   const [mode, setMode] = useState<"setup" | "active">("setup");
   const [paused, setPaused] = useState(false);
+  /** False until native Rive state machine has started — keeps the counter aligned with motion. */
+  const [breathTimelineLive, setBreathTimelineLive] = useState(false);
 
   const [secondsRemaining, setSecondsRemaining] = useState<number>(60);
   const [phase, setPhase] = useState<Phase>("inhale");
-  const [phaseSecondsRemaining, setPhaseSecondsRemaining] = useState<number>(
-    PATTERN.inhale,
-  );
+  const [cycleProgress, setCycleProgress] = useState(0);
 
   const totalSeconds = useMemo(() => selectedMinutes * 60, [selectedMinutes]);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Wall-clock session timing (avoids setInterval drift vs Rive). */
+  const wallSessionStartRef = useRef(0);
+  const frozenElapsedMsRef = useRef(0);
+  const prevPausedRef = useRef(false);
+  const breathTimelinePrimedRef = useRef(false);
+  const lastCycleProgressRef = useRef(-1);
+  const lastPublishedRef = useRef<{
+    sec: number;
+    phase: Phase | null;
+  }>({ sec: -1, phase: null });
 
   const resetSession = () => {
     setSecondsRemaining(totalSeconds);
     setPhase("inhale");
-    setPhaseSecondsRemaining(PATTERN.inhale);
     setPaused(false);
   };
 
   const startSession = () => {
-    resetSession();
+    frozenElapsedMsRef.current = 0;
+    prevPausedRef.current = false;
+    breathTimelinePrimedRef.current = false;
+    setBreathTimelineLive(false);
+    lastPublishedRef.current = { sec: -1, phase: null };
+    setSecondsRemaining(totalSeconds);
+    setPhase("inhale");
+    lastCycleProgressRef.current = -1;
+    setCycleProgress(0);
+    setPaused(false);
     setMode("active");
   };
 
-  const endSession = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
+  const onBreathingRivePlaybackReady = useCallback(() => {
+    if (breathTimelinePrimedRef.current) return;
+    breathTimelinePrimedRef.current = true;
+    wallSessionStartRef.current = Date.now();
+    frozenElapsedMsRef.current = 0;
+    lastPublishedRef.current = { sec: -1, phase: null };
+    setBreathTimelineLive(true);
+  }, []);
+
+  const endSession = useCallback(() => {
     setMode("setup");
     setPaused(false);
-  };
+  }, []);
 
-  const exitSessionToPrevious = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    setPaused(false);
-    router.back();
-  };
-
-  const endSessionToSetup = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
+  const endSessionToSetup = useCallback(() => {
     setMode("setup");
     setPaused(false);
-  };
+  }, []);
 
+  // Leaving active mode: reset Rive sync + 16s perimeter progress (cycleProgress state only).
   useEffect(() => {
-    if (mode !== "active" || paused) return;
+    if (mode !== "active") {
+      setBreathTimelineLive(false);
+      breathTimelinePrimedRef.current = false;
+      lastCycleProgressRef.current = -1;
+      setCycleProgress(0);
+    }
+  }, [mode]);
 
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setSecondsRemaining((s) => s - 1);
-      setPhaseSecondsRemaining((s) => s - 1);
-    }, 1000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    };
-  }, [mode, paused]);
-
+  // Freeze / unfreeze wall-clock offset on pause transitions.
   useEffect(() => {
-    if (mode !== "active") return;
-
-    if (secondsRemaining <= 0) {
-      endSessionToSetup();
+    if (mode !== "active") {
+      prevPausedRef.current = paused;
       return;
     }
+    const wasPaused = prevPausedRef.current;
+    prevPausedRef.current = paused;
 
-    if (phaseSecondsRemaining > 0) return;
+    if (!breathTimelineLive) return;
 
-    // advance phase
-    if (phase === "inhale") {
-      setPhase("hold");
-      setPhaseSecondsRemaining(PATTERN.hold);
-    } else if (phase === "hold") {
-      setPhase("exhale");
-      setPhaseSecondsRemaining(PATTERN.exhale);
-    } else {
-      setPhase("inhale");
-      setPhaseSecondsRemaining(PATTERN.inhale);
+    if (!wasPaused && paused) {
+      frozenElapsedMsRef.current += Date.now() - wallSessionStartRef.current;
+    } else if (wasPaused && !paused) {
+      wallSessionStartRef.current = Date.now();
     }
-  }, [endSession, mode, phase, phaseSecondsRemaining, secondsRemaining]);
+  }, [paused, mode, breathTimelineLive]);
+
+  // Drive countdown + phases from elapsed ms (rAF), not 1 Hz interval.
+  useEffect(() => {
+    if (mode !== "active" || paused || !breathTimelineLive) return;
+
+    let rafId: number;
+
+    const tick = () => {
+      const elapsedMs =
+        frozenElapsedMsRef.current + (Date.now() - wallSessionStartRef.current);
+      const elapsedSec = elapsedMs / 1000;
+
+      if (elapsedSec >= totalSeconds) {
+        endSessionToSetup();
+        return;
+      }
+
+      const sessionRem = Math.max(0, Math.ceil(totalSeconds - elapsedSec));
+      const { phase: ph } = phaseFromElapsedInCycle(elapsedSec);
+
+      const last = lastPublishedRef.current;
+      if (sessionRem !== last.sec) {
+        last.sec = sessionRem;
+        setSecondsRemaining(sessionRem);
+      }
+      if (ph !== last.phase) {
+        last.phase = ph;
+        setPhase(ph);
+      }
+
+      const cp = cycleProgressFromElapsed(elapsedSec);
+      if (Math.abs(cp - lastCycleProgressRef.current) > 0.002) {
+        lastCycleProgressRef.current = cp;
+        setCycleProgress(cp);
+      }
+
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [mode, paused, breathTimelineLive, totalSeconds, endSessionToSetup]);
 
   useEffect(() => {
     // keep remaining consistent when changing preset in setup mode
@@ -187,293 +236,213 @@ export default function BreatheScreen() {
     setSecondsRemaining(totalSeconds);
   }, [mode, totalSeconds]);
 
-  const sproutImage = useMemo(() => require("@/assets/garden/Sprout.png"), []);
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <GradientBackground />
-      <View style={styles.gradientWash} pointerEvents="none" />
-      {mode === "setup" ? (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => router.back()}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.headerCenter}>
-              <View style={styles.titleRow}>
-                <IconSymbol
-                  name="leaf.fill"
-                  size={18}
-                  color={GroveColors.primaryGreen}
-                />
-                <AppText variant="h1" style={styles.title}>
-                  Breathe with Sprout
-                </AppText>
-              </View>
-              <AppText variant="paragraphRegular" style={styles.subtitle}>
-                Take a quiet moment to slow down and reset.
-              </AppText>
-            </View>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          <View style={styles.characterSection}>
-            <View style={styles.glow} />
-            <Image
-              source={sproutImage}
-              style={styles.sprout}
-              resizeMode="contain"
-            />
-          </View>
-
-          <View style={styles.section}>
-            <AppText variant="paragraph" style={styles.sectionLabel}>
-              Choose your session
-            </AppText>
-            <View style={styles.pillRow}>
-              {PRESETS_MIN.map((m) => {
-                const selected = selectedMinutes === m;
-                return (
-                  <Pressable
-                    key={m}
-                    onPress={() => setSelectedMinutes(m)}
-                    style={({ pressed }) => [
-                      styles.pill,
-                      selected && styles.pillSelected,
-                      pressed && !selected && styles.pillPressed,
-                    ]}
-                  >
-                    <AppText
-                      variant="paragraph"
-                      style={[
-                        styles.pillText,
-                        selected && styles.pillTextSelected,
-                      ]}
-                    >
-                      {m} min
-                    </AppText>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Pressable
-              onPress={() => setCustomModalVisible(true)}
-              style={({ pressed }) => [
-                styles.customBtn,
-                pressed && styles.customBtnPressed,
-              ]}
-            >
-              <AppText variant="paragraph" style={styles.customBtnText}>
-                Custom
-              </AppText>
-            </Pressable>
-          </View>
-
-          <View style={styles.patternCard}>
-            <AppText variant="paragraph" style={styles.patternTitle}>
-              Breathing pattern
-            </AppText>
-            <AppText variant="h1" style={styles.patternMain}>
-              4 • 4 • 4
-            </AppText>
-            <AppText variant="paragraphRegular" style={styles.patternSub}>
-              Inhale • Hold • Exhale
-            </AppText>
-          </View>
-
-          <View style={styles.footer}>
-            <Pressable
-              onPress={startSession}
-              style={({ pressed }) => [
-                styles.primaryBtnFull,
-                pressed && styles.primaryBtnPressed,
-              ]}
-            >
-              <AppText variant="paragraph" style={styles.primaryBtnText}>
-                Start Breathing
-              </AppText>
-            </Pressable>
-          </View>
-        </ScrollView>
-      ) : (
-        <View style={styles.activeWrap}>
-          <View style={styles.headerActive}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={exitSessionToPrevious}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <AppText variant="h2" style={styles.activeTitle}>
-              Breathe with Sprout
-            </AppText>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          <View style={styles.activeCenter}>
-            <View style={styles.activeGlow} />
-            <Image
-              source={sproutImage}
-              style={styles.sproutActive}
-              resizeMode="contain"
-            />
-
-            <View style={styles.phaseCard}>
-              <AppText variant="paragraph" style={styles.phaseLabel}>
-                {phaseLabel(phase)}
-              </AppText>
-              <AppText variant="h1" style={styles.phaseCount}>
-                {Math.max(0, phaseSecondsRemaining)}
-              </AppText>
-              <AppText variant="paragraphRegular" style={styles.remaining}>
-                {formatMmSs(secondsRemaining)} remaining
-              </AppText>
-            </View>
-          </View>
-
-          <View style={styles.activeFooter}>
-            {!paused ? (
-              <Pressable
-                onPress={() => setPaused(true)}
-                style={({ pressed }) => [
-                  styles.primaryBtnSmall,
-                  pressed && styles.primaryBtnPressed,
-                ]}
-              >
-                <AppText variant="paragraph" style={styles.primaryBtnText}>
-                  Pause
-                </AppText>
-              </Pressable>
-            ) : (
-              <>
-                <Pressable
-                  onPress={() => setPaused(false)}
-                  style={({ pressed }) => [
-                    styles.secondaryBtn,
-                    pressed && styles.secondaryBtnPressed,
-                  ]}
+    <SafeAreaView
+      style={[styles.safe, mode === "active" && styles.safeActiveSession]}
+    >
+      <View style={styles.screenRoot}>
+        <BreathingRivePlayer
+          style={styles.activeRiveBackground}
+          isActive={mode === "active"}
+          paused={paused}
+          phase={phase}
+          onPlaybackReady={onBreathingRivePlaybackReady}
+        />
+        {mode === "setup" ? (
+          <View style={styles.setupLayout}>
+            <View style={styles.setupHeaderWrap}>
+              <View style={styles.header}>
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  onPress={() => router.back()}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <AppText variant="paragraph" style={styles.secondaryBtnText}>
-                    Continue
+                  <IconSymbol
+                    name="chevron.left"
+                    size={20}
+                    color={GroveColors.primaryText}
+                  />
+                </TouchableOpacity>
+                <View style={styles.headerCenter}>
+                  <AppText variant="h1" style={styles.title}>
+                    Breathe with Sprout
                   </AppText>
-                </Pressable>
+                  <AppText variant="paragraphRegular" style={styles.subtitle}>
+                    Take a quiet moment to slow down and reset.
+                  </AppText>
+                </View>
+                <View style={styles.headerSpacer} />
+              </View>
 
+              <View style={styles.setupPatternSection}>
+                <View style={styles.patternCard}>
+                  <Text style={styles.patternNumbers}>4 · 4 · 4 · 4</Text>
+                  <Text style={styles.patternLabels}>
+                    Inhale · Hold · Exhale · Hold
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <ScrollView
+              style={styles.scrollSetupFlex}
+              contentContainerStyle={styles.contentSetupBottom}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.setupBottomGroup}>
+                <View style={styles.pillRow}>
+                  {PRESETS_MIN.map((m) => {
+                    const selected = selectedMinutes === m;
+                    return (
+                      <Pressable
+                        key={m}
+                        onPress={() => setSelectedMinutes(m)}
+                        style={({ pressed }) => [
+                          styles.pill,
+                          selected && styles.pillSelected,
+                          pressed && !selected && styles.pillPressed,
+                        ]}
+                      >
+                        <AppText
+                          variant="paragraph"
+                          style={[
+                            styles.pillText,
+                            selected && styles.pillTextSelected,
+                          ]}
+                        >
+                          {m} min
+                        </AppText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
                 <Pressable
-                  onPress={endSessionToSetup}
+                  onPress={startSession}
                   style={({ pressed }) => [
-                    styles.primaryBtnFlex,
+                    styles.primaryBtnFull,
                     pressed && styles.primaryBtnPressed,
                   ]}
                 >
                   <AppText variant="paragraph" style={styles.primaryBtnText}>
-                    End
-                  </AppText>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-      )}
-
-      {customModalVisible ? (
-        <Modal visible transparent animationType="fade">
-          <View style={styles.modalWrap}>
-            <TouchableOpacity
-              style={styles.modalBackdrop}
-              activeOpacity={1}
-              onPress={() => setCustomModalVisible(false)}
-            />
-            <View style={styles.modalCard}>
-              <AppText variant="h2" style={styles.modalTitle}>
-                Custom duration
-              </AppText>
-              <AppText variant="paragraphRegular" style={styles.modalHint}>
-                Enter minutes (1–60)
-              </AppText>
-              <TextInput
-                style={styles.modalInput}
-                value={customText}
-                onChangeText={setCustomText}
-                keyboardType="number-pad"
-                placeholder="10"
-                placeholderTextColor={GroveColors.secondaryText}
-              />
-              <View style={styles.modalActions}>
-                <Pressable
-                  onPress={() => setCustomModalVisible(false)}
-                  style={({ pressed }) => [
-                    styles.modalBtn,
-                    pressed && styles.modalBtnPressed,
-                  ]}
-                >
-                  <AppText variant="paragraph" style={styles.modalBtnText}>
-                    Cancel
-                  </AppText>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    const n = parseInt(customText, 10);
-                    if (!isNaN(n)) {
-                      const clamped = Math.max(1, Math.min(60, n));
-                      setSelectedMinutes(clamped);
-                      setCustomText("");
-                    }
-                    setCustomModalVisible(false);
-                  }}
-                  style={({ pressed }) => [
-                    styles.modalBtnPrimary,
-                    pressed && styles.modalBtnPrimaryPressed,
-                  ]}
-                >
-                  <AppText
-                    variant="paragraph"
-                    style={styles.modalBtnPrimaryText}
-                  >
-                    Set
+                    Start
                   </AppText>
                 </Pressable>
               </View>
+            </ScrollView>
+          </View>
+        ) : (
+          <View style={styles.activeOverlay} pointerEvents="box-none">
+            <AppText variant="h1" style={styles.activeInstruction}>
+              {phaseInstruction(phase)}
+            </AppText>
+
+            <View style={styles.activeCardSection}>
+              <BreathingPerimeterCard
+                progress={cycleProgress}
+                timeLabel={formatMmSs(secondsRemaining)}
+              />
+            </View>
+
+            <View style={styles.activeFooter}>
+              {!paused ? (
+                <Pressable
+                  onPress={() => setPaused(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pause"
+                  style={({ pressed }) => [
+                    styles.pauseCircleBtn,
+                    pressed && styles.pauseCircleBtnPressed,
+                  ]}
+                >
+                  <IconSymbol
+                    name="pause.fill"
+                    size={30}
+                    color={GroveColors.primaryGreen}
+                  />
+                </Pressable>
+              ) : (
+                <View style={styles.pausedRow}>
+                  <Pressable
+                    onPress={() => setPaused(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Continue"
+                    style={({ pressed }) => [
+                      styles.secondaryCircleBtn,
+                      pressed && styles.secondaryCircleBtnPressed,
+                    ]}
+                  >
+                    <IconSymbol
+                      name="play.fill"
+                      size={30}
+                      color={GroveColors.primaryGreen}
+                    />
+                  </Pressable>
+                  <Pressable
+                    onPress={endSessionToSetup}
+                    style={({ pressed }) => [
+                      styles.primaryCircleBtn,
+                      pressed && styles.primaryCircleBtnPressed,
+                    ]}
+                  >
+                    <AppText style={styles.primaryCircleBtnText}>End</AppText>
+                  </Pressable>
+                </View>
+              )}
             </View>
           </View>
-        </Modal>
-      ) : null}
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
+/** Phase label only; card margin cancels this so the square stays put. */
+const ACTIVE_PHASE_TEXT_TOP_OFFSET = 24;
+const ACTIVE_CARD_SECTION_MARGIN_TOP = -28 - ACTIVE_PHASE_TEXT_TOP_OFFSET;
+
+/** Duration pills — shared size with Start label styling where applicable. */
+const setupSessionControlText = {
+  fontSize: 13,
+  lineHeight: 18,
+  fontWeight: "600" as const,
+};
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#BFE64A",
+    backgroundColor: BREATHE_SCREEN_BG,
   },
-  gradientWrap: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: "column",
+  safeActiveSession: {
+    backgroundColor: BREATHE_SCREEN_BG,
   },
-  gradientStop: {
+  screenRoot: {
     flex: 1,
   },
-  gradientWash: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(246,245,242,0.42)",
+  setupLayout: {
+    flex: 1,
   },
-  scroll: { flex: 1 },
-  content: {
+  setupHeaderWrap: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
-    paddingTop: 12,
-    paddingBottom: 28,
+    paddingTop: 24,
+  },
+  setupPatternSection: {
+    marginTop: 18,
+    alignSelf: "stretch",
+  },
+  scrollSetupFlex: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+  contentSetupBottom: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    paddingHorizontal: GroveSpacing.screenPaddingHorizontal + 12,
+    paddingBottom: 80,
+  },
+  setupBottomGroup: {
+    width: "100%",
+    gap: 48,
   },
   header: {
     flexDirection: "row",
@@ -485,118 +454,79 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.28)",
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.35)",
+    borderColor: "rgba(0, 0, 0, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
   headerCenter: { flex: 1, alignItems: "center" },
   headerSpacer: { width: 36 },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 6,
-    marginBottom: 6,
-  },
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: GroveColors.primaryText,
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 6,
+    alignSelf: "stretch",
   },
   subtitle: {
     textAlign: "center",
-    color: "rgba(255,255,255,0.85)",
+    color: GroveColors.secondaryText,
     fontSize: 13,
     lineHeight: 18,
-  },
-  characterSection: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 18,
-    marginBottom: 8,
-  },
-  glow: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: "#FFFFFF",
-    opacity: 0.10,
-  },
-  sprout: {
-    width: 210,
-    height: 210,
-  },
-  section: { marginTop: 8, marginBottom: 16 },
-  sectionLabel: {
-    textAlign: "center",
-    marginBottom: 12,
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
   },
   pillRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 10,
-    marginBottom: 12,
   },
   pill: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.20)",
+    backgroundColor: GroveColors.white,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.35)",
+    borderColor: "rgba(0,0,0,0.06)",
     alignItems: "center",
   },
-  pillPressed: { opacity: 0.9 },
+  pillPressed: { opacity: 0.92 },
   pillSelected: {
-    backgroundColor: "rgba(255,255,255,0.85)",
-    borderColor: "rgba(255,255,255,0.9)",
+    backgroundColor: GroveColors.white,
+    borderColor: "rgba(167, 222, 51, 0.45)",
   },
   pillText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-    fontSize: 14,
+    ...setupSessionControlText,
+    color: GroveColors.secondaryText,
+    fontWeight: "500",
   },
-  pillTextSelected: { color: "#5B2B86" },
-  customBtn: {
-    width: "100%",
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
-    alignItems: "center",
+  pillTextSelected: {
+    color: GroveColors.primaryGreen,
+    fontWeight: "700",
   },
-  customBtnPressed: { opacity: 0.85 },
-  customBtnText: { color: "#FFFFFF", fontWeight: "600" },
   patternCard: {
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    backgroundColor: "transparent",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     alignItems: "center",
-    marginTop: 6,
   },
-  patternTitle: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  patternMain: {
-    fontSize: 32,
+  patternNumbers: {
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: "800",
-    color: "#FFFFFF",
-    lineHeight: 38,
+    color: GroveColors.primaryGreen,
+    textAlign: "center",
+    letterSpacing: 0.5,
     marginBottom: 6,
   },
-  patternSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
-  footer: { marginTop: 22 },
+  patternLabels: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "500",
+    color: GroveColors.primaryText,
+    textAlign: "center",
+  },
   primaryBtn: {
     backgroundColor: "#A3C434",
     borderRadius: 999,
@@ -610,15 +540,15 @@ const styles = StyleSheet.create({
   },
   primaryBtnFull: {
     width: "100%",
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: GroveColors.primaryGreen,
     borderRadius: 999,
-    paddingVertical: 18,
+    paddingVertical: 16,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
+    shadowColor: "#6B9E1A",
+    shadowOpacity: 0.22,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   primaryBtnFlex: {
     flex: 1,
@@ -646,127 +576,91 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primaryBtnPressed: { opacity: 0.9 },
-  primaryBtnText: { color: "#5B2B86", fontWeight: "800", fontSize: 16 },
+  primaryBtnText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "700",
+    color: GroveColors.white,
+  },
 
   // Active session
-  activeWrap: {
+  activeRiveBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  activeOverlay: {
     flex: 1,
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingTop: 44,
+    paddingBottom: 28,
   },
-  headerActive: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  activeInstruction: {
+    textAlign: "center",
+    alignSelf: "stretch",
+    fontSize: 36,
+    lineHeight: 44,
+    fontWeight: "800",
+    color: GroveColors.primaryGreen,
+    marginTop: ACTIVE_PHASE_TEXT_TOP_OFFSET,
     marginBottom: 8,
   },
-  activeTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  activeCenter: {
+  activeCardSection: {
     flex: 1,
-    alignItems: "center",
+    minHeight: 120,
     justifyContent: "center",
-    gap: 18,
-  },
-  activeGlow: {
-    position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: "#FFFFFF",
-    opacity: 0.09,
-  },
-  sproutActive: { width: 180, height: 180 },
-  phaseCard: {
-    width: "100%",
-    borderRadius: GroveBorderRadius.card,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.28)",
-    paddingVertical: 18,
     alignItems: "center",
+    marginTop: ACTIVE_CARD_SECTION_MARGIN_TOP,
+    marginBottom: 8,
   },
-  phaseLabel: { color: "rgba(255,255,255,0.9)", fontWeight: "700" },
-  phaseCount: {
-    fontSize: 44,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    lineHeight: 52,
-    marginTop: 4,
-  },
-  remaining: { marginTop: 6, color: "rgba(255,255,255,0.85)", fontSize: 13 },
   activeFooter: {
     flexDirection: "row",
-    gap: 12,
+    gap: 16,
     justifyContent: "center",
     alignItems: "center",
+    paddingBottom: 8,
   },
-  secondaryBtn: {
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.20)",
-    borderRadius: 999,
-    paddingVertical: 18,
+  pauseCircleBtn: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: GroveColors.white,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  secondaryBtnPressed: { opacity: 0.9 },
-  secondaryBtnText: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
-
-  // Custom modal
-  modalWrap: { flex: 1, justifyContent: "center", paddingHorizontal: 20 },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(20,0,40,0.35)",
+  pauseCircleBtnPressed: { opacity: 0.92 },
+  pausedRow: {
+    flexDirection: "row",
+    gap: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  modalCard: {
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderRadius: 22,
-    padding: 18,
+  secondaryCircleBtn: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(91,43,134,0.18)",
+    borderColor: "rgba(0,0,0,0.06)",
   },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: "#5B2B86" },
-  modalHint: {
-    marginTop: 6,
-    marginBottom: 12,
-    fontSize: 13,
-    color: "rgba(91,43,134,0.85)",
-  },
-  modalInput: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(91,43,134,0.18)",
-    fontSize: 16,
-    color: "#5B2B86",
-    marginBottom: 14,
-  },
-  modalActions: { flexDirection: "row", gap: 10 },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 999,
-    backgroundColor: "rgba(91,43,134,0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(91,43,134,0.18)",
+  secondaryCircleBtnPressed: { opacity: 0.92 },
+  primaryCircleBtn: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: GroveColors.primaryGreen,
     alignItems: "center",
+    justifyContent: "center",
   },
-  modalBtnPressed: { opacity: 0.9 },
-  modalBtnText: { color: "#5B2B86", fontWeight: "800" },
-  modalBtnPrimary: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 999,
-    backgroundColor: "#5B2B86",
-    alignItems: "center",
+  primaryCircleBtnPressed: { opacity: 0.92 },
+  primaryCircleBtnText: {
+    color: GroveColors.white,
+    fontWeight: "800",
+    fontSize: 15,
   },
-  modalBtnPrimaryPressed: { opacity: 0.9 },
-  modalBtnPrimaryText: { color: "#FFFFFF", fontWeight: "700" },
 });

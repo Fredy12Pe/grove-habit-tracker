@@ -29,6 +29,8 @@ const MAPPING = {
   'person.fill': 'person',
   'gearshape': 'settings',
   'ellipsis': 'more-vert',
+  'pause.fill': 'pause',
+  'play.fill': 'play-arrow',
 } as IconMapping;
 
 /**
