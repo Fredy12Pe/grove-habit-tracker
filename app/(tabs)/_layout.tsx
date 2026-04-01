@@ -1,11 +1,24 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/auth-context';
 import { GroveColors } from '@/styles/theme';
 
 export default function TabLayout() {
+  const { initialized, session, needsOnboarding } = useAuth();
+
+  if (!initialized) {
+    return null;
+  }
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+  if (needsOnboarding) {
+    return <Redirect href="/onboarding" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -12,8 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { AppText } from "@/components/ui/AppText";
+import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { HABIT_CATALOG, getHabitActionType } from "@/lib/habitCatalog";
 import { useHabitStore } from "@/lib/store";
@@ -47,13 +49,14 @@ function inferTrackingFromCatalogId(habitId: string): HabitCustomTracking {
   }
 }
 
-export default function HabitSettingsScreen() {
+function HabitSettingsScreenContent() {
   const router = useRouter();
   const { habitId } = useLocalSearchParams<{ habitId: string }>();
   const id = habitId ?? "";
 
   const habit = useHabitStore((s) => s.habits.find((h) => h.id === id));
   const updateHabit = useHabitStore((s) => s.updateHabit);
+  const removeHabit = useHabitStore((s) => s.removeHabit);
 
   const initialIconId = useMemo(() => {
     if (!habit) return HABIT_CATALOG[0]?.id ?? "pray";
@@ -84,6 +87,25 @@ export default function HabitSettingsScreen() {
     });
     router.back();
   }, [habit, iconId, name, router, tracking, updateHabit]);
+
+  const handleDelete = useCallback(() => {
+    if (!habit) return;
+    Alert.alert(
+      "Remove habit?",
+      "This will remove the habit from your current list. You can add it back anytime.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            removeHabit(habit.id);
+            router.replace("/(tabs)/habits");
+          },
+        },
+      ],
+    );
+  }, [habit, removeHabit, router]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -179,6 +201,20 @@ export default function HabitSettingsScreen() {
                   color={GroveColors.secondaryText}
                 />
               </TouchableOpacity>
+
+              <View style={styles.dangerZone}>
+                <Pressable
+                  onPress={handleDelete}
+                  style={({ pressed }) => [
+                    styles.deleteBtn,
+                    pressed && styles.deleteBtnPressed,
+                  ]}
+                >
+                  <AppText variant="paragraph" style={styles.deleteBtnText}>
+                    Delete habit
+                  </AppText>
+                </Pressable>
+              </View>
             </ScrollView>
 
             <View style={styles.footer}>
@@ -253,6 +289,20 @@ export default function HabitSettingsScreen() {
   );
 }
 
+export default function HabitSettingsScreen() {
+  const { initialized, session, needsOnboarding } = useAuth();
+  if (!initialized) {
+    return null;
+  }
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+  if (needsOnboarding) {
+    return <Redirect href="/onboarding" />;
+  }
+  return <HabitSettingsScreenContent />;
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: GroveColors.background },
   flex: { flex: 1 },
@@ -321,6 +371,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   trackingRowText: { fontWeight: "500", color: GroveColors.primaryText },
+  dangerZone: {
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  deleteBtn: {
+    backgroundColor: GroveColors.white,
+    borderRadius: GroveBorderRadius.card,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(179, 38, 30, 0.35)",
+  },
+  deleteBtnPressed: {
+    opacity: 0.85,
+  },
+  deleteBtnText: {
+    color: "#B3261E",
+    fontWeight: "600",
+    textAlign: "center",
+  },
   footer: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
     paddingTop: 12,

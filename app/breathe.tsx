@@ -1,8 +1,9 @@
 import { BreathingRivePlayer } from "@/components/breathe/BreathingRivePlayer";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useAuth } from "@/contexts/auth-context";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -94,7 +95,7 @@ function phaseInstruction(phase: Phase): string {
   }
 }
 
-export default function BreatheScreen() {
+function BreatheScreenContent() {
   const router = useRouter();
 
   const [selectedMinutes, setSelectedMinutes] = useState<number>(1);
@@ -395,6 +396,20 @@ export default function BreatheScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+export default function BreatheScreen() {
+  const { initialized, session, needsOnboarding } = useAuth();
+  if (!initialized) {
+    return null;
+  }
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+  if (needsOnboarding) {
+    return <Redirect href="/onboarding" />;
+  }
+  return <BreatheScreenContent />;
 }
 
 /** Phase label only; card margin cancels this so the square stays put. */

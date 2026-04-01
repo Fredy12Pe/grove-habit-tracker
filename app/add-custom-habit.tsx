@@ -12,8 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { AppText } from "@/components/ui/AppText";
+import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
 import { HABIT_CATALOG } from "@/lib/habitCatalog";
@@ -22,6 +23,7 @@ import type {
   HabitCustomCategory,
   HabitCustomTracking,
 } from "@/lib/types/habit";
+import { Alert } from "react-native";
 
 const CATEGORIES: HabitCustomCategory[] = ["Faith", "Fitness", "Well Being"];
 
@@ -39,9 +41,10 @@ function trackingLabel(t: HabitCustomTracking): string {
   return TRACKING_OPTIONS.find((o) => o.value === t)?.label ?? t;
 }
 
-export default function AddCustomHabitScreen() {
+function AddCustomHabitScreenContent() {
   const router = useRouter();
   const addHabit = useHabitStore((s) => s.addHabit);
+  const habitCount = useHabitStore((s) => s.habits.length);
 
   const [name, setName] = useState("");
   const [customIconId, setCustomIconId] = useState(HABIT_CATALOG[0]?.id ?? "pray");
@@ -49,11 +52,21 @@ export default function AddCustomHabitScreen() {
   const [tracking, setTracking] = useState<HabitCustomTracking>("toggle");
   const [trackingPickerVisible, setTrackingPickerVisible] = useState(false);
 
-  const canSave = name.trim().length > 0;
+  const MAX_ACTIVE_HABITS = 8;
+  const atLimit = habitCount >= MAX_ACTIVE_HABITS;
+  const canSave = name.trim().length > 0 && !atLimit;
 
   const handleSave = useCallback(() => {
     const n = name.trim();
     if (!n) return;
+    if (atLimit) {
+      Alert.alert(
+        "Limit reached",
+        `You can only have ${MAX_ACTIVE_HABITS} habits. Remove one first, then try again.`,
+        [{ text: "OK" }],
+      );
+      return;
+    }
     addHabit({
       name: n,
       frequency: "daily",
@@ -65,7 +78,15 @@ export default function AddCustomHabitScreen() {
       customCategory: category,
     });
     router.back();
-  }, [addHabit, category, customIconId, name, router, tracking]);
+  }, [
+    addHabit,
+    atLimit,
+    category,
+    customIconId,
+    name,
+    router,
+    tracking,
+  ]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -94,6 +115,12 @@ export default function AddCustomHabitScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+            {atLimit ? (
+              <AppText variant="small" style={styles.limitWarning}>
+                You already have {MAX_ACTIVE_HABITS} habits. Remove one to add a
+                custom habit.
+              </AppText>
+            ) : null}
           <AppText variant="small" style={styles.fieldLabel}>
             Category
           </AppText>
@@ -233,6 +260,20 @@ export default function AddCustomHabitScreen() {
   );
 }
 
+export default function AddCustomHabitScreen() {
+  const { initialized, session, needsOnboarding } = useAuth();
+  if (!initialized) {
+    return null;
+  }
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+  if (needsOnboarding) {
+    return <Redirect href="/onboarding/choose-habits" />;
+  }
+  return <AddCustomHabitScreenContent />;
+}
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
@@ -274,6 +315,11 @@ const styles = StyleSheet.create({
     color: GroveColors.secondaryText,
     marginBottom: 8,
     marginTop: 4,
+  },
+  limitWarning: {
+    color: "#B3261E",
+    marginBottom: 14,
+    lineHeight: 18,
   },
   categoryRow: {
     flexDirection: "row",

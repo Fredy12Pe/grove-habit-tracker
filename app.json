@@ -4,18 +4,22 @@
     "slug": "grove",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/AppIcon.appiconset/icon-ios-1024x1024.png",
     "scheme": "grove",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.grove.app",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Grove needs access to your local network to connect to the Metro development server.",
+        "NSPhotoLibraryUsageDescription": "Grove uses your photo library so you can set a profile picture."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "foregroundImage": "./assets/AppIcon.appiconset/icon-ios-1024x1024.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -24,10 +28,16 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/AppIcon.appiconset/icon-mac-128x128.png"
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Grove uses your photo library so you can set a profile picture."
+        }
+      ],
       [
         "expo-splash-screen",
         {

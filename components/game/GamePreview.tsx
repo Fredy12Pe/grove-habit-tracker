@@ -78,7 +78,12 @@ function getWeekCompletionCount(
   return dates.filter((d) => d >= start && d <= end).length;
 }
 
-export function GamePreview() {
+export function GamePreview({
+  showOverlay = true,
+}: {
+  /** When false, hides the CTA overlay (useful for onboarding). */
+  showOverlay?: boolean;
+}) {
   const router = useRouter();
   const { height: windowHeight } = useWindowDimensions();
   const habits = useHabitStore((s) => s.habits);
@@ -1040,25 +1045,31 @@ export function GamePreview() {
           </View>
         )}
 
-        <View style={styles.overlay} pointerEvents="box-none">
-          <View style={styles.overlayFill} />
-          <View style={styles.overlayContent}>
-            <AppText variant="h1" style={styles.overlayText}>
-              See Your Garden Grow
-            </AppText>
-            <TouchableOpacity
-              style={styles.overlayButton}
-              activeOpacity={0.8}
-              onPress={() => router.navigate("/(tabs)/game")}
-            >
-              <Animated.View
-                style={{ transform: [{ translateX: arrowNudge }] }}
+        {showOverlay ? (
+          <View style={styles.overlay} pointerEvents="box-none">
+            <View style={styles.overlayFill} />
+            <View style={styles.overlayContent}>
+              <AppText variant="h1" style={styles.overlayText}>
+                See Your Garden Grow
+              </AppText>
+              <TouchableOpacity
+                style={styles.overlayButton}
+                activeOpacity={0.8}
+                onPress={() => router.navigate("/(tabs)/game")}
               >
-                <MaterialIcons name="arrow-forward" size={18} color="#5D6D00" />
-              </Animated.View>
-            </TouchableOpacity>
+                <Animated.View
+                  style={{ transform: [{ translateX: arrowNudge }] }}
+                >
+                  <MaterialIcons
+                    name="arrow-forward"
+                    size={18}
+                    color="#5D6D00"
+                  />
+                </Animated.View>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        ) : null}
       </View>
     </View>
   );

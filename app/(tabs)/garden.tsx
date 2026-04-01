@@ -3,10 +3,15 @@ import { GamePreview } from "@/components/game/GamePreview";
 import { AppText } from "@/components/ui/AppText";
 import { Card } from "@/components/ui/Card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useResolvedAvatarUri } from "@/hooks/useResolvedAvatarUri";
+import { useAuth } from "@/contexts/auth-context";
 import { useHabitStore } from "@/lib/store";
+import { getBestStreak } from "@/lib/stats";
+import { getDisplayName } from "@/lib/user-display";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -14,9 +19,24 @@ import {
   View,
 } from "react-native";
 
+function streakLabel(days: number): string {
+  if (days === 1) return "1 day Streak";
+  return `${days} days Streak`;
+}
+
 export default function GardenScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const displayName = getDisplayName(user);
+  const resolvedAvatarUri = useResolvedAvatarUri(user);
+
   const storeHabits = useHabitStore((s) => s.habits);
+  const completionDates = useHabitStore((s) => s.completionDates);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const bestStreak = useMemo(
+    () => getBestStreak(completionDates, storeHabits, today),
+    [completionDates, storeHabits, today]
+  );
 
   const habits = storeHabits.map((h) => ({
     id: h.id,
@@ -36,16 +56,33 @@ export default function GardenScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.profileRow}>
-            <View style={styles.avatarPlaceholder} />
+            <View style={styles.avatarWrap}>
+              {resolvedAvatarUri ? (
+                <Image
+                  source={{ uri: resolvedAvatarUri }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <IconSymbol
+                    name="leaf.fill"
+                    size={22}
+                    color={GroveColors.primaryGreen}
+                  />
+                </View>
+              )}
+            </View>
             <AppText variant="h1" style={styles.userName}>
-              Daniel
+              {displayName}
             </AppText>
           </View>
           <View style={styles.headerRight}>
             <View style={styles.streakPill}>
               <IconSymbol name="flame.fill" size={14} color="#FF8C00" />
               <AppText variant="small" style={styles.streakText}>
-                12 day Streak
+                {streakLabel(bestStreak)}
               </AppText>
             </View>
           </View>
@@ -103,13 +140,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
   },
-  avatarPlaceholder: {
+  avatarWrap: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: GroveColors.inactive,
+    overflow: "hidden",
+    backgroundColor: GroveColors.cardBackground,
     borderWidth: 1,
     borderColor: "rgba(124, 123, 103, 0.12)",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   userName: {
     fontWeight: "700",

@@ -1,27 +1,19 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { useAuth } from "@/contexts/auth-context";
+import { Redirect } from "expo-router";
+import React from "react";
 
-export default function OnboardingScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Welcome to Grove</ThemedText>
-      <ThemedText style={styles.subtitle}>
-        Grow your garden by building habits. Complete daily habits to see your plants bloom.
-      </ThemedText>
-    </ThemedView>
-  );
+export default function OnboardingIndex() {
+  const { initialized, session, needsOnboarding } = useAuth();
+
+  if (!initialized) return null;
+
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  if (!needsOnboarding) {
+    return <Redirect href="/(tabs)/garden" />;
+  }
+
+  return <Redirect href="/onboarding/choose-habits" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  subtitle: {
-    marginTop: 16,
-    opacity: 0.9,
-  },
-});

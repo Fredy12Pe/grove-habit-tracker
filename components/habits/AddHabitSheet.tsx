@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppText } from '@/components/ui/AppText';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -17,6 +18,7 @@ import { CATALOG_ID_SET, HABIT_SECTIONS } from '@/lib/habitCatalog';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
+const MAX_ACTIVE_HABITS = 8;
 
 interface AddHabitSheetProps {
   activeHabitIds: string[];
@@ -30,6 +32,8 @@ interface AddHabitSheetProps {
  */
 export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitSheetProps) {
   const router = useRouter();
+  const customCount = activeHabitIds.filter((id) => !CATALOG_ID_SET.has(id)).length;
+  const maxCatalogSelectable = Math.max(0, MAX_ACTIVE_HABITS - customCount);
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(activeHabitIds.filter((id) => CATALOG_ID_SET.has(id))),
   );
@@ -43,7 +47,17 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else {
+        if (next.size >= maxCatalogSelectable) {
+          Alert.alert(
+            'Limit reached',
+            `You can only have ${MAX_ACTIVE_HABITS} habits. To add a new one, remove an existing habit first.`,
+            [{ text: 'OK' }],
+          );
+          return next;
+        }
+        next.add(id);
+      }
       return next;
     });
   };
@@ -69,6 +83,9 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
           <View style={styles.titleRow}>
             <AppText variant="h2" style={styles.title}>
               Add Habits
+            </AppText>
+            <AppText variant="small" style={styles.counter}>
+              {Math.min(MAX_ACTIVE_HABITS, customCount + selected.size)}/{MAX_ACTIVE_HABITS}
             </AppText>
             <View style={styles.titleActions}>
               <Pressable
@@ -193,6 +210,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: GroveColors.primaryText,
+  },
+  counter: {
+    color: GroveColors.secondaryText,
+    marginRight: 6,
   },
   titleActions: {
     flexDirection: 'row',
