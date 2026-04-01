@@ -2,7 +2,7 @@
  * Shared helpers for growth/stats used by Profile and Progress.
  */
 
-const dateStr = (d: Date) => d.toISOString().slice(0, 10);
+import { calendarDateKey, parseDateKeyLocal } from '@/lib/calendarDate';
 
 /** All dates (YYYY-MM-DD) where the user completed at least one habit. */
 export function getActiveDates(
@@ -31,9 +31,9 @@ export function getBestStreak(
   let best = 1;
   let current = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1]).getTime();
-    const curr = new Date(sorted[i]).getTime();
-    const diffDays = (curr - prev) / (24 * 60 * 60 * 1000);
+    const prev = parseDateKeyLocal(sorted[i - 1]).getTime();
+    const curr = parseDateKeyLocal(sorted[i]).getTime();
+    const diffDays = Math.round((curr - prev) / (24 * 60 * 60 * 1000));
     if (diffDays === 1) {
       current += 1;
       best = Math.max(best, current);
@@ -56,8 +56,8 @@ export function getActiveDaysInMonth(
   let count = 0;
   const lastDay = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= lastDay; day++) {
-    const d = new Date(year, month, day);
-    if (active.has(dateStr(d))) count += 1;
+    const key = calendarDateKey(new Date(year, month, day));
+    if (active.has(key)) count += 1;
   }
   return count;
 }

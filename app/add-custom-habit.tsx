@@ -261,15 +261,12 @@ function AddCustomHabitScreenContent() {
 }
 
 export default function AddCustomHabitScreen() {
-  const { initialized, session, needsOnboarding } = useAuth();
+  const { initialized, session } = useAuth();
   if (!initialized) {
     return null;
   }
   if (!session) {
     return <Redirect href="/(auth)/login" />;
-  }
-  if (needsOnboarding) {
-    return <Redirect href="/onboarding/choose-habits" />;
   }
   return <AddCustomHabitScreenContent />;
 }

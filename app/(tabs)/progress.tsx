@@ -1,6 +1,7 @@
 import { MonthHeatmap } from "@/components/progress/MonthHeatmap";
 import { AppText } from "@/components/ui/AppText";
 import { CATALOG_ICON_MAP } from "@/lib/habitCatalog";
+import { calendarDateKey, parseDateKeyLocal } from "@/lib/calendarDate";
 import { useHabitStore } from "@/lib/store";
 import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -40,8 +41,6 @@ const HEATMAP_COLORS = [
   "#87CEEB", // sky blue
 ];
 
-const dateStr = (d: Date) => d.toISOString().slice(0, 10);
-
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
@@ -74,7 +73,7 @@ function getDaysInMonthCount(
   const lastDay = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= lastDay; day++) {
     const d = new Date(year, month, day);
-    if (active.has(dateStr(d))) count += 1;
+    if (active.has(calendarDateKey(d))) count += 1;
   }
   return count;
 }
@@ -90,7 +89,7 @@ function getTotalCompletionsInMonth(
   let total = 0;
   const lastDay = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= lastDay; day++) {
-    const d = dateStr(new Date(year, month, day));
+    const d = calendarDateKey(new Date(year, month, day));
     for (const h of habits) {
       const dates = completionDates[h.id] ?? [];
       if (dates.includes(d) || (h.completedToday && d === today)) total += 1;
@@ -108,9 +107,9 @@ function getCurrentStreak(
   const active = getActiveDates(completionDates, habits, today);
   if (!active.has(today)) return 0;
   let streak = 0;
-  const t = new Date(today);
+  const t = parseDateKeyLocal(today);
   while (true) {
-    const d = dateStr(t);
+    const d = calendarDateKey(t);
     if (!active.has(d)) break;
     streak += 1;
     t.setDate(t.getDate() - 1);
@@ -130,9 +129,9 @@ function getBestStreak(
   let best = 1;
   let current = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1]).getTime();
-    const curr = new Date(sorted[i]).getTime();
-    const diffDays = (curr - prev) / (24 * 60 * 60 * 1000);
+    const prev = parseDateKeyLocal(sorted[i - 1]).getTime();
+    const curr = parseDateKeyLocal(sorted[i]).getTime();
+    const diffDays = Math.round((curr - prev) / (24 * 60 * 60 * 1000));
     if (diffDays === 1) {
       current += 1;
       best = Math.max(best, current);
@@ -152,7 +151,7 @@ export default function ProgressScreen() {
   const completionDates = useHabitStore((s) => s.completionDates);
   const recordCompletion = useHabitStore((s) => s.recordCompletion);
 
-  const today = dateStr(new Date());
+  const today = calendarDateKey();
   const year = selectedMonth.getFullYear();
   const month = selectedMonth.getMonth();
   const monthLabel = `${MONTH_NAMES[month]} ${year}`;
@@ -172,8 +171,8 @@ export default function ProgressScreen() {
     (habitId: string, completedToday: boolean) =>
     (dayOfMonth: number, date: Date) => {
       const set = completionDates[habitId] ?? [];
-      if (set.includes(dateStr(date))) return 1;
-      if (completedToday && dateStr(date) === today) return 1;
+      if (set.includes(calendarDateKey(date))) return 1;
+      if (completedToday && calendarDateKey(date) === today) return 1;
       return 0;
     };
 

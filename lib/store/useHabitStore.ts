@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { Platform } from 'react-native';
 import type { Habit, PlantGrowthState } from '@/lib/types';
+import { calendarDateKey } from '@/lib/calendarDate';
 import { CATALOG_ID_SET, HABIT_CATALOG, CATALOG_NAME_MAP } from '@/lib/habitCatalog';
 
 /** ISO date string (YYYY-MM-DD) per habit for progress heatmaps */
@@ -65,7 +66,7 @@ const DEFAULT_HABITS: Habit[] = [
   { ...makeHabit('stretch',   9, false) },
 ];
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => calendarDateKey();
 
 function getNativeAsyncStorage() {
   try {

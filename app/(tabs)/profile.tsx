@@ -1,5 +1,7 @@
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Alert,
@@ -32,28 +34,10 @@ import {
 } from '@/lib/avatar-upload';
 import { getSupabase } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/lib/supabase-env';
+import { calendarDateKey } from '@/lib/calendarDate';
 import { getAvatarUrl, getDisplayName } from '@/lib/user-display';
 
 const GROWTH_STAGE = 'Seedling';
-
-/** Metro `import()` often puts CJS exports on `.default`, so named APIs can be undefined on the namespace root. */
-function resolveExpoImagePickerModule(
-  mod: Record<string, unknown>
-): typeof import('expo-image-picker') {
-  const d = mod.default;
-  if (
-    d &&
-    typeof d === 'object' &&
-    typeof (d as { requestMediaLibraryPermissionsAsync?: unknown })
-      .requestMediaLibraryPermissionsAsync === 'function'
-  ) {
-    return d as typeof import('expo-image-picker');
-  }
-  if (typeof mod.requestMediaLibraryPermissionsAsync === 'function') {
-    return mod as typeof import('expo-image-picker');
-  }
-  throw new Error('expo-image-picker native module is not available');
-}
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -128,22 +112,6 @@ export default function ProfileScreen() {
 
     if (Platform.OS === 'web') {
       openAvatarUrlModal();
-      return;
-    }
-
-    let ImagePicker: typeof import('expo-image-picker');
-    try {
-      const mod = await import('expo-image-picker');
-      ImagePicker = resolveExpoImagePickerModule(mod as Record<string, unknown>);
-    } catch {
-      Alert.alert(
-        'Could not open photo library',
-        'The photo picker failed to load. You can paste an image URL instead.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Paste image URL', onPress: () => openAvatarUrlModal() },
-        ]
-      );
       return;
     }
 
@@ -225,14 +193,22 @@ export default function ProfileScreen() {
 
   const habits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
+  const recordCompletion = useHabitStore((s) => s.recordCompletion);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  /** Bumps when the Profile tab gains focus so "today" and monthly stats refresh after day changes or app resume. */
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      setStatsRefreshKey((k) => k + 1);
+    }, [])
+  );
 
-  const growthStats = useMemo(
-    () => ({
+  const growthStats = useMemo(() => {
+    const now = new Date();
+    const today = calendarDateKey(now);
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    return {
       longestStreak: getBestStreak(completionDates, habits, today),
       habitsCompleted: getTotalCompletionsAllTime(completionDates, habits, today),
       activeDaysThisMonth: getActiveDaysInMonth(
@@ -242,9 +218,19 @@ export default function ProfileScreen() {
         year,
         month
       ),
-    }),
-    [completionDates, habits, today, year, month]
-  );
+    };
+  }, [completionDates, habits, statsRefreshKey]);
+
+  // Keep growth stats in sync with Habits: completed today must appear in completionDates (same as Progress tab).
+  useEffect(() => {
+    const todayKey = calendarDateKey();
+    habits.forEach((h) => {
+      if (h.completedToday) {
+        const dates = completionDates[h.id] ?? [];
+        if (!dates.includes(todayKey)) recordCompletion(h.id, todayKey);
+      }
+    });
+  }, [habits, completionDates, recordCompletion]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -343,7 +329,9 @@ export default function ProfileScreen() {
                 Longest streak:
               </AppText>
               <AppText variant="paragraph" style={styles.growthValue}>
-                {growthStats.longestStreak} days
+                {growthStats.longestStreak === 1
+                  ? '1 day'
+                  : `${growthStats.longestStreak} days`}
               </AppText>
             </View>
             <View style={styles.growthRow}>
@@ -499,23 +487,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   nameFieldLabel: {
-    alignSelf: 'stretch',
+    alignSelf: 'center',
+    width: '100%',
+    textAlign: 'center',
     color: GroveColors.secondaryText,
     marginBottom: 6,
   },
   userNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     marginBottom: 10,
-    alignSelf: 'stretch',
+    alignSelf: 'center',
+    width: '100%',
     maxWidth: 340,
   },
   userNameInput: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 22,
     fontWeight: '700',
     color: GroveColors.primaryText,
+    textAlign: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: GroveBorderRadius.card,
@@ -524,7 +519,8 @@ const styles = StyleSheet.create({
     borderColor: GroveColors.inactive,
   },
   saveNameButton: {
-    alignSelf: 'stretch',
+    alignSelf: 'center',
+    width: '100%',
     maxWidth: 340,
     paddingVertical: 10,
     paddingHorizontal: 16,
