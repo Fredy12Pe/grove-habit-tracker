@@ -1,33 +1,12 @@
-import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import { getAuthOAuthRedirectUrl } from '@/lib/auth-redirect-url';
 import {
   isSupabaseConfigured,
   rawSupabaseUrl,
 } from '@/lib/supabase-env';
 import { getSupabase } from '@/lib/supabase';
-
-/** Stable OAuth callback — must match Supabase Auth → Redirect URLs (e.g. `grove://auth/callback`). */
-function getOAuthRedirectUrl(): string {
-  // Prefer Expo Linking helpers so the returned scheme matches the *current build*.
-  // (Using a hardcoded scheme can fail if the app was built with a different scheme,
-  // and Safari shows "network connection was lost" when it can't open the callback.)
-  const created = Linking.createURL('auth/callback');
-  if (!created.startsWith('exp://') && !created.startsWith('exps://')) {
-    return created;
-  }
-
-  // Fallback: build a custom-scheme URL (works for standalone/dev-client builds).
-  const raw = Constants.expoConfig?.scheme;
-  const scheme =
-    typeof raw === 'string'
-      ? raw
-      : Array.isArray(raw) && raw[0]
-        ? raw[0]
-        : 'grove';
-  return `${scheme}://auth/callback`;
-}
 
 function queryParam(
   params: Record<string, string | string[] | undefined> | undefined,
@@ -68,9 +47,9 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
 
   const supabase = getSupabase();
   /** Do not use `Linking.createURL` alone — in dev it can produce `exp://…` URLs Safari mishandles. */
-  const redirectTo = getOAuthRedirectUrl();
+  const redirectTo = getAuthOAuthRedirectUrl();
 
-  let data: { url?: string } | null = null;
+  let authUrl: string | undefined;
   try {
     const res = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -79,10 +58,11 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
         skipBrowserRedirect: true,
       },
     });
-    data = res.data;
     if (res.error) {
       return { error: new Error(res.error.message) };
     }
+    const u = res.data?.url;
+    authUrl = typeof u === 'string' && u.length > 0 ? u : undefined;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Network request failed';
     return {
@@ -92,11 +72,11 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
     };
   }
 
-  if (!data?.url) {
+  if (!authUrl) {
     return { error: new Error('Could not start Google sign-in') };
   }
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo, {
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo, {
     preferEphemeralSession: true,
   });
 

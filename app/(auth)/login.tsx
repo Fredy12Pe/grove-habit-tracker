@@ -5,6 +5,7 @@ import { AppText } from '@/components/ui/AppText';
 import { GroveSpacing } from '@/styles/theme';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { signInWithApple } from '@/lib/auth-apple';
 import { signInWithGoogle } from '@/lib/auth-google';
 import { Link, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -21,12 +22,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function LoginScreen() {
   const router = useRouter();
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [appleBusy, setAppleBusy] = useState(false);
 
-  const onApple = useCallback(() => {
-    Alert.alert(
-      'Coming soon',
-      'Sign in with Apple will be available in a future update.',
-    );
+  const onApple = useCallback(async () => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+    setAppleBusy(true);
+    try {
+      const { error } = await signInWithApple();
+      if (error) {
+        Alert.alert('Sign in failed', error.message);
+      }
+    } finally {
+      setAppleBusy(false);
+    }
   }, []);
 
   const onGoogle = useCallback(async () => {
@@ -52,17 +62,24 @@ export default function LoginScreen() {
           <View style={styles.middleSpacer} />
 
           <View style={styles.actions}>
-            <AuthPillButton
-              label="Sign in with Apple"
-              icon={
-                <FontAwesome5
-                  name="apple"
-                  size={22}
-                  color={authWelcomeTheme.buttonText}
-                />
-              }
-              onPress={onApple}
-            />
+            {Platform.OS === 'ios' ? (
+              <AuthPillButton
+                label="Sign in with Apple"
+                icon={
+                  appleBusy ? (
+                    <ActivityIndicator color={authWelcomeTheme.buttonText} />
+                  ) : (
+                    <FontAwesome5
+                      name="apple"
+                      size={22}
+                      color={authWelcomeTheme.buttonText}
+                    />
+                  )
+                }
+                onPress={onApple}
+                disabled={appleBusy}
+              />
+            ) : null}
             <AuthPillButton
               label="Sign in with Google"
               icon={

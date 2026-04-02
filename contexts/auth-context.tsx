@@ -1,5 +1,6 @@
 /**
- * Auth flow (Grove): **sign-in required** (no guest mode). Methods: **email + password** only for now.
+ * Auth flow (Grove): **sign-in required** (no guest mode).
+ * Methods: **email + password**, **Google OAuth** (`lib/auth-google`), **Sign in with Apple** on iOS (`lib/auth-apple`).
  * Order: **sign-in / sign-up → onboarding (once) → main app** (`(tabs)`).
  * Onboarding completion is stored in Supabase `user.user_metadata.onboarding_completed`.
  */
@@ -13,6 +14,7 @@ import React, {
   useState,
 } from 'react';
 
+import { getAuthOAuthRedirectUrl } from '@/lib/auth-redirect-url';
 import { isSupabaseConfigured } from '@/lib/supabase-env';
 import { getSupabase } from '@/lib/supabase';
 
@@ -124,7 +126,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: CONFIG_ERROR, sessionCreated: false };
     }
     try {
-      const { data, error } = await getSupabase().auth.signUp({ email, password });
+      const { data, error } = await getSupabase().auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: getAuthOAuthRedirectUrl(),
+        },
+      });
       return {
         error: error ? new Error(error.message) : null,
         sessionCreated: Boolean(data?.session),

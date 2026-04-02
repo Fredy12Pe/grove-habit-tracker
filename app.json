@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.grove.app",
+      "bundleIdentifier": "com.groveHabits.app",
       "supportsTablet": true,
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "Grove needs access to your local network to connect to the Metro development server.",
@@ -31,6 +31,7 @@
       "favicon": "./assets/AppIcon.appiconset/icon-mac-128x128.png"
     },
     "plugins": [
+      "expo-apple-authentication",
       "expo-router",
       [
         "expo-image-picker",
