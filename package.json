@@ -62,10 +62,10 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "patch-package": "^8.0.1",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "patch-package": "^8.0.1",
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
