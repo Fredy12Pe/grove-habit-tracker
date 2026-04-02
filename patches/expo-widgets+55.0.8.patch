@@ -15,3 +15,15 @@ index 9f8531d..59e91bc 100644
    used_packages = ["expo", "expo-widgets", "@expo/ui"]
    packages_to_exclude = all_packages - used_packages
  
+diff --git a/node_modules/expo-widgets/scripts/build-bundle.mjs b/node_modules/expo-widgets/scripts/build-bundle.mjs
+index afaa72c..ad2a8ec 100755
+--- a/node_modules/expo-widgets/scripts/build-bundle.mjs
++++ b/node_modules/expo-widgets/scripts/build-bundle.mjs
+@@ -50,7 +50,6 @@ const result = await spawn(
+     path.join(__dirname, '../bundle/index.ts'),
+     '--dev',
+     'false',
+-    '--skip-server',
+     ...argv.slice(2),
+   ],
+   {
