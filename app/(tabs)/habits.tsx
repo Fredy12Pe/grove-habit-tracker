@@ -27,6 +27,7 @@ import {
   buildHabitWithActionsFromStore,
   buildHabitsWithActionsListFromStore,
 } from "@/lib/habitWithActionsFromStore";
+import { syncWidgets } from "@/lib/widgets/syncWidgets";
 
 export default function HabitsScreen() {
   const router = useRouter();
@@ -86,6 +87,7 @@ export default function HabitsScreen() {
         if (merged.completedToday !== storeComplete) {
           queueMicrotask(() => {
             toggleHabit(id);
+            syncWidgets();
           });
         }
         return prev.map((x) => (x.id === id ? merged : x));
@@ -159,7 +161,10 @@ export default function HabitsScreen() {
       <HabitRow
         key={habit.id}
         habit={habit}
-        onToggle={toggleHabit}
+        onToggle={(habitId) => {
+          toggleHabit(habitId);
+          syncWidgets();
+        }}
         onPressSettings={(habitId) => router.push(`/habit-settings/${habitId}`)}
         expanded={expandedId === habit.id}
         onExpandToggle={() =>

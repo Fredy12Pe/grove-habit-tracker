@@ -50,6 +50,33 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.groveHabits.app.widgets",
+          "groupIdentifier": "group.com.groveHabits.app",
+          "widgets": [
+            {
+              "name": "DailyStatusWidget",
+              "displayName": "Today's Habits",
+              "description": "Shows today's habit completion at a glance.",
+              "supportedFamilies": ["systemSmall"]
+            },
+            {
+              "name": "WeeklyGrowthWidget",
+              "displayName": "Weekly Growth",
+              "description": "Shows your plants growing through the week.",
+              "supportedFamilies": ["systemLarge"]
+            }
+          ]
+        }
+      ],
+      [
+        "./plugins/withWidgetDeepLink",
+        {
+          "url": "grove:///(tabs)/habits"
+        }
       ]
     ],
     "experiments": {

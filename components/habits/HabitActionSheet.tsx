@@ -18,6 +18,7 @@ import {
 } from "@/lib/habitCatalog";
 import type { HabitEntry } from "@/lib/store/useHabitStore";
 import { useHabitStore } from "@/lib/store";
+import { syncWidgets } from "@/lib/widgets/syncWidgets";
 import {
   GroveBorderRadius,
   GroveColors,
@@ -81,12 +82,18 @@ export function HabitActionSheet({
     if (actionType === "count") entry.count = count;
 
     if (Object.keys(entry).length > 0) setHabitEntry(habitId, date, entry);
-    if (markCompleteOnSave) toggleHabit(habitId);
+    if (markCompleteOnSave) {
+      toggleHabit(habitId);
+      syncWidgets();
+    }
     onClose();
   };
 
   const handleMarkDone = () => {
-    if (habitId) toggleHabit(habitId);
+    if (habitId) {
+      toggleHabit(habitId);
+      syncWidgets();
+    }
     onClose();
   };
 

@@ -9,11 +9,13 @@ import * as WebBrowser from "expo-web-browser";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { AppState } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { syncWidgets } from "@/lib/widgets/syncWidgets";
 
 /** Lets `expo-web-browser` close the auth session when returning via deep link. */
 WebBrowser.maybeCompleteAuthSession();
@@ -27,8 +29,18 @@ function RootLayoutContent() {
   useEffect(() => {
     if (initialized) {
       SplashScreen.hideAsync();
+      syncWidgets();
     }
   }, [initialized]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        syncWidgets();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!initialized) {
     return null;
