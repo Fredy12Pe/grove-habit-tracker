@@ -16,7 +16,8 @@
     "prebuild:ios": "expo prebuild --platform ios",
     "ios:go": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/ui": "~0.2.0-beta.9",
@@ -61,10 +62,10 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "get-pixels": "^3.3.3",
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },

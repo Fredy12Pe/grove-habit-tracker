@@ -5,7 +5,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const getPixels = require("get-pixels");
+const sharp = require("sharp");
 
 const ASSETS_DIR = path.join(__dirname, "../assets/game/Collision-shapes");
 const OUT_PATH = path.join(__dirname, "../lib/game/collisionData.json");
@@ -27,18 +27,19 @@ const LAYERS = [
 
 const CELL_SIZE = 8; // world pixels per grid cell (smaller = more precise, larger JSON)
 
-function loadPixels(filePath) {
-  return new Promise((resolve, reject) => {
-    getPixels(filePath, (err, pixels) => {
-      if (err) reject(err);
-      else resolve(pixels);
-    });
-  });
+async function loadPixels(filePath) {
+  // Read as raw RGBA so sampling is simple and dependency-free.
+  const { data, info } = await sharp(filePath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return { data, width: info.width, height: info.height, channels: info.channels };
 }
 
 function sampleGrid(pixels, worldW, worldH) {
-  const imgW = pixels.shape[0];
-  const imgH = pixels.shape[1];
+  const imgW = pixels.width;
+  const imgH = pixels.height;
+  const ch = pixels.channels;
   const gw = Math.ceil(worldW / CELL_SIZE);
   const gh = Math.ceil(worldH / CELL_SIZE);
   const grid = [];
@@ -47,10 +48,11 @@ function sampleGrid(pixels, worldW, worldH) {
     for (let i = 0; i < gw; i++) {
       const px = Math.min(Math.floor((i / gw) * imgW), imgW - 1);
       const py = Math.min(Math.floor((j / gh) * imgH), imgH - 1);
-      const r = pixels.get(px, py, 0);
-      const g = pixels.get(px, py, 1);
-      const b = pixels.get(px, py, 2);
-      const alpha = pixels.get(px, py, 3);
+      const idx = (py * imgW + px) * ch;
+      const r = pixels.data[idx + 0] ?? 0;
+      const g = pixels.data[idx + 1] ?? 0;
+      const b = pixels.data[idx + 2] ?? 0;
+      const alpha = pixels.data[idx + 3] ?? 255;
       const luminance = (r + g + b) / 3;
       // Solid if: opaque and not black (alpha mask), OR light gray/white (B&W mask e.g. house.png)
       const solid = (alpha > 128 && luminance > 20) || luminance > 128;
