@@ -15,6 +15,7 @@
         "com.apple.security.application-groups": ["group.com.groveHabits.app"]
       },
       "infoPlist": {
+        "CFBundleDisplayName": "Grove",
         "NSLocalNetworkUsageDescription": "Grove needs access to your local network to connect to the Metro development server.",
         "NSPhotoLibraryUsageDescription": "Grove uses your photo library so you can set a profile picture."
       }
