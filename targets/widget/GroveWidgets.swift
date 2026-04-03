@@ -2,6 +2,13 @@ import SwiftUI
 import WidgetKit
 
 private let appGroupId = "group.com.groveHabits.app"
+
+/// Asset catalog uses `plant_{0...27}_{0...6}` (see `plantImages.generated.js`).
+private enum PlantAssetMetrics {
+    static let maxPlantIndex = 27
+    static let maxFrameIndex = 6
+}
+
 private let habitsDeepLink: URL = {
     if let u = URL(string: "grove:///(tabs)/habits") { return u }
     return URL(string: "grove:")!
@@ -18,7 +25,6 @@ private func groupDefaults() -> UserDefaults? {
 
 // MARK: - Colors (match React widgets)
 
-/// Small widget background gradient (README: #45A427 → #97C732)
 private let smallWidgetGradient = LinearGradient(
     colors: [
         Color(red: 69 / 255, green: 164 / 255, blue: 39 / 255),
@@ -28,24 +34,15 @@ private let smallWidgetGradient = LinearGradient(
     endPoint: .bottomTrailing
 )
 
-private let groveGreen = Color(red: 0.271, green: 0.643, blue: 0.153)
-/// Large widget plant strip (spec #F4F3E7)
 private let weeklyPlantStripBg = Color(red: 244 / 255, green: 243 / 255, blue: 231 / 255)
-private let dotOn = Color(red: 0.533, green: 0.749, blue: 0.145)
-private let dotOff = Color(red: 0.682, green: 0.729, blue: 0.608)
+/// Week dots inside plant tiles: completed #88BF25, not completed white.
+private let habitTileDotCompleted = Color(red: 136 / 255, green: 191 / 255, blue: 37 / 255)
+private let habitTileDotIncomplete = Color.white
+/// Habit tile fill: #67B22B at 20% opacity.
+private let habitPlantTileFill = Color(red: 103 / 255, green: 178 / 255, blue: 43 / 255).opacity(0.2)
 
-// MARK: - Small daily widget layout (spec)
-
-private enum SmallDailyWidgetMetrics {
-    /// Circular progress ring outer bounds.
-    static let ringSize: CGFloat = 76
-    /// Tuned for ringSize (readable on systemSmall).
-    static let ringStrokeWidth: CGFloat = 13
-    static let ringTrailingInset: CGFloat = 21
-    static let ringBottomInset: CGFloat = 18
-    static let textTopInset: CGFloat = 16
-    static let textLeadingInset: CGFloat = 16
-    static let titleSubtitleSpacing: CGFloat = 2
+private enum WidgetLayout {
+    static let cornerRadius: CGFloat = 21.67
 }
 
 // MARK: - Payloads
@@ -69,6 +66,13 @@ private struct WeeklyPayload: Codable {
         let habitId: String
         let plantIndex: Int
         let frameIndex: Int
+        /// Mon–Sun completion for this habit only (optional for older JSON).
+        let weekDays: [DayItem]?
+
+        func weekDotsOrFallback(_ fallback: [DayItem]) -> [DayItem] {
+            guard let w = weekDays, !w.isEmpty else { return fallback }
+            return w
+        }
     }
 
     var completedCountToday: Int = 0
@@ -97,35 +101,57 @@ private func decodeWeekly() -> WeeklyPayload {
     return v
 }
 
-// MARK: - Daily status
+// MARK: - Single timeline for all families
 
-private struct DailyEntry: TimelineEntry {
+private struct GroveWidgetEntry: TimelineEntry {
     let date: Date
-    let payload: DailyPayload
+    let daily: DailyPayload
+    let weekly: WeeklyPayload
 }
 
-private struct DailyProvider: TimelineProvider {
-    func placeholder(in _: Context) -> DailyEntry {
-        DailyEntry(date: Date(), payload: DailyPayload(
-            completedCount: 2,
-            totalCount: 5,
-            title: "Today's Habits",
-            subtitle: "40% COMPLETED"
-        ))
+private struct GroveWidgetProvider: TimelineProvider {
+    func placeholder(in _: Context) -> GroveWidgetEntry {
+        GroveWidgetEntry(
+            date: Date(),
+            daily: DailyPayload(
+                completedCount: 2,
+                totalCount: 5,
+                title: "Today's Habits",
+                subtitle: "40% COMPLETED"
+            ),
+            weekly: WeeklyPayload(
+                completedCountToday: 1,
+                totalCountToday: 3,
+                title: "Your garden is growing",
+                subtitle: "1 of 3 habits completed",
+                days: (0 ..< 7).map { WeeklyPayload.DayItem(iso: "", completed: $0 % 2 == 0) },
+                plants: []
+            )
+        )
     }
 
-    func getSnapshot(in _: Context, completion: @escaping (DailyEntry) -> Void) {
-        completion(DailyEntry(date: Date(), payload: decodeDaily()))
+    func getSnapshot(in _: Context, completion: @escaping (GroveWidgetEntry) -> Void) {
+        completion(GroveWidgetEntry(date: Date(), daily: decodeDaily(), weekly: decodeWeekly()))
     }
 
-    func getTimeline(in _: Context, completion: @escaping (Timeline<DailyEntry>) -> Void) {
-        let entry = DailyEntry(date: Date(), payload: decodeDaily())
+    func getTimeline(in _: Context, completion: @escaping (Timeline<GroveWidgetEntry>) -> Void) {
+        let entry = GroveWidgetEntry(date: Date(), daily: decodeDaily(), weekly: decodeWeekly())
         completion(Timeline(entries: [entry], policy: .never))
     }
 }
 
-/// Circular ring (see `ringSize`); track white 50% / fill white 100%; center `habit-progress-icon`.
-/// Inner layout is `ringSize - stroke` so strokes are not clipped; 100% uses a full circle (no trim gap).
+// MARK: - Small (systemSmall)
+
+private enum SmallDailyWidgetMetrics {
+    static let ringSize: CGFloat = 76
+    static let ringStrokeWidth: CGFloat = 13
+    static let ringTrailingInset: CGFloat = 21
+    static let ringBottomInset: CGFloat = 18
+    static let textTopInset: CGFloat = 16
+    static let textLeadingInset: CGFloat = 16
+    static let titleSubtitleSpacing: CGFloat = 2
+}
+
 private struct DailyProgressRing: View {
     var progress: Double
 
@@ -166,7 +192,6 @@ private struct DailyProgressRing: View {
     }
 }
 
-/// Small card: ZStack — text top-leading 16/16; Sprout bottom-leading; ring bottom-trailing 21/18.
 private struct DailyStatusView: View {
     let payload: DailyPayload
 
@@ -175,7 +200,6 @@ private struct DailyStatusView: View {
         return min(1, max(0, Double(payload.completedCount) / Double(payload.totalCount)))
     }
 
-    /// Mirrors `titleVariant` in lib/widgets/syncWidgets.ts so subtext always matches the ring.
     private var statusSubtitle: String {
         let c = payload.completedCount
         let t = payload.totalCount
@@ -218,172 +242,323 @@ private struct DailyStatusView: View {
     }
 }
 
-struct GroveDailyStatusWidget: Widget {
-    let kind: String = "GroveDailyStatusWidget"
+// MARK: - Large (systemLarge)
 
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: DailyProvider()) { entry in
-            DailyStatusView(payload: entry.payload)
-                .widgetURL(habitsDeepLink)
-                .containerBackground(for: .widget) {
-                    RoundedRectangle(cornerRadius: 21.67, style: .continuous)
-                        .fill(smallWidgetGradient)
-                }
+/// Large-widget character: `Sprout-quiet.png` / `Sprout-growing.png` / `Sprout-thriving.png` → xcassets (see `scripts/sync-widget-sprout-stages.js`).
+/// Quiet when nothing completed today (`SproutQuiet`); thriving when all habits done; else growing.
+private enum LargeSproutStage {
+    case quiet
+    case growing
+    case thriving
+
+    init(weekly: WeeklyPayload) {
+        let total = weekly.totalCountToday
+        let done = weekly.completedCountToday
+        if done == 0 {
+            self = .quiet
+        } else if total > 0, done >= total {
+            self = .thriving
+        } else {
+            self = .growing
         }
-        .configurationDisplayName("Today's Habits")
-        .description("Shows today's habit completion at a glance.")
-        .supportedFamilies([.systemSmall])
-        .contentMarginsDisabled()
-    }
-}
-
-// MARK: - Weekly growth
-
-private struct WeeklyEntry: TimelineEntry {
-    let date: Date
-    let payload: WeeklyPayload
-}
-
-private struct WeeklyProvider: TimelineProvider {
-    func placeholder(in _: Context) -> WeeklyEntry {
-        WeeklyEntry(date: Date(), payload: WeeklyPayload(
-            title: "Your garden is growing",
-            subtitle: "0 of 0 habits completed",
-            days: (0 ..< 7).map { WeeklyPayload.DayItem(iso: "", completed: $0 % 2 == 0) },
-            plants: []
-        ))
     }
 
-    func getSnapshot(in _: Context, completion: @escaping (WeeklyEntry) -> Void) {
-        completion(WeeklyEntry(date: Date(), payload: decodeWeekly()))
-    }
-
-    func getTimeline(in _: Context, completion: @escaping (Timeline<WeeklyEntry>) -> Void) {
-        let entry = WeeklyEntry(date: Date(), payload: decodeWeekly())
-        completion(Timeline(entries: [entry], policy: .never))
+    var assetName: String {
+        switch self {
+        case .quiet: return "SproutQuiet"
+        case .growing: return "SproutGrowing"
+        case .thriving: return "SproutThriving"
+        }
     }
 }
 
 private struct PlantThumb: View {
     let plantIndex: Int
     let frameIndex: Int
-    let outer: CGFloat
-    let image: CGFloat
+    /// Fixed square for every plant; bottom alignment keeps pots on the same baseline across assets.
+    let slot: CGFloat
 
     var body: some View {
-        let name = "plant_\(plantIndex)_\(frameIndex)"
-        ZStack {
-            Image(name)
-                .resizable()
-                .scaledToFit()
-                .frame(width: image, height: image)
-        }
-        .frame(width: outer, height: outer)
+        let pi = min(PlantAssetMetrics.maxPlantIndex, max(0, plantIndex))
+        let fi = min(PlantAssetMetrics.maxFrameIndex, max(0, frameIndex))
+        let name = "plant_\(pi)_\(fi)"
+        Image(name)
+            .resizable()
+            .interpolation(.medium)
+            .scaledToFit()
+            .frame(width: slot, height: slot, alignment: .bottom)
     }
 }
 
-private struct WeeklyContent: View {
+/// Plant tile: pixel plant + week dots row (matches reference grid cells).
+private struct HabitPlantTile: View {
+    let plant: WeeklyPayload.PlantItem
+    let weekDays: [WeeklyPayload.DayItem]
+    let tileWidth: CGFloat
+    let tileHeight: CGFloat
+    let plantSlot: CGFloat
+    let tileCorner: CGFloat
+
+    private var dotSize: CGFloat {
+        max(3, min(5, tileWidth / 17))
+    }
+
+    private var dotSpacing: CGFloat {
+        max(2, tileWidth * 0.028)
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: tileCorner, style: .continuous)
+                .fill(habitPlantTileFill)
+            VStack(spacing: 5) {
+                PlantThumb(
+                    plantIndex: plant.plantIndex,
+                    frameIndex: plant.frameIndex,
+                    slot: plantSlot
+                )
+                HStack(spacing: dotSpacing) {
+                    ForEach(Array(weekDays.prefix(7).enumerated()), id: \.offset) { _, day in
+                        Circle()
+                            .fill(day.completed ? habitTileDotCompleted : habitTileDotIncomplete)
+                            .frame(width: dotSize, height: dotSize)
+                    }
+                }
+            }
+        }
+        .frame(width: tileWidth, height: tileHeight)
+    }
+}
+
+/// Rows built outside `ViewBuilder` to avoid subtle device-only failures with `let` + nested `ForEach`.
+/// Fixed padding around the grid: `paddingH` left/right, `paddingV` top/bottom (see `WeeklyLargeView`).
+private struct WeeklyPlantGrid: View {
+    let rows: [[WeeklyPayload.PlantItem]]
+    /// Used when a plant has no `weekDays` (older payloads).
+    let fallbackWeekDays: [WeeklyPayload.DayItem]
+    let paddingH: CGFloat
+    let paddingV: CGFloat
+    /// Extra space left under the grid (grid sits higher in the cream strip).
+    let gridLiftFromBottom: CGFloat
+    private let columns = 4
+    private let gridSpacing: CGFloat = 12
+    private let dotBandHeight: CGFloat = 18
+
+    var body: some View {
+        GeometryReader { geo in
+            // Whole-point sizes avoid float drift; padding uses EdgeInsets so top/bottom match exactly.
+            let innerW = max(0, floor(geo.size.width - paddingH * 2))
+            let innerH = max(0, floor(geo.size.height - paddingV * 2))
+            let stripInsets = EdgeInsets(top: paddingV, leading: paddingH, bottom: paddingV, trailing: paddingH)
+
+            Group {
+                if rows.isEmpty {
+                    Color.clear
+                        .frame(width: innerW, height: innerH)
+                } else {
+                    WeeklyPlantGridRowStack(
+                        rows: rows,
+                        fallbackWeekDays: fallbackWeekDays,
+                        innerW: innerW,
+                        innerH: innerH,
+                        gridLiftFromBottom: gridLiftFromBottom,
+                        columns: columns,
+                        gridSpacing: gridSpacing,
+                        dotBandHeight: dotBandHeight
+                    )
+                }
+            }
+            .frame(width: innerW, height: innerH)
+            .padding(stripInsets)
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+        }
+    }
+}
+
+private struct WeeklyPlantGridRowStack: View {
+    let rows: [[WeeklyPayload.PlantItem]]
+    let fallbackWeekDays: [WeeklyPayload.DayItem]
+    let innerW: CGFloat
+    let innerH: CGFloat
+    let gridLiftFromBottom: CGFloat
+    let columns: Int
+    let gridSpacing: CGFloat
+    let dotBandHeight: CGFloat
+
+    private var tileW: CGFloat {
+        let gapsH = CGFloat(columns - 1) * gridSpacing
+        return max(36, (innerW - gapsH) / CGFloat(columns))
+    }
+
+    private var rowCount: Int { rows.count }
+
+    private func plantMetrics(tileH: CGFloat) -> (plantSlot: CGFloat, tileCorner: CGFloat) {
+        let plantBudget = max(28, tileH - dotBandHeight - 8)
+        let plantSlot = max(26, min(tileW * 0.74, plantBudget * 0.98))
+        let tileCorner = min(16, max(8, tileW * (14.0 / 84.0)))
+        return (plantSlot, tileCorner)
+    }
+
+    var body: some View {
+        let gapsV = CGFloat(rowCount - 1) * gridSpacing
+        let lift = max(0, gridLiftFromBottom)
+        let layoutH = max(48, innerH - lift)
+        let rawTileH = (layoutH - gapsV) / CGFloat(rowCount)
+        let tileH = max(36, floor(rawTileH))
+        let pm = plantMetrics(tileH: tileH)
+        ZStack(alignment: .bottomLeading) {
+            VStack(alignment: .leading, spacing: gridSpacing) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack(alignment: .top, spacing: gridSpacing) {
+                        ForEach(row, id: \.habitId) { p in
+                            HabitPlantTile(
+                                plant: p,
+                                weekDays: p.weekDotsOrFallback(fallbackWeekDays),
+                                tileWidth: tileW,
+                                tileHeight: tileH,
+                                plantSlot: pm.plantSlot,
+                                tileCorner: pm.tileCorner
+                            )
+                        }
+                    }
+                }
+            }
+            .frame(width: innerW, alignment: .leading)
+            .padding(.bottom, lift)
+        }
+        .frame(width: innerW, height: innerH)
+    }
+}
+
+private struct WeeklyLargeView: View {
     let payload: WeeklyPayload
 
-    private let plantOuter: CGFloat = 64
-    private let plantImage: CGFloat = 54
-    private let perRow = 4
-    private let rowGap: CGFloat = 10
-    private let plantStripHeight: CGFloat = 182
-    private let plantStripBottomCorner: CGFloat = 21.67
+    /// Padding from cream edge to the plant grid.
+    private let plantStripPaddingHorizontal: CGFloat = 16
+    private let plantStripPaddingVertical: CGFloat = 20
+    /// Raises the tile grid above the bottom of the padded area (more cream under the last row).
+    private let plantStripGridLiftFromBottom: CGFloat = 18
 
+    /// Plant grid + cream panel height (taller strip leaves less empty green above; grid stays centered inside via `WeeklyPlantGrid`).
+    private let plantStripHeight: CGFloat = 228
+    /// Sprout in the green header, bottom-aligned so feet sit on the cream strip edge (reference layout).
+    private let sproutImageWidth: CGFloat = 172
+    private let sproutImageHeight: CGFloat = 182
+
+    /// Cream panel: square top corners, rounded bottom (matches widget corner radius).
     private var plantStripShape: UnevenRoundedRectangle {
         UnevenRoundedRectangle(
-            cornerRadii: RectangleCornerRadii(
-                topLeading: 0,
-                bottomLeading: plantStripBottomCorner,
-                bottomTrailing: plantStripBottomCorner,
-                topTrailing: 0
-            ),
+            topLeadingRadius: 0,
+            bottomLeadingRadius: WidgetLayout.cornerRadius,
+            bottomTrailingRadius: WidgetLayout.cornerRadius,
+            topTrailingRadius: 0,
             style: .continuous
         )
     }
 
+    private var plantRows: [[WeeklyPayload.PlantItem]] {
+        let perRow = 4
+        let plants = payload.plants
+        return stride(from: 0, to: plants.count, by: perRow).map {
+            Array(plants[$0 ..< min($0 + perRow, plants.count)])
+        }
+    }
+
+    private var sproutStage: LargeSproutStage {
+        LargeSproutStage(weekly: payload)
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(payload.title)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text(payload.subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
-                }
+        ZStack {
+            RoundedRectangle(cornerRadius: WidgetLayout.cornerRadius, style: .continuous)
+                .fill(smallWidgetGradient)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                HStack(spacing: 6) {
-                    ForEach(Array(payload.days.enumerated()), id: \.offset) { _, d in
-                        Circle()
-                            .fill(d.completed ? dotOn : dotOff)
-                            .frame(width: 6, height: 6)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-
-            Spacer(minLength: 0)
-
+            // Reference: green header with sprout (left) + copy (right), bottom-aligned to cream top; week dots live in each grid tile.
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
-                VStack(alignment: .leading, spacing: rowGap) {
-                    let rows = stride(from: 0, to: payload.plants.count, by: perRow).map {
-                        Array(payload.plants[$0 ..< min($0 + perRow, payload.plants.count)])
+
+                HStack(alignment: .center, spacing: 5) {
+                    Image(sproutStage.assetName)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .frame(width: sproutImageWidth, height: sproutImageHeight)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(payload.title)
+                            .font(.system(size: 23, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(payload.subtitle)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        HStack(spacing: rowGap) {
-                            ForEach(row, id: \.habitId) { p in
-                                PlantThumb(
-                                    plantIndex: p.plantIndex,
-                                    frameIndex: p.frameIndex,
-                                    outer: plantOuter,
-                                    image: plantImage
-                                )
-                            }
-                        }
-                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, 12)
-                Spacer(minLength: 0)
+                .padding(.leading, 10)
+                .padding(.trailing, 16)
+
+                WeeklyPlantGrid(
+                    rows: plantRows,
+                    fallbackWeekDays: payload.days,
+                    paddingH: plantStripPaddingHorizontal,
+                    paddingV: plantStripPaddingVertical,
+                    gridLiftFromBottom: plantStripGridLiftFromBottom
+                )
+                    .frame(maxWidth: .infinity, minHeight: plantStripHeight, maxHeight: plantStripHeight, alignment: .center)
+                    .background {
+                        plantStripShape.fill(weeklyPlantStripBg)
+                    }
+                    .clipShape(plantStripShape)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: plantStripHeight)
-            .background {
-                plantStripShape.fill(weeklyPlantStripBg)
-            }
-            .clipShape(plantStripShape)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 }
 
-private struct WeeklyWidgetView: View {
-    let entry: WeeklyEntry
+// MARK: - Family switch
+
+private struct GroveHabitsRootView: View {
+    var entry: GroveWidgetEntry
+    @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        WeeklyContent(payload: entry.payload)
-            .widgetURL(habitsDeepLink)
-            .containerBackground(for: .widget) {
-                groveGreen
-            }
+        switch family {
+        case .systemSmall:
+            DailyStatusView(payload: entry.daily)
+        case .systemLarge:
+            WeeklyLargeView(payload: entry.weekly)
+        default:
+            DailyStatusView(payload: entry.daily)
+        }
     }
 }
 
-struct GroveWeeklyGrowthWidget: Widget {
-    let kind: String = "GroveWeeklyGrowthWidget"
+// MARK: - One widget, two sizes
+
+struct GroveHabitsWidget: Widget {
+    /// Keep in sync with `widgetTimelineKind` in `lib/widgets/widgetSharedStorage.ts`.
+    let kind: String = "GroveHabitsWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: WeeklyProvider()) { entry in
-            WeeklyWidgetView(entry: entry)
+        StaticConfiguration(kind: kind, provider: GroveWidgetProvider()) { entry in
+            GroveHabitsRootView(entry: entry)
+                .widgetURL(habitsDeepLink)
+                .containerBackground(for: .widget) {
+                    RoundedRectangle(cornerRadius: WidgetLayout.cornerRadius, style: .continuous)
+                        .fill(smallWidgetGradient)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
         }
-        .configurationDisplayName("Weekly Growth")
-        .description("Shows your plants growing through the week.")
-        .supportedFamilies([.systemLarge])
+        .configurationDisplayName("Grove")
+        .description("Today's progress and your weekly garden.")
+        .supportedFamilies([.systemSmall, .systemLarge])
         .contentMarginsDisabled()
+        .containerBackgroundRemovable(false)
     }
 }

@@ -19,7 +19,8 @@
     "lint": "expo lint",
     "generate-widget-plants": "node ./scripts/generate-widget-plant-images.js",
     "sync-widget-small-assets": "node ./scripts/sync-widget-small-assets.js",
-    "postinstall": "node ./scripts/generate-widget-plant-images.js && node ./scripts/sync-widget-small-assets.js"
+    "sync-widget-sprout-stages": "node ./scripts/sync-widget-sprout-stages.js",
+    "postinstall": "patch-package && node ./scripts/generate-widget-plant-images.js && node ./scripts/sync-widget-small-assets.js && node ./scripts/sync-widget-sprout-stages.js"
   },
   "dependencies": {
     "@bacons/apple-targets": "^4.0.6",
@@ -66,6 +67,7 @@
     "@types/react": "~19.2.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~55.0.0",
+    "patch-package": "^8.0.1",
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },

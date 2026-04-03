@@ -4,10 +4,10 @@ const plantImages = require("./plantImages.generated.js");
 module.exports = (config) => ({
   type: "widget",
   name: "GroveWidgets",
-  displayName: "Grove Widgets",
+  displayName: "Grove",
   bundleIdentifier: ".widgets",
   icon: "../../assets/AppIcon.appiconset/icon-ios-1024x1024.png",
-  deploymentTarget: "17.0",
+  deploymentTarget: "18.0",
   entitlements: {
     "com.apple.security.application-groups": ["group.com.groveHabits.app"],
   },

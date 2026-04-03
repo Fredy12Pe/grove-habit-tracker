@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "SproutQuiet.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "SproutQuiet.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "SproutQuiet.png"
+    }
+  ],
+  "info": {
+    "version": 1,
+    "author": "grove"
+  }
+}

@@ -1,10 +1,9 @@
-import WidgetKit
 import SwiftUI
+import WidgetKit
 
 @main
 struct GroveWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        GroveDailyStatusWidget()
-        GroveWeeklyGrowthWidget()
+        GroveHabitsWidget()
     }
 }

@@ -17,8 +17,14 @@ type WeeklyGrowthWidgetProps = {
   totalCountToday: number;
   title: string;
   subtitle: string;
+  /** Legacy aggregate; unused by tiles (each plant has `weekDays`). */
   days: Array<{ iso: string; completed: boolean }>;
-  plants: Array<{ habitId: string; plantIndex: number; frameIndex: number }>;
+  plants: Array<{
+    habitId: string;
+    plantIndex: number;
+    frameIndex: number;
+    weekDays: Array<{ iso: string; completed: boolean }>;
+  }>;
 };
 
 function mondayStart(date: Date): Date {
@@ -76,35 +82,36 @@ export function syncWidgets() {
   const week = weekDaysMonSun(now);
   const weekSet = new Set(week.map((d) => d.iso));
 
-  // Day dots: completed if any habit completion exists on that day.
-  const anyCompletionByDay = new Set<string>();
-  for (const h of habits) {
-    const dates = state.completionDates[h.id] ?? [];
-    for (const d of dates) {
-      if (weekSet.has(d)) anyCompletionByDay.add(d);
-    }
-    // Ensure today counts even if some older data missed storing today.
-    if (h.completedToday && weekSet.has(todayIso)) anyCompletionByDay.add(todayIso);
-  }
-
-  const days = week.map((d) => ({ iso: d.iso, completed: anyCompletionByDay.has(d.iso) }));
-
   const weekKey = isoDate(mondayStart(now));
   const plants: WeeklyGrowthWidgetProps["plants"] = habits.map((h, idx) => {
     const dates = state.completionDates[h.id] ?? [];
-    const count = dates.reduce((acc, d) => (weekSet.has(d) ? acc + 1 : acc), 0);
+    const weekDays = week.map((d) => {
+      const inStored = weekSet.has(d.iso) && dates.includes(d.iso);
+      const todayCounted = d.iso === todayIso && h.completedToday;
+      return { iso: d.iso, completed: inStored || todayCounted };
+    });
+    const count = weekDays.filter((x) => x.completed).length;
     const frameIndex = Math.min(count, FRAMES_PER_PLANT - 1);
     const plantIndex = getPlantIndexForHabitSlot(idx, weekKey);
-    return { habitId: h.id, plantIndex, frameIndex };
+    return { habitId: h.id, plantIndex, frameIndex, weekDays };
   });
 
   const weeklyProps: WeeklyGrowthWidgetProps = {
     completedCountToday: completedToday,
     totalCountToday: totalToday,
-    title: completedToday >= totalToday && totalToday > 0 ? "Your garden is thriving" : "Your garden is growing",
+    title:
+      completedToday <= 0
+        ? "Your garden\nis quiet"
+        : completedToday >= totalToday
+          ? "Your garden is thriving"
+          : "Your garden is growing",
     subtitle:
-      totalToday > 0 ? `${completedToday} of ${totalToday} habits completed` : "Start with one habit",
-    days,
+      totalToday <= 0
+        ? "Start with one habit"
+        : completedToday >= totalToday
+          ? "All habits completed"
+          : `${completedToday} of ${totalToday} habits completed`,
+    days: [],
     plants,
   };
 
