@@ -1,14 +1,25 @@
-import DailyStatusWidget, {
-  type DailyStatusWidgetProps,
-} from "@/widgets/DailyStatusWidget";
-import WeeklyGrowthWidget, {
-  type WeeklyGrowthWidgetProps,
-} from "@/widgets/WeeklyGrowthWidget";
 import { useHabitStore } from "@/lib/store";
 import { calendarDateKey } from "@/lib/calendarDate";
 import { FRAMES_PER_PLANT, getPlantIndexForHabitSlot } from "@/lib/game/plantSprites";
+import { pushWidgetSnapshots } from "@/lib/widgets/widgetSharedStorage";
 
 const MAX_PLANTS = 8;
+
+type DailyStatusWidgetProps = {
+  completedCount: number;
+  totalCount: number;
+  title: string;
+  subtitle: string;
+};
+
+type WeeklyGrowthWidgetProps = {
+  completedCountToday: number;
+  totalCountToday: number;
+  title: string;
+  subtitle: string;
+  days: Array<{ iso: string; completed: boolean }>;
+  plants: Array<{ habitId: string; plantIndex: number; frameIndex: number }>;
+};
 
 function mondayStart(date: Date): Date {
   const d = new Date(date);
@@ -97,11 +108,8 @@ export function syncWidgets() {
     plants,
   };
 
-  try {
-    DailyStatusWidget.updateSnapshot(dailyProps);
-    WeeklyGrowthWidget.updateSnapshot(weeklyProps);
-  } catch {
-    // Widgets are iOS-only and require a dev build; ignore errors on unsupported platforms.
-  }
+  pushWidgetSnapshots({
+    dailyJson: JSON.stringify(dailyProps),
+    weeklyJson: JSON.stringify(weeklyProps),
+  });
 }
-
