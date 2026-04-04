@@ -40,6 +40,8 @@ interface HabitStore {
   syncHabits: (selectedIds: string[]) => void;
   recordCompletion: (habitId: string, date: string) => void;
   ensureDayReset: () => void;
+  /** Reset to catalog defaults with no completions (new account on device or after sign-out). */
+  resetHabitsForNewAccount: () => void;
   /** Set action payload for a habit on a date (merge with existing). */
   setHabitEntry: (habitId: string, date: string, entry: Partial<HabitEntry>) => void;
   /** Get entry for habit on date. */
@@ -60,12 +62,13 @@ const makeHabit = (id: string, streakCount = 0, completedToday = false): Habit =
   updatedAt: '',
 });
 
+/** Fresh install / pre-onboarding — no completions or streaks until the user acts. */
 const DEFAULT_HABITS: Habit[] = [
-  { ...makeHabit('pray',     12, true)  },
-  { ...makeHabit('journal',   5, true)  },
-  { ...makeHabit('meditate',  3, false) },
-  { ...makeHabit('exercise',  4, false) },
-  { ...makeHabit('stretch',   9, false) },
+  { ...makeHabit('pray', 0, false) },
+  { ...makeHabit('journal', 0, false) },
+  { ...makeHabit('meditate', 0, false) },
+  { ...makeHabit('exercise', 0, false) },
+  { ...makeHabit('stretch', 0, false) },
 ];
 
 const todayStr = () => calendarDateKey();
@@ -121,17 +124,43 @@ export const useHabitStore = create<HabitStore>()(
   applySelectedHabits: (selectedIds) =>
     set((state) => {
       const existing = new Map(state.habits.map((h) => [h.id, h]));
+      const today = todayStr();
       const next: Habit[] = [];
       for (const id of selectedIds) {
         const isCatalog = CATALOG_ID_SET.has(id);
         const h = existing.get(id);
-        if (h) {
-          next.push(h);
-        } else if (isCatalog) {
+        if (isCatalog) {
+          // Fresh template so onboarding never inherits DEFAULT_HABITS / old persist completions.
           next.push(makeHabit(id));
+        } else if (h) {
+          next.push({
+            ...h,
+            completedToday: false,
+            updatedAt: new Date().toISOString(),
+          });
         }
       }
-      return { habits: next };
+      const nextCompletionDates = { ...state.completionDates };
+      const nextEntries = { ...state.habitEntries };
+      for (const id of selectedIds) {
+        nextCompletionDates[id] = (nextCompletionDates[id] ?? []).filter(
+          (d) => d !== today,
+        );
+        const byDate = nextEntries[id];
+        if (byDate && byDate[today]) {
+          const { [today]: _removed, ...rest } = byDate;
+          if (Object.keys(rest).length === 0) {
+            delete nextEntries[id];
+          } else {
+            nextEntries[id] = rest;
+          }
+        }
+      }
+      return {
+        habits: next,
+        completionDates: nextCompletionDates,
+        habitEntries: nextEntries,
+      };
     }),
 
   addHabit: (habit) =>
@@ -252,11 +281,56 @@ export const useHabitStore = create<HabitStore>()(
   ensureDayReset: () =>
     set((state) => {
       const today = todayStr();
-      if (state.lastResetDate === today) return state;
+
+      /** Habits tab uses `completionDates[id].includes(today)` for checkmarks — keep aligned with `completedToday`. */
+      const reconcileCompletionDates = (
+        habits: Habit[],
+        dates: CompletionDatesByHabit,
+      ): CompletionDatesByHabit => {
+        const next: CompletionDatesByHabit = { ...dates };
+        for (const h of habits) {
+          const arr = next[h.id] ?? [];
+          const hasToday = arr.includes(today);
+          if (!h.completedToday && hasToday) {
+            next[h.id] = arr.filter((d) => d !== today);
+          } else if (h.completedToday && !hasToday) {
+            next[h.id] = [...arr, today].sort();
+          }
+        }
+        return next;
+      };
+
+      if (state.lastResetDate === today) {
+        return {
+          ...state,
+          completionDates: reconcileCompletionDates(
+            state.habits,
+            state.completionDates,
+          ),
+        };
+      }
+
+      const clearedHabits = state.habits.map((h) => ({
+        ...h,
+        completedToday: false,
+      }));
+      const strippedDates: CompletionDatesByHabit = {};
+      for (const [id, arr] of Object.entries(state.completionDates)) {
+        strippedDates[id] = arr.filter((d) => d !== today);
+      }
       return {
         lastResetDate: today,
-        habits: state.habits.map((h) => ({ ...h, completedToday: false })),
+        habits: clearedHabits,
+        completionDates: reconcileCompletionDates(clearedHabits, strippedDates),
       };
+    }),
+
+  resetHabitsForNewAccount: () =>
+    set({
+      habits: DEFAULT_HABITS,
+      completionDates: {},
+      habitEntries: {},
+      lastResetDate: null,
     }),
 
   setHabitEntry: (habitId, date, entry) =>
@@ -281,6 +355,32 @@ export const useHabitStore = create<HabitStore>()(
     }),
     {
       name: 'grove.habits.v1',
+      version: 2,
+      migrate: (persisted, fromVersion) => {
+        type Slice = {
+          habits: Habit[];
+          completionDates: CompletionDatesByHabit;
+          habitEntries: HabitEntriesByHabit;
+          lastResetDate: string | null;
+        };
+        const s = persisted as Partial<Slice>;
+        if (fromVersion >= 2 || !s.habits?.length) {
+          return persisted as Slice;
+        }
+        const today = calendarDateKey();
+        return {
+          habits: s.habits.map((h) => {
+            const dates = s.completionDates?.[h.id] ?? [];
+            return {
+              ...h,
+              completedToday: dates.includes(today),
+            };
+          }),
+          completionDates: s.completionDates ?? {},
+          habitEntries: s.habitEntries ?? {},
+          lastResetDate: s.lastResetDate ?? null,
+        };
+      },
       storage: habitStoreStorage,
       partialize: (state) => ({
         habits: state.habits,

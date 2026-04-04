@@ -103,13 +103,13 @@ const styles = StyleSheet.create({
   },
   bodyLine2Wrap: {
     alignSelf: 'stretch',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   bodyLine2: {
     fontSize: cardText.body,
     color: GroveColors.secondaryText,
     lineHeight: 14,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   arrowButton: {
     alignSelf: 'center',

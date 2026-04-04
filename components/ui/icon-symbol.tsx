@@ -31,6 +31,8 @@ const MAPPING = {
   'ellipsis': 'more-vert',
   'pause.fill': 'pause',
   'play.fill': 'play-arrow',
+  'eye.fill': 'visibility',
+  'eye.slash.fill': 'visibility-off',
 } as IconMapping;
 
 /**

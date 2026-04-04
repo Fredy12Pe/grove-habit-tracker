@@ -11,11 +11,14 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
 import { isOrphanedSessionAuthError } from '@/lib/auth-invalid-session';
 import { getAuthOAuthRedirectUrl } from '@/lib/auth-redirect-url';
+import { signUpIndicatesExistingAccount } from '@/lib/auth-signup-duplicate';
+import { syncHabitsWithAuthUser } from '@/lib/habit-user-snapshot';
 import { isSupabaseConfigured } from '@/lib/supabase-env';
 import { getSupabase } from '@/lib/supabase';
 
@@ -36,7 +39,11 @@ export type AuthContextValue = {
   signUp: (
     email: string,
     password: string,
-  ) => Promise<{ error: Error | null; sessionCreated: boolean }>;
+  ) => Promise<{
+    error: Error | null;
+    sessionCreated: boolean;
+    accountAlreadyExists: boolean;
+  }>;
   signOut: () => Promise<void>;
   completeOnboarding: () => Promise<{ error: Error | null }>;
 };
@@ -51,6 +58,8 @@ function getNeedsOnboarding(user: User | null): boolean {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [initialized, setInitialized] = useState(false);
+  /** Last user id we synced with `grove.habits.user.*` snapshots (not React session order). */
+  const habitSyncUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -115,6 +124,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  /**
+   * Per-user habit snapshots: sign-out / account switch save to AsyncStorage; same user signing
+   * back in restores from snapshot. Same-user cold start trusts rehydrated `grove.habits.v1`.
+   */
+  useEffect(() => {
+    if (!initialized) return;
+
+    const uid = session?.user?.id ?? null;
+    const prev = habitSyncUserIdRef.current;
+    let cancelled = false;
+
+    void (async () => {
+      await syncHabitsWithAuthUser({ previousUserId: prev, nextUserId: uid });
+      if (!cancelled) {
+        habitSyncUserIdRef.current = uid;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialized, session?.user?.id]);
+
   const user = session?.user ?? null;
   const needsOnboarding = useMemo(() => getNeedsOnboarding(user), [user]);
 
@@ -145,7 +177,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      return { error: CONFIG_ERROR, sessionCreated: false };
+      return {
+        error: CONFIG_ERROR,
+        sessionCreated: false,
+        accountAlreadyExists: false,
+      };
     }
     try {
       const { data, error } = await getSupabase().auth.signUp({
@@ -155,9 +191,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           emailRedirectTo: getAuthOAuthRedirectUrl(),
         },
       });
+      const accountAlreadyExists = signUpIndicatesExistingAccount(
+        data,
+        error,
+      );
+      if (accountAlreadyExists && !error) {
+        await getSupabase().auth.signOut();
+      }
       return {
-        error: error ? new Error(error.message) : null,
+        error:
+          error && !accountAlreadyExists ? new Error(error.message) : null,
         sessionCreated: Boolean(data?.session),
+        accountAlreadyExists,
       };
     } catch (err: unknown) {
       const msg =
@@ -167,15 +212,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           `Sign up failed: ${msg}. Check your internet/VPN/DNS and try again.`,
         ),
         sessionCreated: false,
+        accountAlreadyExists: false,
       };
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      return;
+    if (isSupabaseConfigured) {
+      await getSupabase().auth.signOut();
     }
-    await getSupabase().auth.signOut();
+    /** Habit save + in-memory reset run in `useEffect` when session becomes null. */
   }, []);
 
   const completeOnboarding = useCallback(async () => {

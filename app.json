@@ -12,12 +12,16 @@
       "appleTeamId": "78AKYC98Z3",
       "supportsTablet": true,
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.groveHabits.app"]
+        "com.apple.security.application-groups": [
+          "group.com.groveHabits.app",
+          "group.com.groveHabits.app"
+        ]
       },
       "infoPlist": {
         "CFBundleDisplayName": "Grove",
         "NSLocalNetworkUsageDescription": "Grove needs access to your local network to connect to the Metro development server.",
-        "NSPhotoLibraryUsageDescription": "Grove uses your photo library so you can set a profile picture."
+        "NSPhotoLibraryUsageDescription": "Grove uses your photo library so you can set a profile picture.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -27,7 +31,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -62,6 +69,29 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.groveHabits.app.widgets",
+                  "targetName": "GroveWidgets",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.groveHabits.app"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "3ea971a9-b020-4461-a09b-0e8ff70b34d8"
+      }
     }
   }
 }

@@ -1,8 +1,12 @@
-import { AuthWelcomeHeader } from "@/components/auth/AuthWelcomeHeader";
-import { AuthWelcomeRiveBackground } from "@/components/auth/AuthWelcomeRiveBackground";
 import { authWelcomeTheme } from "@/components/auth/auth-welcome-theme";
 import { AppText } from "@/components/ui/AppText";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/contexts/auth-context";
+import {
+  existingAccountAlertBody,
+  fetchSignInHintForEmail,
+  signInHintToNavigation,
+} from "@/lib/auth-signin-hint";
 import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
 import { Link, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -20,11 +24,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { signUp, supabaseConfigured } = useAuth();
+  const { signUp, signIn, supabaseConfigured } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   const onSubmit = useCallback(async () => {
     setError(null);
@@ -38,7 +43,36 @@ export default function SignUpScreen() {
       return;
     }
     setSubmitting(true);
-    const { error: err, sessionCreated } = await signUp(trimmed, password);
+    const { error: err, sessionCreated, accountAlreadyExists } =
+      await signUp(trimmed, password);
+    if (accountAlreadyExists) {
+      const { error: signInErr } = await signIn(trimmed, password);
+      if (!signInErr) {
+        setSubmitting(false);
+        router.replace("/");
+        return;
+      }
+      const hint = await fetchSignInHintForEmail(trimmed);
+      const nav = signInHintToNavigation(hint, trimmed);
+      setSubmitting(false);
+      Alert.alert("Account already exists", existingAccountAlertBody(hint), [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign In",
+          onPress: () => {
+            if (nav.params) {
+              router.replace({
+                pathname: nav.pathname,
+                params: nav.params,
+              });
+            } else {
+              router.replace(nav.pathname);
+            }
+          },
+        },
+      ]);
+      return;
+    }
     setSubmitting(false);
     if (err) {
       setError(err.message);
@@ -53,12 +87,18 @@ export default function SignUpScreen() {
       return;
     }
     router.replace("/onboarding");
-  }, [email, password, signUp, router]);
+  }, [email, password, signUp, signIn, router]);
+
+  const onBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(auth)/login");
+    }
+  }, [router]);
 
   return (
     <View style={styles.root}>
-      <AuthWelcomeRiveBackground style={StyleSheet.absoluteFill} />
-
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <KeyboardAvoidingView
           style={styles.flex}
@@ -66,11 +106,19 @@ export default function SignUpScreen() {
           keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
         >
           <View style={styles.column}>
-            <AuthWelcomeHeader />
-
-            <View style={styles.spacer} />
-
             <View style={styles.formPanel}>
+              <Pressable
+                onPress={onBack}
+                hitSlop={12}
+                style={styles.backRow}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <AppText variant="paragraph" style={styles.backText}>
+                  ← Back
+                </AppText>
+              </Pressable>
+
               <AppText variant="h1" style={styles.screenTitle}>
                 Create account
               </AppText>
@@ -103,15 +151,32 @@ export default function SignUpScreen() {
                 <AppText variant="small" style={styles.label}>
                   Password
                 </AppText>
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                  placeholderTextColor={authWelcomeTheme.textMuted}
-                />
+                <View style={styles.passwordOuter}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!passwordVisible}
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                    placeholderTextColor={authWelcomeTheme.textMuted}
+                  />
+                  <Pressable
+                    onPress={() => setPasswordVisible((v) => !v)}
+                    hitSlop={10}
+                    style={styles.passwordReveal}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      passwordVisible ? "Hide password" : "Show password"
+                    }
+                  >
+                    <IconSymbol
+                      name={passwordVisible ? "eye.slash.fill" : "eye.fill"}
+                      size={22}
+                      color={authWelcomeTheme.textMuted}
+                    />
+                  </Pressable>
+                </View>
               </View>
 
               {error ? (
@@ -162,7 +227,7 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: authWelcomeTheme.rootFallback,
+    backgroundColor: "#F2FBDB",
   },
   safe: {
     flex: 1,
@@ -173,13 +238,19 @@ const styles = StyleSheet.create({
   column: {
     flex: 1,
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
-  },
-  spacer: {
-    flex: 1,
-    minHeight: 16,
+    justifyContent: "flex-start",
   },
   formPanel: {
+    paddingTop: 56,
     paddingBottom: 8,
+  },
+  backRow: {
+    alignSelf: "flex-start",
+    marginBottom: 14,
+  },
+  backText: {
+    color: authWelcomeTheme.textForest,
+    fontWeight: "600",
   },
   screenTitle: {
     color: authWelcomeTheme.textForest,
@@ -208,6 +279,29 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === "ios" ? 14 : 10,
     fontSize: 16,
     color: authWelcomeTheme.textForest,
+  },
+  passwordOuter: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    borderRadius: GroveBorderRadius.button,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(47, 74, 47, 0.12)",
+  },
+  passwordInput: {
+    flex: 1,
+    paddingLeft: 14,
+    paddingRight: 4,
+    paddingVertical: Platform.OS === "ios" ? 14 : 10,
+    fontSize: 16,
+    color: authWelcomeTheme.textForest,
+  },
+  passwordReveal: {
+    paddingRight: 12,
+    paddingLeft: 4,
+    paddingVertical: Platform.OS === "ios" ? 10 : 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
   error: {
     color: "#B3261E",
