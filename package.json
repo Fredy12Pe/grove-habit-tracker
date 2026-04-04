@@ -68,10 +68,11 @@
     "@types/react": "~19.2.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~55.0.0",
-    "node-addon-api": "^8.3.0",
     "patch-package": "^8.0.1",
-    "sharp": "^0.34.5",
     "typescript": "~5.9.2"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.34.5"
   },
   "private": true
 }
