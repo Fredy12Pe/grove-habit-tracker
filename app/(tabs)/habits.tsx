@@ -1,33 +1,38 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { AppText } from "@/components/ui/AppText";
-import { HabitRow, type HabitData } from "@/components/habits/HabitRow";
-import { WeekCalendar } from "@/components/habits/WeekCalendar";
-import { TodayProgressBanner } from "@/components/habits/TodayProgressBanner";
 import { AddHabitSheet } from "@/components/habits/AddHabitSheet";
 import { HabitFormInline } from "@/components/habits/HabitFormInline";
-import { GroveColors, GroveSpacing } from "@/styles/theme";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useRouter } from "expo-router";
-import { useHabitStore } from "@/lib/store";
+import { HabitRow, type HabitData } from "@/components/habits/HabitRow";
+import { TodayProgressBanner } from "@/components/habits/TodayProgressBanner";
+import { WeekCalendar } from "@/components/habits/WeekCalendar";
+import { AppText } from "@/components/ui/AppText";
+import { calendarDateKey } from "@/lib/calendarDate";
 import { CATALOG_ICON_MAP, HABIT_CATALOG } from "@/lib/habitCatalog";
 import {
-  getProgressSummary,
-  isHabitComplete,
-  type HabitWithActions,
-  type TimerProgress,
+    triggerAllHabitsCompleteHaptic,
+    triggerHabitTimerFinishedHaptic,
+    triggerHabitToggleHaptic,
+} from "@/lib/habitHaptics";
+import {
+    getProgressSummary,
+    isHabitComplete,
+    type HabitWithActions,
+    type TimerProgress,
 } from "@/lib/habitsWithActions";
 import {
-  buildHabitWithActionsFromStore,
-  buildHabitsWithActionsListFromStore,
+    buildHabitWithActionsFromStore,
+    buildHabitsWithActionsListFromStore,
 } from "@/lib/habitWithActionsFromStore";
+import { useHabitStore } from "@/lib/store";
 import { syncWidgets } from "@/lib/widgets/syncWidgets";
+import { GroveColors, GroveSpacing } from "@/styles/theme";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 export default function HabitsScreen() {
   const router = useRouter();
@@ -36,13 +41,21 @@ export default function HabitsScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const storeHabits = useHabitStore((s) => s.habits);
+  const completionDates = useHabitStore((s) => s.completionDates);
   const toggleHabit = useHabitStore((s) => s.toggleHabit);
+  const toggleCompletionForDate = useHabitStore(
+    (s) => s.toggleCompletionForDate,
+  );
   const syncHabits = useHabitStore((s) => s.syncHabits);
   const ensureDayReset = useHabitStore((s) => s.ensureDayReset);
 
-  const [habitsWithActions, setHabitsWithActions] = useState<HabitWithActions[]>(
-    () => buildHabitsWithActionsListFromStore(storeHabits),
-  );
+  const selectedKey = calendarDateKey(selectedDate);
+  const todayKey = calendarDateKey();
+  const isViewingToday = selectedKey === todayKey;
+
+  const [habitsWithActions, setHabitsWithActions] = useState<
+    HabitWithActions[]
+  >(() => buildHabitsWithActionsListFromStore(storeHabits));
 
   useEffect(() => {
     ensureDayReset();
@@ -69,7 +82,11 @@ export default function HabitsScreen() {
       return next.map((h) => {
         const sh = storeById.get(h.id);
         if (!sh) return h;
-        return { ...h, streak: sh.streakCount, completedToday: sh.completedToday };
+        return {
+          ...h,
+          streak: sh.streakCount,
+          completedToday: sh.completedToday,
+        };
       });
     });
   }, [storeHabits]);
@@ -77,24 +94,39 @@ export default function HabitsScreen() {
   const updateHabit = useCallback(
     (id: string, updates: Partial<HabitWithActions>) => {
       setHabitsWithActions((prev) => {
+        if (calendarDateKey(selectedDate) !== calendarDateKey()) return prev;
         const h = prev.find((x) => x.id === id);
         if (!h) return prev;
         const merged = { ...h, ...updates };
         merged.completedToday = isHabitComplete(merged);
         const storeComplete =
-          useHabitStore.getState().habits.find((s) => s.id === id)?.completedToday ??
-          false;
+          useHabitStore.getState().habits.find((s) => s.id === id)
+            ?.completedToday ?? false;
         if (merged.completedToday !== storeComplete) {
+          const becomingComplete = merged.completedToday;
           queueMicrotask(() => {
             toggleHabit(id);
             syncWidgets();
+            const habits = useHabitStore.getState().habits;
+            if (habits.length === 0) return;
+            const allDone = habits.every((x) => x.completedToday);
+            if (becomingComplete) {
+              if (allDone) triggerAllHabitsCompleteHaptic();
+              else triggerHabitToggleHaptic(true);
+            } else {
+              triggerHabitToggleHaptic(false);
+            }
           });
         }
         return prev.map((x) => (x.id === id ? merged : x));
       });
     },
-    [toggleHabit],
+    [toggleHabit, selectedDate],
   );
+
+  useEffect(() => {
+    setExpandedId(null);
+  }, [selectedKey]);
 
   const expandedHabit = habitsWithActions.find((h) => h.id === expandedId);
   const timerRunning =
@@ -102,6 +134,7 @@ export default function HabitsScreen() {
     (expandedHabit.progress as TimerProgress)?.isRunning;
 
   useEffect(() => {
+    if (!isViewingToday) return;
     if (!expandedId || !expandedHabit || expandedHabit.type !== "timer") return;
     const p = expandedHabit.progress as TimerProgress;
     if (!p.isRunning || p.secondsRemaining <= 0) return;
@@ -118,7 +151,15 @@ export default function HabitsScreen() {
               const st = useHabitStore
                 .getState()
                 .habits.find((x) => x.id === expandedId);
-              if (st && !st.completedToday) toggleHabit(expandedId);
+              if (st && !st.completedToday) {
+                toggleHabit(expandedId);
+                syncWidgets();
+                const habits = useHabitStore.getState().habits;
+                const allDone =
+                  habits.length > 0 && habits.every((x) => x.completedToday);
+                if (allDone) triggerAllHabitsCompleteHaptic();
+                else triggerHabitTimerFinishedHaptic();
+              }
             });
             return {
               ...h,
@@ -136,24 +177,37 @@ export default function HabitsScreen() {
       );
     }, 1000);
     return () => clearInterval(id);
-  }, [expandedId, timerRunning, toggleHabit]);
+  }, [expandedId, timerRunning, toggleHabit, isViewingToday]);
 
   const habitRows: HabitData[] = storeHabits.map((sh) => {
     const hwa = habitsWithActions.find((h) => h.id === sh.id);
     const iconSource =
-      CATALOG_ICON_MAP[sh.customIconCatalogId ?? sh.id] ?? HABIT_CATALOG[0].icon;
+      CATALOG_ICON_MAP[sh.customIconCatalogId ?? sh.id] ??
+      HABIT_CATALOG[0].icon;
+    const completedForDay =
+      completionDates[sh.id]?.includes(selectedKey) ?? false;
     return {
       id: sh.id,
       name: sh.name,
       streak: sh.streakCount,
       icon: iconSource,
-      completed: sh.completedToday,
-      progressSummary: hwa ? getProgressSummary(hwa) : undefined,
+      completed: completedForDay,
+      progressSummary:
+        isViewingToday && hwa ? getProgressSummary(hwa) : undefined,
     };
   });
 
-  const completed = habitRows.filter((h) => h.completed);
   const inProgress = habitRows.filter((h) => !h.completed);
+  const completed = habitRows
+    .filter((h) => h.completed)
+    .slice()
+    .sort((a, b) => {
+      const ha = storeHabits.find((x) => x.id === a.id);
+      const hb = storeHabits.find((x) => x.id === b.id);
+      const ta = ha?.updatedAt ? new Date(ha.updatedAt).getTime() : 0;
+      const tb = hb?.updatedAt ? new Date(hb.updatedAt).getTime() : 0;
+      return ta - tb;
+    });
 
   const renderHabitRow = (habit: HabitData) => {
     const hwa = habitsWithActions.find((h) => h.id === habit.id);
@@ -162,8 +216,35 @@ export default function HabitsScreen() {
         key={habit.id}
         habit={habit}
         onToggle={(habitId) => {
-          toggleHabit(habitId);
+          if (calendarDateKey(selectedDate) > calendarDateKey()) return;
+          if (isViewingToday) {
+            const wasComplete =
+              useHabitStore.getState().habits.find((h) => h.id === habitId)
+                ?.completedToday ?? false;
+            toggleHabit(habitId);
+            syncWidgets();
+            queueMicrotask(() => {
+              const habits = useHabitStore.getState().habits;
+              if (habits.length === 0) return;
+              const allDone = habits.every((h) => h.completedToday);
+              if (wasComplete) {
+                triggerHabitToggleHaptic(false);
+              } else if (allDone) {
+                triggerAllHabitsCompleteHaptic();
+              } else {
+                triggerHabitToggleHaptic(true);
+              }
+            });
+            return;
+          }
+          const wasComplete =
+            completionDates[habitId]?.includes(selectedKey) ?? false;
+          toggleCompletionForDate(habitId, selectedKey);
           syncWidgets();
+          queueMicrotask(() => {
+            if (wasComplete) triggerHabitToggleHaptic(false);
+            else triggerHabitToggleHaptic(true);
+          });
         }}
         onPressSettings={(habitId) => router.push(`/habit-settings/${habitId}`)}
         expanded={expandedId === habit.id}
@@ -172,7 +253,19 @@ export default function HabitsScreen() {
         }
         expandedContent={
           expandedId === habit.id && hwa ? (
-            <HabitFormInline habit={hwa} onUpdate={updateHabit} />
+            isViewingToday ? (
+              <HabitFormInline habit={hwa} onUpdate={updateHabit} />
+            ) : (
+              <AppText
+                variant="small"
+                style={{
+                  color: GroveColors.secondaryText,
+                  paddingBottom: 8,
+                }}
+              >
+                Switch to today to track or edit this habit.
+              </AppText>
+            )
           ) : undefined
         }
       />
@@ -187,24 +280,6 @@ export default function HabitsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            activeOpacity={0.7}
-            onPress={() => router.push("/(tabs)/garden")}
-          >
-            <IconSymbol
-              name="chevron.left"
-              size={18}
-              color={GroveColors.primaryText}
-            />
-            <AppText variant="paragraph" style={styles.backLabel}>
-              Garden
-            </AppText>
-          </TouchableOpacity>
-        </View>
-
         {/* Week calendar */}
         <View style={styles.section}>
           <WeekCalendar
@@ -218,10 +293,19 @@ export default function HabitsScreen() {
           <TodayProgressBanner
             completedCount={completed.length}
             totalCount={habitRows.length}
+            title={
+              isViewingToday
+                ? undefined
+                : `${selectedDate.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })} Progress`
+            }
           />
         </View>
 
-        {/* Completed */}
+        {/* Completed — oldest-first so the most recently completed is at the bottom of this section */}
         {completed.length > 0 && (
           <View style={styles.section}>
             <AppText variant="paragraphRegular" style={styles.sectionLabel}>
@@ -231,7 +315,6 @@ export default function HabitsScreen() {
           </View>
         )}
 
-        {/* In Progress */}
         {inProgress.length > 0 && (
           <View style={styles.section}>
             <AppText variant="paragraphRegular" style={styles.sectionLabel}>
@@ -277,19 +360,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
     paddingTop: 20,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  backLabel: {
-    color: GroveColors.primaryText,
-    fontSize: 15,
-    fontWeight: "500",
   },
   section: {
     marginBottom: 20,

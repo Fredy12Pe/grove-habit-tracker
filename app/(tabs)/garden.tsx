@@ -3,13 +3,13 @@ import { GamePreview } from "@/components/game/GamePreview";
 import { AppText } from "@/components/ui/AppText";
 import { Card } from "@/components/ui/Card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
 import { useResolvedAvatarUri } from "@/hooks/useResolvedAvatarUri";
 import { useAuth } from "@/contexts/auth-context";
 import { useHabitStore } from "@/lib/store";
 import { getBestStreak } from "@/lib/stats";
 import { getDisplayName } from "@/lib/user-display";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import {
@@ -26,7 +26,7 @@ function streakLabel(days: number): string {
 
 export default function GardenScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const displayName = getDisplayName(user);
   const resolvedAvatarUri = useResolvedAvatarUri(user);
 
@@ -57,22 +57,18 @@ export default function GardenScreen() {
         <View style={styles.header}>
           <View style={styles.profileRow}>
             <View style={styles.avatarWrap}>
-              {resolvedAvatarUri ? (
-                <Image
-                  source={{ uri: resolvedAvatarUri }}
-                  style={styles.avatarImage}
-                  contentFit="cover"
-                  transition={200}
-                />
-              ) : (
-                <View style={styles.avatarFallback}>
+              <ProfileAvatar
+                uri={resolvedAvatarUri}
+                accessToken={session?.access_token}
+                imageStyle={styles.avatarImage}
+                fallback={
                   <IconSymbol
                     name="leaf.fill"
                     size={22}
                     color={GroveColors.primaryGreen}
                   />
-                </View>
-              )}
+                }
+              />
             </View>
             <AppText variant="h1" style={styles.userName}>
               {displayName}
@@ -152,11 +148,6 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: "100%",
     height: "100%",
-  },
-  avatarFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
   userName: {
     fontWeight: "700",

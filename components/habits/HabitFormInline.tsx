@@ -17,6 +17,10 @@ import {
   isHabitComplete,
 } from "@/lib/habitsWithActions";
 import {
+  triggerHabitCounterStepHaptic,
+  triggerHabitTimerStartedHaptic,
+} from "@/lib/habitHaptics";
+import {
   GroveBorderRadius,
   GroveColors,
   GroveSpacing,
@@ -208,14 +212,28 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Today’s progress</Text>
             <View style={styles.counterRow}>
-              <Pressable style={styles.counterBtn} onPress={() => updateProgress({ current: Math.max(0, p.current - 1) })}>
+              <Pressable
+                style={styles.counterBtn}
+                onPress={() => {
+                  const next = Math.max(0, p.current - 1);
+                  if (next === p.current) return;
+                  triggerHabitCounterStepHaptic();
+                  updateProgress({ current: next });
+                }}
+              >
                 <Text style={styles.counterBtnText}>−</Text>
               </Pressable>
               <View style={styles.counterValueWrap}>
                 <Text style={styles.counterValue}>{p.current}</Text>
                 <Text style={styles.counterUnit}>/ {s.goal} {s.unit ?? ""}</Text>
               </View>
-              <Pressable style={styles.counterBtn} onPress={() => updateProgress({ current: p.current + 1 })}>
+              <Pressable
+                style={styles.counterBtn}
+                onPress={() => {
+                  triggerHabitCounterStepHaptic();
+                  updateProgress({ current: p.current + 1 });
+                }}
+              >
                 <Text style={styles.counterBtnText}>+</Text>
               </Pressable>
             </View>
@@ -263,7 +281,10 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
                     ) : (
                       <Pressable
                         style={[styles.timerCtrlBtn, styles.timerCtrlPlay]}
-                        onPress={() => updateProgress({ ...p, isRunning: true })}
+                        onPress={() => {
+                          triggerHabitTimerStartedHaptic();
+                          updateProgress({ ...p, isRunning: true });
+                        }}
                       >
                         <Text style={styles.timerCtrlTextPrimary}>Play</Text>
                       </Pressable>

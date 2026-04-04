@@ -61,6 +61,14 @@ function RootLayoutContent() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="onboarding/widgets"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="onboarding/profile-setup"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="onboarding/garden-intro"
           options={{ headerShown: false }}
         />

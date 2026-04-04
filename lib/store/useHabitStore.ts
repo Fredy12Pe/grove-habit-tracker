@@ -33,6 +33,8 @@ interface HabitStore {
   updateHabit: (id: string, updates: Partial<Habit>) => void;
   completeHabit: (id: string) => void;
   toggleHabit: (id: string) => void;
+  /** Add/remove completion for a specific calendar day (YYYY-MM-DD). No-op for future dates. Syncs completedToday when date is today. */
+  toggleCompletionForDate: (id: string, dateKey: string) => void;
   setGrowthState: (habitId: string, state: PlantGrowthState) => void;
   removeHabit: (id: string) => void;
   syncHabits: (selectedIds: string[]) => void;
@@ -169,6 +171,27 @@ export const useHabitStore = create<HabitStore>()(
         habits: state.habits.map((h) =>
           h.id === id ? { ...h, completedToday: nextCompleted, updatedAt: new Date().toISOString() } : h
         ),
+        completionDates: { ...state.completionDates, [id]: nextDates },
+      };
+    }),
+
+  toggleCompletionForDate: (id, dateKey) =>
+    set((state) => {
+      const today = todayStr();
+      if (dateKey > today) return state;
+      const h = state.habits.find((x) => x.id === id);
+      if (!h) return state;
+      const dates = state.completionDates[id] ?? [];
+      const has = dates.includes(dateKey);
+      const nextDates = has
+        ? dates.filter((d) => d !== dateKey)
+        : [...dates, dateKey].sort();
+      const patch =
+        dateKey === today
+          ? { completedToday: !has, updatedAt: new Date().toISOString() }
+          : { updatedAt: new Date().toISOString() };
+      return {
+        habits: state.habits.map((x) => (x.id === id ? { ...x, ...patch } : x)),
         completionDates: { ...state.completionDates, [id]: nextDates },
       };
     }),

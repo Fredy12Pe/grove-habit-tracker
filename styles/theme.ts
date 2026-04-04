@@ -12,6 +12,12 @@ export const GroveColors = {
   secondaryText: '#807E71',
   /** Light gray for inactive progress, outlines */
   inactive: '#E0E0E0',
+  /** Form fields, onboarding wells — matches primaryText tint */
+  outline: 'rgba(124, 123, 103, 0.22)',
+  /** Section dividers (e.g. sticky footers) */
+  divider: 'rgba(124, 123, 103, 0.12)',
+  /** Inline errors */
+  error: '#B3261E',
 } as const;
 
 export const GroveSpacing = {

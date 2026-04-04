@@ -9,11 +9,14 @@ const sproutImage = require("@/assets/habits/ProgressCard/Progress_Sprout.png");
 interface TodayProgressBannerProps {
   completedCount: number;
   totalCount: number;
+  /** Defaults to “Today’s Progress”. */
+  title?: string;
 }
 
 export function TodayProgressBanner({
   completedCount,
   totalCount,
+  title = "Today's Progress",
 }: TodayProgressBannerProps) {
   const remaining = totalCount - completedCount;
 
@@ -25,7 +28,7 @@ export function TodayProgressBanner({
       {/* Content sits on top of background */}
       <View style={styles.content}>
         <AppText variant="h2" style={styles.title}>
-          Today's Progress
+          {title}
         </AppText>
         <AppText variant="paragraphRegular" style={styles.summary}>
           {completedCount} / {totalCount} habits completed

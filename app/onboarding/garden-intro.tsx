@@ -3,6 +3,7 @@ import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { GamePreview } from "@/components/game/GamePreview";
 import { useAuth } from "@/contexts/auth-context";
+import { useRecoverOrphanedSession } from "@/hooks/useRecoverOrphanedSession";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import { CATALOG_ICON_MAP, HABIT_CATALOG } from "@/lib/habitCatalog";
 import { useHabitStore } from "@/lib/store";
@@ -21,6 +22,7 @@ import {
 export default function GardenIntroOnboardingScreen() {
   const router = useRouter();
   const { completeOnboarding, session } = useAuth();
+  const recoverOrphanedSession = useRecoverOrphanedSession();
   const {
     selectedHabitIds,
     previewHabitsSnapshot,
@@ -59,6 +61,7 @@ export default function GardenIntroOnboardingScreen() {
       if (session) {
         const { error: err } = await completeOnboarding();
         if (err) {
+          if (await recoverOrphanedSession(err.message)) return;
           setError(err.message);
           return;
         }
@@ -138,7 +141,7 @@ export default function GardenIntroOnboardingScreen() {
             disabled={finishing}
           >
             {finishing ? (
-              <ActivityIndicator color={GroveColors.primaryText} />
+              <ActivityIndicator color={GroveColors.white} />
             ) : (
               <AppText variant="paragraph" style={styles.primaryBtnText}>
                 Start Growing
@@ -213,11 +216,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: GroveColors.white,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(124, 123, 103, 0.14)",
+    borderColor: GroveColors.outline,
   },
   icon: {
     width: 34,
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   error: {
-    color: "#B3261E",
+    color: GroveColors.error,
     textAlign: "center",
   },
   primaryBtn: {
@@ -240,7 +243,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   primaryBtnText: {
-    color: GroveColors.primaryText,
+    color: GroveColors.white,
     fontWeight: "700",
   },
 });

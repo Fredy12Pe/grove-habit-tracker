@@ -215,7 +215,7 @@ export default function ChooseHabitsOnboardingScreen() {
                 setPreviewHabitsSnapshot(storeHabits);
               }
               applySelectedHabits(selectedHabitIds);
-              router.push("/onboarding/garden-intro");
+              router.push("/onboarding/profile-setup");
             }}
           >
             <AppText variant="paragraph" style={styles.primaryBtnText}>
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(124, 123, 103, 0.12)",
+    borderTopColor: GroveColors.divider,
     backgroundColor: GroveColors.background,
   },
   footerRow: {
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryBtnText: {
-    color: GroveColors.primaryText,
+    color: GroveColors.white,
     fontWeight: "700",
   },
   helper: {

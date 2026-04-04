@@ -4,6 +4,7 @@
  */
 
 import { AppText } from "@/components/ui/AppText";
+import { gardenActiveWeekOvalBox } from "@/lib/game/gardenTriggerOval";
 import {
   GARDEN_MAX_PLANTS,
   getCurrentMonthWeekIndex,
@@ -23,6 +24,7 @@ import {
 import { useHabitStore } from "@/lib/store";
 import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 import type { Habit } from "@/lib/types";
+import { gameSelection } from "@/lib/gameHaptics";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
@@ -671,19 +673,14 @@ export function GamePreview({
                           habitIndex,
                           weekKey,
                         );
-                        let frame: number;
-                        if (i < currentWeekPlot) {
-                          frame = FRAMES_PER_PLANT - 1;
-                        } else {
-                          const weekRange = getWeekOfMonthDateRange(i);
-                          const count = getWeekCompletionCount(
-                            habit.id,
-                            completionDates,
-                            weekRange.start,
-                            weekRange.end,
-                          );
-                          frame = Math.min(count, FRAMES_PER_PLANT - 1);
-                        }
+                        const weekRange = getWeekOfMonthDateRange(i);
+                        const count = getWeekCompletionCount(
+                          habit.id,
+                          completionDates,
+                          weekRange.start,
+                          weekRange.end,
+                        );
+                        const frame = Math.min(count, FRAMES_PER_PLANT - 1);
                         const source = getPlantSprite(plantIndex, frame);
                         const ps = backupGardenLayout.plantSize;
                         return (
@@ -702,6 +699,17 @@ export function GamePreview({
                           />
                         );
                       })}
+                  {i === currentWeekPlot ? (
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        position: "absolute",
+                        ...gardenActiveWeekOvalBox(GW, GH),
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                        zIndex: 12,
+                      }}
+                    />
+                  ) : null}
                   {BACKUP_GARDEN_GRID_DEBUG &&
                     Array.from(
                       {
@@ -1055,7 +1063,10 @@ export function GamePreview({
               <TouchableOpacity
                 style={styles.overlayButton}
                 activeOpacity={0.8}
-                onPress={() => router.navigate("/(tabs)/game")}
+                onPress={() => {
+                  gameSelection();
+                  router.navigate("/(tabs)/game");
+                }}
               >
                 <Animated.View
                   style={{ transform: [{ translateX: arrowNudge }] }}

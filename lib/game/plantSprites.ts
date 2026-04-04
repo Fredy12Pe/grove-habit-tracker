@@ -292,6 +292,44 @@ const PLANT_SPRITES: PlantSpriteSource[][] = [
   ],
 ];
 
+/** In-sprite order (0–27); keep in sync with `PLANT_SPRITES` entries. */
+const PLANT_DISPLAY_NAMES: readonly string[] = [
+  "Witherleaf",
+  "Aurora Sprout",
+  "Seedling Hope",
+  "Droop Lily",
+  "Radiant Bloom",
+  "Spiral Vine",
+  "Bellflower Drift",
+  "Crystal Stem",
+  "Ember Reed",
+  "Mistcap Shroom",
+  "Berrybright",
+  "Prism Bloom",
+  "Twilight Petal",
+  "Thornshade",
+  "Sunflare",
+  "Bonsai Buddy",
+  "Honey Puff",
+  "Buzzbud",
+  "Starroot",
+  "Aloe Guard",
+  "Twinbud",
+  "Frost Fern",
+  "Verdant Spike",
+  "Candy Bloom",
+  "Desert Pillar",
+  "Flamebranch",
+  "Drytwig",
+  "Ember Bud",
+];
+
+/** Human-readable plant variety for the given sprite index (0–27). */
+export function getPlantDisplayName(plantIndex: number): string {
+  const pi = Math.max(0, Math.min(plantIndex, PLANT_COUNT - 1));
+  return PLANT_DISPLAY_NAMES[pi] ?? "Plant";
+}
+
 /** Get sprite for plant index (0–27) and day-of-week frame (0–6). */
 export function getPlantSprite(plantIndex: number, frameIndex: number): PlantSpriteSource {
   const pi = Math.max(0, Math.min(plantIndex, PLANT_COUNT - 1));

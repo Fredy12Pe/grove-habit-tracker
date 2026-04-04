@@ -2,6 +2,11 @@ import { BreathingRivePlayer } from "@/components/breathe/BreathingRivePlayer";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/contexts/auth-context";
+import {
+  gameImpactLight,
+  gameImpactMedium,
+  gameImpactRigid,
+} from "@/lib/gameHaptics";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
 import { Redirect, useRouter } from "expo-router";
 import React, {
@@ -129,6 +134,7 @@ function BreatheScreenContent() {
   };
 
   const startSession = () => {
+    gameImpactMedium();
     frozenElapsedMsRef.current = 0;
     prevPausedRef.current = false;
     breathTimelinePrimedRef.current = false;
@@ -151,15 +157,15 @@ function BreatheScreenContent() {
     setBreathTimelineLive(true);
   }, []);
 
-  const endSession = useCallback(() => {
-    setMode("setup");
-    setPaused(false);
-  }, []);
-
   const endSessionToSetup = useCallback(() => {
     setMode("setup");
     setPaused(false);
   }, []);
+
+  const onEndSessionPress = useCallback(() => {
+    gameImpactRigid();
+    endSessionToSetup();
+  }, [endSessionToSetup]);
 
   // Leaving active mode: reset Rive sync + 16s perimeter progress (cycleProgress state only).
   useEffect(() => {
@@ -348,7 +354,10 @@ function BreatheScreenContent() {
             <View style={styles.activeFooter}>
               {!paused ? (
                 <Pressable
-                  onPress={() => setPaused(true)}
+                  onPress={() => {
+                    gameImpactLight();
+                    setPaused(true);
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="Pause"
                   style={({ pressed }) => [
@@ -365,7 +374,10 @@ function BreatheScreenContent() {
               ) : (
                 <View style={styles.pausedRow}>
                   <Pressable
-                    onPress={() => setPaused(false)}
+                    onPress={() => {
+                      gameImpactMedium();
+                      setPaused(false);
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel="Continue"
                     style={({ pressed }) => [
@@ -380,7 +392,7 @@ function BreatheScreenContent() {
                     />
                   </Pressable>
                   <Pressable
-                    onPress={endSessionToSetup}
+                    onPress={onEndSessionPress}
                     style={({ pressed }) => [
                       styles.primaryCircleBtn,
                       pressed && styles.primaryCircleBtnPressed,

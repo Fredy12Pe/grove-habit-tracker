@@ -40,13 +40,16 @@ export function getIslandWorldLayout(windowHeight: number) {
   /** Horizontal anchor (0 = left edge of island art, 1 = right). Left side of the playable island. */
   const TREE_WORLD_X = ISLAND_LEFT + ISLAND_W * 0.16;
   const TREE_WORLD_Y = ISLAND_TOP + ISLAND_H * 0.26;
-  const TREE_INTERACT_RADIUS = Math.max(
-    56,
-    Math.min(TREE_DISPLAY_W, TREE_DISPLAY_H) * 0.9,
-  );
   const TREE_DEPTH_Y = TREE_WORLD_Y;
   const TREE_TRUNK_HALF_W = Math.max(14, Math.round(TREE_DISPLAY_W * 0.22));
   const TREE_TRUNK_TOP = TREE_WORLD_Y - Math.round(TREE_DISPLAY_H * 0.38);
+  /** "Chop" proximity: centered on tree sprite, tighter radius. */
+  const TREE_INTERACT_CENTER_X = TREE_WORLD_X;
+  const TREE_INTERACT_CENTER_Y = TREE_WORLD_Y - Math.round(TREE_DISPLAY_H / 2);
+  const TREE_INTERACT_RADIUS = Math.max(
+    36,
+    Math.round(Math.min(TREE_DISPLAY_W, TREE_DISPLAY_H) * 0.52),
+  );
 
   const COW_EATING_FRAMES = [
     require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_1.png"),
@@ -77,12 +80,18 @@ export function getIslandWorldLayout(windowHeight: number) {
   const COW_WORLD_Y = ISLAND_TOP + ISLAND_H * 0.41;
   /** Feet Y north of this line = draw character behind the cow (ground line at sprite base). */
   const COW_DEPTH_Y = COW_WORLD_Y;
-  const COW_INTERACT_RADIUS = Math.max(
-    44,
-    Math.min(COW_DISPLAY_W, COW_DISPLAY_H) * 0.95,
-  );
   const COW_TRUNK_HALF_W = Math.max(10, Math.round(COW_DISPLAY_W * 0.22));
   const COW_TRUNK_TOP = COW_WORLD_Y - Math.round(COW_DISPLAY_H * 0.38);
+  /** "Pet" proximity: slightly below sprite midpoint (toward hooves / ground). */
+  const COW_INTERACT_CENTER_X = COW_WORLD_X;
+  const COW_INTERACT_CENTER_Y =
+    COW_WORLD_Y -
+    Math.round(COW_DISPLAY_H / 2) +
+    Math.round(COW_DISPLAY_H * 0.14);
+  const COW_INTERACT_RADIUS = Math.max(
+    46,
+    Math.round(Math.min(COW_DISPLAY_W, COW_DISPLAY_H) * 0.7),
+  );
 
   const CHICKEN_IDLE_FRAMES = [
     require("@/assets/game-backup/Sprites/Chickens_animations/Idle/Mask group.png"),
@@ -132,10 +141,6 @@ export function getIslandWorldLayout(windowHeight: number) {
   const SHAKE_TREE_DISPLAY_H = Math.round(ISLAND_H * 0.15);
   const SHAKE_TREE_WORLD_X = ISLAND_LEFT + ISLAND_W * 0.96;
   const SHAKE_TREE_WORLD_Y = ISLAND_TOP + ISLAND_H * 0.3;
-  const SHAKE_TREE_INTERACT_RADIUS = Math.max(
-    44,
-    Math.min(SHAKE_TREE_DISPLAY_W, SHAKE_TREE_DISPLAY_H) * 0.9,
-  );
   /** Feet Y north of this line = draw character behind shake tree (same as ground line). */
   const SHAKE_TREE_DEPTH_Y = SHAKE_TREE_WORLD_Y;
   const SHAKE_TREE_TRUNK_HALF_W = Math.max(
@@ -144,6 +149,18 @@ export function getIslandWorldLayout(windowHeight: number) {
   );
   const SHAKE_TREE_TRUNK_TOP =
     SHAKE_TREE_WORLD_Y - Math.round(SHAKE_TREE_DISPLAY_H * 0.38);
+  /** Same interaction pattern as cow: slightly below sprite midpoint + matching radius scale. */
+  const SHAKE_TREE_INTERACT_CENTER_X = SHAKE_TREE_WORLD_X;
+  const SHAKE_TREE_INTERACT_CENTER_Y =
+    SHAKE_TREE_WORLD_Y -
+    Math.round(SHAKE_TREE_DISPLAY_H / 2) +
+    Math.round(SHAKE_TREE_DISPLAY_H * 0.14);
+  const SHAKE_TREE_INTERACT_RADIUS = Math.max(
+    46,
+    Math.round(
+      Math.min(SHAKE_TREE_DISPLAY_W, SHAKE_TREE_DISPLAY_H) * 0.7,
+    ),
+  );
 
   const HILLS = require("@/assets/game-backup/hills/hills.png");
   const HILLS_SCALE = ISLAND_W / 1751;
@@ -251,7 +268,8 @@ export function getIslandWorldLayout(windowHeight: number) {
 
   const HOUSE_FRONT_W = Math.round(231 * HOUSE_SCALE);
   const HOUSE_FRONT_H = Math.round(42 * HOUSE_SCALE);
-  const HOUSE_FRONT_LEFT = HOUSE_LEFT + Math.round((HOUSE_W - HOUSE_FRONT_W) / 2);
+  const HOUSE_FRONT_LEFT =
+    HOUSE_LEFT + Math.round((HOUSE_W - HOUSE_FRONT_W) / 2);
   const HOUSE_FRONT_TOP = HOUSE_TOP + HOUSE_H - HOUSE_FRONT_H;
 
   const HOUSE_ROOFTOP_W = Math.round(231 * HOUSE_SCALE);
@@ -265,7 +283,9 @@ export function getIslandWorldLayout(windowHeight: number) {
   const HOUSE_DOOR_RADIUS = 18;
   const HOUSE_EXIT_X = HOUSE_LEFT + INTERIOR_X + INTERIOR_W * 0.1;
   const HOUSE_EXIT_Y = HOUSE_TOP + INTERIOR_Y + INTERIOR_H - 40;
-  const HOUSE_EXIT_RADIUS = 22;
+  /** Indoor exit proximity: horizontal oval (wider than the old circle). */
+  const HOUSE_EXIT_RX = Math.round(38 * HOUSE_SCALE);
+  const HOUSE_EXIT_RY = Math.round(15 * HOUSE_SCALE);
   const HOUSE_ENTER_POS = {
     x: HOUSE_LEFT + INTERIOR_X + INTERIOR_W / 2,
     y: HOUSE_TOP + INTERIOR_Y + INTERIOR_H / 2,
@@ -379,6 +399,8 @@ export function getIslandWorldLayout(windowHeight: number) {
     TREE_DISPLAY_W,
     TREE_WORLD_X,
     TREE_WORLD_Y,
+    TREE_INTERACT_CENTER_X,
+    TREE_INTERACT_CENTER_Y,
     TREE_INTERACT_RADIUS,
     TREE_DEPTH_Y,
     TREE_TRUNK_HALF_W,
@@ -394,6 +416,8 @@ export function getIslandWorldLayout(windowHeight: number) {
     COW_WORLD_X,
     COW_WORLD_Y,
     COW_DEPTH_Y,
+    COW_INTERACT_CENTER_X,
+    COW_INTERACT_CENTER_Y,
     COW_INTERACT_RADIUS,
     COW_TRUNK_HALF_W,
     COW_TRUNK_TOP,
@@ -440,6 +464,8 @@ export function getIslandWorldLayout(windowHeight: number) {
     SHAKE_TREE_DISPLAY_H,
     SHAKE_TREE_WORLD_X,
     SHAKE_TREE_WORLD_Y,
+    SHAKE_TREE_INTERACT_CENTER_X,
+    SHAKE_TREE_INTERACT_CENTER_Y,
     SHAKE_TREE_INTERACT_RADIUS,
     SHAKE_TREE_DEPTH_Y,
     SHAKE_TREE_TRUNK_HALF_W,
@@ -528,7 +554,8 @@ export function getIslandWorldLayout(windowHeight: number) {
     HOUSE_DOOR_RADIUS,
     HOUSE_EXIT_X,
     HOUSE_EXIT_Y,
-    HOUSE_EXIT_RADIUS,
+    HOUSE_EXIT_RX,
+    HOUSE_EXIT_RY,
     HOUSE_ENTER_POS,
     HOUSE_INTERIOR_RECT,
     WALKWAY,

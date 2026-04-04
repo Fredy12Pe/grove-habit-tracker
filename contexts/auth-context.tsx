@@ -1,7 +1,7 @@
 /**
  * Auth flow (Grove): **sign-in required** (no guest mode).
  * Methods: **email + password**, **Google OAuth** (`lib/auth-google`), **Sign in with Apple** on iOS (`lib/auth-apple`).
- * Order: **sign-in / sign-up → onboarding (once) → main app** (`(tabs)`).
+ * Order: **sign-in / sign-up → onboarding (habits → profile → widgets → garden intro) → main app** (`(tabs)`).
  * Onboarding completion is stored in Supabase `user.user_metadata.onboarding_completed`.
  */
 import type { Session, User } from '@supabase/supabase-js';
@@ -14,6 +14,7 @@ import React, {
   useState,
 } from 'react';
 
+import { isOrphanedSessionAuthError } from '@/lib/auth-invalid-session';
 import { getAuthOAuthRedirectUrl } from '@/lib/auth-redirect-url';
 import { isSupabaseConfigured } from '@/lib/supabase-env';
 import { getSupabase } from '@/lib/supabase';
@@ -29,6 +30,8 @@ export type AuthContextValue = {
   /** False when env vars are missing — sign-in will not work until configured. */
   supabaseConfigured: boolean;
   needsOnboarding: boolean;
+  /** Merge `user` from `updateUser` / upload so `avatar_url` & name show before the next auth event. */
+  applySessionUser: (nextUser: User) => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (
     email: string,
@@ -64,11 +67,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     supabase.auth
       .getSession()
-      .then(({ data: { session: s }, error }) => {
+      .then(async ({ data: { session: s }, error }) => {
         if (!mounted) return;
         if (error) {
           console.warn('[auth] getSession:', error.message);
         }
+        if (s?.access_token) {
+          const { error: userErr } = await supabase.auth.getUser();
+          if (
+            userErr &&
+            isOrphanedSessionAuthError(userErr.message) &&
+            mounted
+          ) {
+            console.warn('[auth] clearing invalid session:', userErr.message);
+            await supabase.auth.signOut();
+            setSession(null);
+            setInitialized(true);
+            return;
+          }
+        }
+        if (!mounted) return;
         setSession(s ?? null);
         setInitialized(true);
       })
@@ -99,6 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const user = session?.user ?? null;
   const needsOnboarding = useMemo(() => getNeedsOnboarding(user), [user]);
+
+  const applySessionUser = useCallback((nextUser: User) => {
+    setSession((prev) => (prev ? { ...prev, user: nextUser } : prev));
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
@@ -160,10 +182,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isSupabaseConfigured) {
       return { error: CONFIG_ERROR };
     }
-    const { error } = await getSupabase().auth.updateUser({
+    const { data, error } = await getSupabase().auth.updateUser({
       data: { onboarding_completed: true },
     });
-    return { error: error ? new Error(error.message) : null };
+    if (error) {
+      return { error: new Error(error.message) };
+    }
+    if (data.user) {
+      setSession((prev) => (prev ? { ...prev, user: data.user! } : prev));
+    }
+    return { error: null };
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -173,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initialized,
       supabaseConfigured: isSupabaseConfigured,
       needsOnboarding,
+      applySessionUser,
       signIn,
       signUp,
       signOut,
@@ -183,6 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       initialized,
       needsOnboarding,
+      applySessionUser,
       signIn,
       signUp,
       signOut,

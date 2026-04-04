@@ -10,15 +10,27 @@ import {
   getWeekOfMonthDateRange,
   makeWeekKeyForPlot,
 } from "@/lib/game/gardenBackupGrid";
+import {
+  gardenActiveWeekOvalBox,
+  gardenTriggerRadii,
+} from "@/lib/game/gardenTriggerOval";
 import { getIslandWorldLayout } from "@/lib/game/islandWorldLayout";
 import {
   FRAMES_PER_PLANT,
+  getPlantDisplayName,
   getPlantIndexForHabitSlot,
   getPlantSprite,
 } from "@/lib/game/plantSprites";
-import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 import unifiedCollision from "@/lib/game/unifiedCollision.json";
+import {
+  gameImpactLight,
+  gameImpactMedium,
+  gameImpactRigid,
+  gameSelection,
+  gameSuccess,
+} from "@/lib/gameHaptics";
 import { useHabitStore } from "@/lib/store";
+import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 import type { Habit } from "@/lib/types";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
@@ -65,6 +77,8 @@ const {
   TREE_DISPLAY_W,
   TREE_WORLD_X,
   TREE_WORLD_Y,
+  TREE_INTERACT_CENTER_X,
+  TREE_INTERACT_CENTER_Y,
   TREE_INTERACT_RADIUS,
   TREE_DEPTH_Y,
   TREE_TRUNK_HALF_W,
@@ -80,6 +94,8 @@ const {
   COW_WORLD_X,
   COW_WORLD_Y,
   COW_DEPTH_Y,
+  COW_INTERACT_CENTER_X,
+  COW_INTERACT_CENTER_Y,
   COW_INTERACT_RADIUS,
   COW_TRUNK_HALF_W,
   COW_TRUNK_TOP,
@@ -126,6 +142,8 @@ const {
   SHAKE_TREE_DISPLAY_H,
   SHAKE_TREE_WORLD_X,
   SHAKE_TREE_WORLD_Y,
+  SHAKE_TREE_INTERACT_CENTER_X,
+  SHAKE_TREE_INTERACT_CENTER_Y,
   SHAKE_TREE_INTERACT_RADIUS,
   SHAKE_TREE_DEPTH_Y,
   SHAKE_TREE_TRUNK_HALF_W,
@@ -211,7 +229,8 @@ const {
   HDESK_DEPTH_Y,
   HOUSE_EXIT_X,
   HOUSE_EXIT_Y,
-  HOUSE_EXIT_RADIUS,
+  HOUSE_EXIT_RX,
+  HOUSE_EXIT_RY,
   HOUSE_ENTER_POS,
   HOUSE_INTERIOR_RECT,
   WALKWAY,
@@ -237,8 +256,14 @@ const {
   START_Y,
 } = getIslandWorldLayout(H);
 
+/** Same horizontal padding as `isOnWalkway` / door trigger. */
+const WALKWAY_PAD_X = Math.max(6, Math.round(WALKWAY_DISPLAY_W * 0.15));
+
 /** Tree AABB intersects the screen after applying the same camera pan as the character. */
-function isTreeVisibleOnScreen(charWorldX: number, charWorldY: number): boolean {
+function isTreeVisibleOnScreen(
+  charWorldX: number,
+  charWorldY: number,
+): boolean {
   const cam = getCameraOffset(charWorldX, charWorldY);
   const left = TREE_WORLD_X - TREE_DISPLAY_W / 2 + cam.x;
   const top = TREE_WORLD_Y - TREE_DISPLAY_H + cam.y;
@@ -269,6 +294,11 @@ const BACKUP_GARDEN_PLANT_FILL = 1.8;
 const BACKUP_GARDEN_GRID_DEBUG = false;
 
 /**
+ * World + UI hit zones for tuning (walk mask, circles, button outlines). Keep false for players; set true when adjusting layout.
+ */
+const GAME_INTERACTION_DEBUG = false;
+
+/**
  * Dev-only plant frame cycling was removed; this stub stays so stale Fast Refresh /
  * React Compiler bundles don’t reference a missing identifier.
  */
@@ -293,7 +323,7 @@ const CHAR_SCALE = 0.67;
 const SPEED = 3.5;
 const ANIM_FPS = 8;
 const MOVE_INTERVAL = 16;
-/** When idle, run door/garden/proximity every Nth tick only. */
+/** When idle, refresh facing animation only every Nth tick (proximity still runs every tick). */
 const IDLE_PROXIMITY_TICK_MOD = 3;
 const DEADZONE = 0.15;
 
@@ -636,27 +666,29 @@ function isCharBehindIndoorFurniture(worldX: number, feetY: number): boolean {
   return false;
 }
 
-const GARDEN_TRIGGER_RADIUS = GH * 0.35;
+/** Elliptical garden interaction zones (world px): wider than tall. */
+const { rx: GARDEN_TRIGGER_RX, ry: GARDEN_TRIGGER_RY } = gardenTriggerRadii(GH);
 const GARDEN_TRIGGERS = GARDEN_POSITIONS.map((pos) => ({
   x: ISLAND_LEFT + pos.x * ISLAND_W,
-  y: ISLAND_TOP + pos.y * ISLAND_H + GH / 2 + GARDEN_TRIGGER_RADIUS * 0.6,
+  y: ISLAND_TOP + pos.y * ISLAND_H + GH / 2 + GARDEN_TRIGGER_RY * 0.65,
 }));
 
+/** Uses feet on the ground (worldY = feetY) so the ellipse matches where the player stands. */
 function nearGardenIndex(worldX: number, worldY: number): number {
-  const r2 = GARDEN_TRIGGER_RADIUS * GARDEN_TRIGGER_RADIUS;
   for (let i = 0; i < GARDEN_TRIGGERS.length; i++) {
     const dx = worldX - GARDEN_TRIGGERS[i].x;
     const dy = worldY - GARDEN_TRIGGERS[i].y;
-    if (dx * dx + dy * dy <= r2) return i;
+    const nx = dx / GARDEN_TRIGGER_RX;
+    const ny = dy / GARDEN_TRIGGER_RY;
+    if (nx * nx + ny * ny <= 1) return i;
   }
   return -1;
 }
 
 function isOnWalkway(worldX: number, feetY: number): boolean {
-  const padX = Math.max(6, Math.round(WALKWAY_DISPLAY_W * 0.15));
   return (
-    worldX >= WALKWAY_LEFT - padX &&
-    worldX <= WALKWAY_LEFT + WALKWAY_DISPLAY_W + padX &&
+    worldX >= WALKWAY_LEFT - WALKWAY_PAD_X &&
+    worldX <= WALKWAY_LEFT + WALKWAY_DISPLAY_W + WALKWAY_PAD_X &&
     feetY >= WALKWAY_TOP &&
     feetY <= WALKWAY_TOP + WALKWAY_DISPLAY_H
   );
@@ -666,7 +698,9 @@ function isNearDoor(worldX: number, worldY: number, indoor: boolean): boolean {
   if (indoor) {
     const dx = worldX - HOUSE_EXIT_X;
     const dy = worldY - HOUSE_EXIT_Y;
-    return dx * dx + dy * dy <= HOUSE_EXIT_RADIUS * HOUSE_EXIT_RADIUS;
+    const nx = dx / HOUSE_EXIT_RX;
+    const ny = dy / HOUSE_EXIT_RY;
+    return nx * nx + ny * ny <= 1;
   }
   return isOnWalkway(worldX, worldY + FEET_OFFSET_Y);
 }
@@ -830,6 +864,7 @@ export default function GameScreen() {
 
   const handleChopTree = useCallback(() => {
     if (treeHasFallenRef.current || treeFallAnimatingRef.current) return;
+    gameImpactMedium();
     treeFallAnimatingRef.current = true;
     setTreeFallPlaying(true);
   }, []);
@@ -875,6 +910,7 @@ export default function GameScreen() {
 
   const handlePetCow = useCallback(() => {
     if (cowPetPlaying) return;
+    gameImpactLight();
     setCowHeartFrameIndex(0);
     setCowPetPlaying(true);
   }, [cowPetPlaying]);
@@ -885,11 +921,7 @@ export default function GameScreen() {
       setChickenIdleFrameIndex((i) => (i + 1) % CHICKEN_IDLE_FRAME_COUNT);
     }, CHICKEN_ANIM_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [
-    chickenPeckPlaying,
-    CHICKEN_IDLE_FRAME_COUNT,
-    CHICKEN_ANIM_INTERVAL_MS,
-  ]);
+  }, [chickenPeckPlaying, CHICKEN_IDLE_FRAME_COUNT, CHICKEN_ANIM_INTERVAL_MS]);
 
   useEffect(() => {
     if (!chickenPeckPlaying) return;
@@ -905,11 +937,7 @@ export default function GameScreen() {
       });
     }, CHICKEN_ANIM_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [
-    chickenPeckPlaying,
-    CHICKEN_PECK_FRAME_COUNT,
-    CHICKEN_ANIM_INTERVAL_MS,
-  ]);
+  }, [chickenPeckPlaying, CHICKEN_PECK_FRAME_COUNT, CHICKEN_ANIM_INTERVAL_MS]);
 
   useEffect(() => {
     if (chickenPeckPlaying) return;
@@ -919,8 +947,37 @@ export default function GameScreen() {
     return () => clearTimeout(t);
   }, [chickenPeckPlaying, CHICKEN_IDLE_BEFORE_PECK_MS]);
 
+  const treeFallPlayingRef = useRef(false);
+  useEffect(() => {
+    if (
+      treeFallPlayingRef.current &&
+      !treeFallPlaying &&
+      treeHasFallenRef.current
+    ) {
+      gameImpactMedium();
+    }
+    treeFallPlayingRef.current = treeFallPlaying;
+  }, [treeFallPlaying]);
+
+  const cowPetPlayingRef = useRef(false);
+  useEffect(() => {
+    if (cowPetPlayingRef.current && !cowPetPlaying) {
+      gameSuccess();
+    }
+    cowPetPlayingRef.current = cowPetPlaying;
+  }, [cowPetPlaying]);
+
+  const chickenPeckPlayingRef = useRef(false);
+  useEffect(() => {
+    if (!chickenPeckPlayingRef.current && chickenPeckPlaying) {
+      gameImpactLight();
+    }
+    chickenPeckPlayingRef.current = chickenPeckPlaying;
+  }, [chickenPeckPlaying]);
+
   const handleShakeTree = useCallback(() => {
     if (shakeTreeSeqRef.current) return;
+    gameImpactRigid();
     shakeTreeSeqRef.current = true;
     setShakeTreeFrameIndex(0);
     const id = setInterval(() => {
@@ -982,7 +1039,6 @@ export default function GameScreen() {
             setAnimKey(newDirEarly);
             setFrame(0);
           }
-          return;
         }
       }
 
@@ -1112,17 +1168,25 @@ export default function GameScreen() {
 
       const near = isNearDoor(px, py, indoor);
       if (near !== nearDoorRef.current) {
+        const wasNearDoor = nearDoorRef.current;
         nearDoorRef.current = near;
         setNearDoor(near);
+        if (near && !wasNearDoor) {
+          gameImpactLight();
+        }
       }
       if (!indoor) {
-        const ng = nearGardenIndex(px, py);
+        const ng = nearGardenIndex(px, feetY);
         if (ng !== nearGardenRef.current) {
+          const prevNg = nearGardenRef.current;
           nearGardenRef.current = ng;
           setNearGarden(ng);
+          if (ng >= 0 && prevNg < 0) {
+            gameImpactLight();
+          }
         }
-        const tdx = px - TREE_WORLD_X;
-        const tdy = py - TREE_WORLD_Y;
+        const tdx = px - TREE_INTERACT_CENTER_X;
+        const tdy = py - TREE_INTERACT_CENTER_Y;
         const tr2 = TREE_INTERACT_RADIUS * TREE_INTERACT_RADIUS;
         const inTreeZone = tdx * tdx + tdy * tdy <= tr2;
         const wantNearTree =
@@ -1130,25 +1194,36 @@ export default function GameScreen() {
           !treeHasFallenRef.current &&
           !treeFallAnimatingRef.current;
         if (wantNearTree !== nearTreeRef.current) {
+          const wasNear = nearTreeRef.current;
           nearTreeRef.current = wantNearTree;
           setNearTree(wantNearTree);
+          if (wantNearTree && !wasNear) {
+            gameImpactLight();
+          }
         }
-        const sdx = px - SHAKE_TREE_WORLD_X;
-        const sdy = py - SHAKE_TREE_WORLD_Y;
-        const sr2 =
-          SHAKE_TREE_INTERACT_RADIUS * SHAKE_TREE_INTERACT_RADIUS;
+        const sdx = px - SHAKE_TREE_INTERACT_CENTER_X;
+        const sdy = py - SHAKE_TREE_INTERACT_CENTER_Y;
+        const sr2 = SHAKE_TREE_INTERACT_RADIUS * SHAKE_TREE_INTERACT_RADIUS;
         const wantNearShake = sdx * sdx + sdy * sdy <= sr2;
         if (wantNearShake !== nearShakeTreeRef.current) {
+          const wasNear = nearShakeTreeRef.current;
           nearShakeTreeRef.current = wantNearShake;
           setNearShakeTree(wantNearShake);
+          if (wantNearShake && !wasNear) {
+            gameImpactLight();
+          }
         }
-        const cdx = px - COW_WORLD_X;
-        const cdy = py - COW_WORLD_Y;
+        const cdx = px - COW_INTERACT_CENTER_X;
+        const cdy = py - COW_INTERACT_CENTER_Y;
         const cr2 = COW_INTERACT_RADIUS * COW_INTERACT_RADIUS;
         const wantNearCow = cdx * cdx + cdy * cdy <= cr2;
         if (wantNearCow !== nearCowRef.current) {
+          const wasNear = nearCowRef.current;
           nearCowRef.current = wantNearCow;
           setNearCow(wantNearCow);
+          if (wantNearCow && !wasNear) {
+            gameImpactLight();
+          }
         }
       } else {
         if (nearTreeRef.current) {
@@ -1197,12 +1272,16 @@ export default function GameScreen() {
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        onPress={() => router.replace("/(tabs)/garden")}
+        onPress={() => {
+          gameSelection();
+          router.replace("/(tabs)/garden");
+        }}
         style={[
           styles.homeButton,
           { top: insets.top + 10, left: insets.left + 12 },
+          GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
         ]}
-        activeOpacity={0.85}
+        activeOpacity={1}
         accessibilityRole="button"
         accessibilityLabel="Back to Garden"
       >
@@ -1493,49 +1572,53 @@ export default function GameScreen() {
                 }}
                 resizeMode="stretch"
               />
-              {/* Plants: current week uses completion-based frames; past weeks fully grown; future weeks empty */}
+              {/* Plants: each plot shows that week-of-month's completions; future weeks empty; current week oval highlights "now" */}
               {i <= currentWeekPlot &&
-                habits
-                  .slice(0, GARDEN_MAX_PLANTS)
-                  .map((habit, habitIndex) => {
-                    const slot = backupGardenLayout.slotCenters[habitIndex];
-                    if (!slot) return null;
-                    const weekKey = makeWeekKeyForPlot(new Date(), i);
-                    const plantIndex = getPlantIndexForHabitSlot(
-                      habitIndex,
-                      weekKey,
-                    );
-                    let frame: number;
-                    if (i < currentWeekPlot) {
-                      frame = FRAMES_PER_PLANT - 1;
-                    } else {
-                      const weekRange = getWeekOfMonthDateRange(i);
-                      const count = getWeekCompletionCount(
-                        habit.id,
-                        completionDates,
-                        weekRange.start,
-                        weekRange.end,
-                      );
-                      frame = Math.min(count, FRAMES_PER_PLANT - 1);
-                    }
-                    const source = getPlantSprite(plantIndex, frame);
-                    const ps = backupGardenLayout.plantSize;
-                    return (
-                      <Image
-                        key={`${i}-${habit.id}`}
-                        source={source}
-                        style={{
-                          position: "absolute",
-                          left: slot.x - ps / 2,
-                          top: slot.y - ps / 2,
-                          width: ps,
-                          height: ps,
-                          zIndex: 2,
-                        }}
-                        resizeMode="contain"
-                      />
-                    );
-                  })}
+                habits.slice(0, GARDEN_MAX_PLANTS).map((habit, habitIndex) => {
+                  const slot = backupGardenLayout.slotCenters[habitIndex];
+                  if (!slot) return null;
+                  const weekKey = makeWeekKeyForPlot(new Date(), i);
+                  const plantIndex = getPlantIndexForHabitSlot(
+                    habitIndex,
+                    weekKey,
+                  );
+                  const weekRange = getWeekOfMonthDateRange(i);
+                  const count = getWeekCompletionCount(
+                    habit.id,
+                    completionDates,
+                    weekRange.start,
+                    weekRange.end,
+                  );
+                  const frame = Math.min(count, FRAMES_PER_PLANT - 1);
+                  const source = getPlantSprite(plantIndex, frame);
+                  const ps = backupGardenLayout.plantSize;
+                  return (
+                    <Image
+                      key={`${i}-${habit.id}`}
+                      source={source}
+                      style={{
+                        position: "absolute",
+                        left: slot.x - ps / 2,
+                        top: slot.y - ps / 2,
+                        width: ps,
+                        height: ps,
+                        zIndex: 2,
+                      }}
+                      resizeMode="contain"
+                    />
+                  );
+                })}
+              {i === currentWeekPlot && !insideHouse ? (
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    ...gardenActiveWeekOvalBox(GW, GH),
+                    backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    zIndex: 12,
+                  }}
+                />
+              ) : null}
               {BACKUP_GARDEN_GRID_DEBUG &&
                 Array.from(
                   {
@@ -1727,19 +1810,6 @@ export default function GameScreen() {
           resizeMode="stretch"
         />
 
-        {/* House entrance trigger (walkway bounds; invisible) */}
-        <View
-          style={{
-            position: "absolute",
-            left: WALKWAY_LEFT,
-            top: WALKWAY_TOP,
-            width: WALKWAY_DISPLAY_W,
-            height: WALKWAY_DISPLAY_H,
-            backgroundColor: "rgba(255,255,255,0.3)",
-            opacity: 0,
-          }}
-        />
-
         {/* Hill cliff bottoms (behind hills) */}
         <ExpoImage
           source={HILLS_BTM1}
@@ -1875,7 +1945,7 @@ export default function GameScreen() {
             top: ISLAND_TOP,
             width: ISLAND_W,
             height: ISLAND_H,
-            opacity: 0,
+            opacity: GAME_INTERACTION_DEBUG ? 1 : 0,
           }}
           contentFit="contain"
           cachePolicy="memory-disk"
@@ -1886,11 +1956,7 @@ export default function GameScreen() {
           style={[
             styles.character,
             {
-              zIndex: insideHouse
-                ? charBehindIndoorFurniture
-                  ? 14
-                  : 17
-                : 25,
+              zIndex: insideHouse ? (charBehindIndoorFurniture ? 14 : 17) : 25,
               elevation:
                 Platform.OS === "android"
                   ? insideHouse
@@ -1936,6 +2002,119 @@ export default function GameScreen() {
           )}
         </Animated.View>
 
+        {GAME_INTERACTION_DEBUG ? (
+          <>
+            {!insideHouse ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: WALKWAY_LEFT - WALKWAY_PAD_X,
+                  top: WALKWAY_TOP,
+                  width: WALKWAY_DISPLAY_W + 2 * WALKWAY_PAD_X,
+                  height: WALKWAY_DISPLAY_H,
+                  borderWidth: 2,
+                  borderColor: "#1565C0",
+                  backgroundColor: "rgba(21, 101, 192, 0.22)",
+                  zIndex: 26,
+                  elevation: 26,
+                }}
+              />
+            ) : (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: HOUSE_EXIT_X - HOUSE_EXIT_RX,
+                  top: HOUSE_EXIT_Y - HOUSE_EXIT_RY,
+                  width: HOUSE_EXIT_RX * 2,
+                  height: HOUSE_EXIT_RY * 2,
+                  borderRadius: HOUSE_EXIT_RY,
+                  borderWidth: 2,
+                  borderColor: "#6A1B9A",
+                  backgroundColor: "rgba(106, 27, 154, 0.22)",
+                  zIndex: 26,
+                  elevation: 26,
+                }}
+              />
+            )}
+            {!insideHouse &&
+              GARDEN_TRIGGERS.map((g, i) => (
+                <View
+                  key={`dbg-garden-${i}`}
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left: g.x - GARDEN_TRIGGER_RX,
+                    top: g.y - GARDEN_TRIGGER_RY,
+                    width: GARDEN_TRIGGER_RX * 2,
+                    height: GARDEN_TRIGGER_RY * 2,
+                    borderRadius: GARDEN_TRIGGER_RY,
+                    borderWidth: 2,
+                    borderColor: "#2E7D32",
+                    backgroundColor: "rgba(46, 125, 50, 0.2)",
+                    zIndex: 26,
+                    elevation: 26,
+                  }}
+                />
+              ))}
+            {!insideHouse ? (
+              <>
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left: TREE_INTERACT_CENTER_X - TREE_INTERACT_RADIUS,
+                    top: TREE_INTERACT_CENTER_Y - TREE_INTERACT_RADIUS,
+                    width: TREE_INTERACT_RADIUS * 2,
+                    height: TREE_INTERACT_RADIUS * 2,
+                    borderRadius: TREE_INTERACT_RADIUS,
+                    borderWidth: 2,
+                    borderColor: "#E65100",
+                    backgroundColor: "rgba(230, 81, 0, 0.2)",
+                    zIndex: 26,
+                    elevation: 26,
+                  }}
+                />
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left:
+                      SHAKE_TREE_INTERACT_CENTER_X - SHAKE_TREE_INTERACT_RADIUS,
+                    top:
+                      SHAKE_TREE_INTERACT_CENTER_Y - SHAKE_TREE_INTERACT_RADIUS,
+                    width: SHAKE_TREE_INTERACT_RADIUS * 2,
+                    height: SHAKE_TREE_INTERACT_RADIUS * 2,
+                    borderRadius: SHAKE_TREE_INTERACT_RADIUS,
+                    borderWidth: 2,
+                    borderColor: "#5D4037",
+                    backgroundColor: "rgba(93, 64, 55, 0.2)",
+                    zIndex: 26,
+                    elevation: 26,
+                  }}
+                />
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left: COW_INTERACT_CENTER_X - COW_INTERACT_RADIUS,
+                    top: COW_INTERACT_CENTER_Y - COW_INTERACT_RADIUS,
+                    width: COW_INTERACT_RADIUS * 2,
+                    height: COW_INTERACT_RADIUS * 2,
+                    borderRadius: COW_INTERACT_RADIUS,
+                    borderWidth: 2,
+                    borderColor: "#C2185B",
+                    backgroundColor: "rgba(194, 24, 91, 0.2)",
+                    zIndex: 26,
+                    elevation: 26,
+                  }}
+                />
+              </>
+            ) : null}
+          </>
+        ) : null}
+
         {insideHouse && (
           <View
             pointerEvents="none"
@@ -1960,9 +2139,14 @@ export default function GameScreen() {
 
       {nearDoor && (
         <TouchableOpacity
-          onPress={insideHouse ? handleExitHouse : handleEnterHouse}
-          style={styles.doorButton}
-          activeOpacity={0.8}
+          onPress={() => {
+            (insideHouse ? handleExitHouse : handleEnterHouse)();
+          }}
+          style={[
+            styles.doorButton,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+          ]}
+          activeOpacity={1}
         >
           <Text style={styles.doorButtonText}>
             {insideHouse ? "Exit" : "Enter"}
@@ -1972,9 +2156,14 @@ export default function GameScreen() {
 
       {nearGarden >= 0 && !insideHouse && (
         <TouchableOpacity
-          onPress={() => setGardenPopupIndex(nearGarden)}
-          style={styles.gardenButton}
-          activeOpacity={0.8}
+          onPress={() => {
+            setGardenPopupIndex(nearGarden);
+          }}
+          style={[
+            styles.gardenButton,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+          ]}
+          activeOpacity={1}
         >
           <Text style={styles.gardenButtonText}>View Garden</Text>
         </TouchableOpacity>
@@ -1983,8 +2172,11 @@ export default function GameScreen() {
       {nearTree && !insideHouse && (
         <TouchableOpacity
           onPress={handleChopTree}
-          style={styles.chopTreeButton}
-          activeOpacity={0.8}
+          style={[
+            styles.chopTreeButton,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+          ]}
+          activeOpacity={1}
         >
           <Text style={styles.chopTreeButtonText}>Chop tree</Text>
         </TouchableOpacity>
@@ -1993,8 +2185,11 @@ export default function GameScreen() {
       {nearShakeTree && !insideHouse && (
         <TouchableOpacity
           onPress={handleShakeTree}
-          style={styles.shakeTreeButton}
-          activeOpacity={0.8}
+          style={[
+            styles.shakeTreeButton,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+          ]}
+          activeOpacity={1}
         >
           <Text style={styles.shakeTreeButtonText}>Shake tree</Text>
         </TouchableOpacity>
@@ -2006,8 +2201,9 @@ export default function GameScreen() {
           style={[
             styles.petCowButton,
             cowPetPlaying && styles.petCowButtonDisabled,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
           ]}
-          activeOpacity={0.8}
+          activeOpacity={1}
           disabled={cowPetPlaying}
         >
           <Text style={styles.petCowButtonText}>Pet cow</Text>
@@ -2020,7 +2216,10 @@ export default function GameScreen() {
         habits={habits}
         completionDates={completionDates}
         currentWeekPlot={currentWeekPlot}
-        onClose={() => setGardenPopupIndex(-1)}
+        onClose={() => {
+          gameSelection();
+          setGardenPopupIndex(-1);
+        }}
       />
 
       <Joystick onMove={handleMove} onEnd={handleEnd} />
@@ -2068,19 +2267,22 @@ function GardenDetailsModal({
 }) {
   const safeIndex = Math.max(plotIndex, 0);
   const isFuture = safeIndex > currentWeekPlot;
-  const isPast = safeIndex < currentWeekPlot;
   const weekKey = makeWeekKeyForPlot(new Date(), safeIndex);
   const weekRange = getWeekOfMonthDateRange(safeIndex);
   const gardenHabits = habits.slice(0, GARDEN_MAX_PLANTS);
 
   const habitCompletions = gardenHabits.map((h) =>
-    isPast
-      ? FRAMES_PER_PLANT - 1
-      : getWeekCompletionCount(h.id, completionDates, weekRange.start, weekRange.end),
+    getWeekCompletionCount(
+      h.id,
+      completionDates,
+      weekRange.start,
+      weekRange.end,
+    ),
   );
   const totalCompletions = habitCompletions.reduce((a, b) => a + b, 0);
   const maxPossible = gardenHabits.length * 7;
-  const pct = maxPossible > 0 ? Math.round((totalCompletions / maxPossible) * 100) : 0;
+  const pct =
+    maxPossible > 0 ? Math.round((totalCompletions / maxPossible) * 100) : 0;
 
   return (
     <Modal
@@ -2148,8 +2350,14 @@ function GardenDetailsModal({
                         style={modalStyles.plantImage}
                         resizeMode="contain"
                       />
-                      <Text style={modalStyles.plantName} numberOfLines={1}>
+                      <Text style={modalStyles.plantName} numberOfLines={2}>
                         {habit.name}
+                      </Text>
+                      <Text
+                        style={modalStyles.plantVarietyName}
+                        numberOfLines={2}
+                      >
+                        {getPlantDisplayName(plantIndex)}
                       </Text>
                       <Text style={modalStyles.plantStatus}>{growthLabel}</Text>
                       <Text style={modalStyles.plantStreak}>
@@ -2268,6 +2476,13 @@ const modalStyles = StyleSheet.create({
     color: "#2a2a2a",
     textAlign: "center",
   },
+  plantVarietyName: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#5a7d4a",
+    textAlign: "center",
+    marginTop: 2,
+  },
   plantStatus: {
     fontSize: 12,
     color: "#6a9a3a",
@@ -2316,6 +2531,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#C5E8A0",
     overflow: "hidden",
   },
+  /** Visible when `GAME_INTERACTION_DEBUG` — screen-space action button bounds. */
+  interactionDebugUiOutline: {
+    borderWidth: 2,
+    borderColor: "#F50057",
+  },
   homeButton: {
     position: "absolute",
     zIndex: 30,
@@ -2323,7 +2543,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -2380,7 +2600,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 228,
     alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 28,
     paddingVertical: 10,
     borderRadius: 20,
@@ -2396,7 +2616,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 228,
     alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 28,
     paddingVertical: 10,
     borderRadius: 20,
@@ -2412,7 +2632,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 293,
     alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.95)",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,
@@ -2426,9 +2646,9 @@ const styles = StyleSheet.create({
   },
   shakeTreeButton: {
     position: "absolute",
-    bottom: 358,
+    bottom: 228,
     alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.95)",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,
@@ -2442,9 +2662,9 @@ const styles = StyleSheet.create({
   },
   petCowButton: {
     position: "absolute",
-    bottom: 423,
+    bottom: 228,
     alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.95)",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,
@@ -2452,7 +2672,7 @@ const styles = StyleSheet.create({
     elevation: 21,
   },
   petCowButtonDisabled: {
-    opacity: 0.5,
+    backgroundColor: "#E8E8E8",
   },
   petCowButtonText: {
     fontSize: 16,

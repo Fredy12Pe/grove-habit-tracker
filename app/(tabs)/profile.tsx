@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,6 +15,7 @@ import {
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui/AppText';
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { GroveColors, GroveSpacing, GroveBorderRadius } from '@/styles/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useHabitStore } from '@/lib/store';
@@ -24,6 +24,7 @@ import {
   getActiveDaysInMonth,
   getTotalCompletionsAllTime,
 } from '@/lib/stats';
+import { useRecoverOrphanedSession } from '@/hooks/useRecoverOrphanedSession';
 import { useResolvedAvatarUri } from '@/hooks/useResolvedAvatarUri';
 import { useAuth } from '@/contexts/auth-context';
 import { useAvatarPreviewStore } from '@/lib/store/useAvatarPreviewStore';
@@ -40,7 +41,8 @@ import { getAvatarUrl, getDisplayName } from '@/lib/user-display';
 const GROWTH_STAGE = 'Seedling';
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, session, signOut, applySessionUser } = useAuth();
+  const recoverOrphanedSession = useRecoverOrphanedSession();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [savingName, setSavingName] = useState(false);
@@ -75,16 +77,19 @@ export default function ProfileScreen() {
     }
     setSavingName(true);
     try {
-      const { error } = await getSupabase().auth.updateUser({
+      const { data, error } = await getSupabase().auth.updateUser({
         data: { display_name: nameDraft.trim() },
       });
       if (error) {
+        if (await recoverOrphanedSession(error.message)) return;
         Alert.alert('Could not save name', error.message);
+      } else if (data.user) {
+        applySessionUser(data.user);
       }
     } finally {
       setSavingName(false);
     }
-  }, [user, savingName, nameDirty, nameDraft]);
+  }, [user, savingName, nameDirty, nameDraft, applySessionUser, recoverOrphanedSession]);
 
   const openAvatarUrlModal = useCallback(() => {
     setAvatarUrlDraft(storedAvatarUrl ?? '');
@@ -97,15 +102,23 @@ export default function ProfileScreen() {
     try {
       const res = await setAvatarUrlFromLink(avatarUrlDraft);
       if ('error' in res) {
+        if (await recoverOrphanedSession(res.error.message)) return;
         Alert.alert('Could not save photo', res.error.message);
         return;
       }
-      setAvatarPreviewUri(avatarUrlDraft.trim());
+      setAvatarPreviewUri(res.avatarUrl);
+      applySessionUser(res.user);
       setAvatarUrlModalVisible(false);
     } finally {
       setUploadingAvatar(false);
     }
-  }, [avatarUrlDraft, uploadingAvatar, setAvatarPreviewUri]);
+  }, [
+    avatarUrlDraft,
+    uploadingAvatar,
+    setAvatarPreviewUri,
+    applySessionUser,
+    recoverOrphanedSession,
+  ]);
 
   const onChangeProfilePhoto = useCallback(async () => {
     if (!user?.id || uploadingAvatar) return;
@@ -149,6 +162,7 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
+        base64: true,
       });
 
       if (result.canceled || !result.assets[0]) return;
@@ -160,10 +174,12 @@ export default function ProfileScreen() {
         const res = await uploadAvatarFromUri(
           user.id,
           asset.uri,
-          asset.mimeType ?? undefined
+          asset.mimeType ?? undefined,
+          asset.base64
         );
         if ('error' in res) {
           setAvatarPreviewUri(null);
+          if (await recoverOrphanedSession(res.error.message)) return;
           if (res.error.name === AVATARS_BUCKET_MISSING_ERROR_NAME) {
             Alert.alert(
               'Photo storage not ready',
@@ -182,6 +198,7 @@ export default function ProfileScreen() {
           return;
         }
         setAvatarPreviewUri(res.publicUrl);
+        applySessionUser(res.user);
       } finally {
         setUploadingAvatar(false);
       }
@@ -189,7 +206,14 @@ export default function ProfileScreen() {
       const msg = err instanceof Error ? err.message : String(err);
       showPickerFailure(msg);
     }
-  }, [user?.id, uploadingAvatar, openAvatarUrlModal, setAvatarPreviewUri]);
+  }, [
+    user?.id,
+    uploadingAvatar,
+    openAvatarUrlModal,
+    setAvatarPreviewUri,
+    applySessionUser,
+    recoverOrphanedSession,
+  ]);
 
   const habits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
@@ -256,20 +280,18 @@ export default function ProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel="Change profile photo from photo library"
           >
-            {resolvedAvatarUri ? (
-              <Image
-                source={{ uri: resolvedAvatarUri }}
-                style={styles.avatarImage}
-                contentFit="cover"
-                transition={200}
-              />
-            ) : (
-              <IconSymbol
-                name="leaf.fill"
-                size={48}
-                color={GroveColors.primaryGreen}
-              />
-            )}
+            <ProfileAvatar
+              uri={resolvedAvatarUri}
+              accessToken={session?.access_token}
+              imageStyle={styles.avatarImage}
+              fallback={
+                <IconSymbol
+                  name="leaf.fill"
+                  size={48}
+                  color={GroveColors.primaryGreen}
+                />
+              }
+            />
             {uploadingAvatar ? (
               <View style={styles.avatarLoading}>
                 <ActivityIndicator color={GroveColors.primaryGreen} />
