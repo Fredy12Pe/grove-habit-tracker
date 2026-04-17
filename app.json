@@ -36,6 +36,15 @@
         "android.permission.RECORD_AUDIO"
       ]
     },
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F3FBDE",
+      "dark": {
+        "image": "./assets/images/splash-icon.png",
+        "backgroundColor": "#F3FBDE"
+      }
+    },
     "web": {
       "output": "static",
       "favicon": "./assets/AppIcon.appiconset/icon-mac-128x128.png"
@@ -55,9 +64,10 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#F3FBDE",
           "dark": {
-            "backgroundColor": "#000000"
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#F3FBDE"
           }
         }
       ],

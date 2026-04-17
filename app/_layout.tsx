@@ -9,7 +9,7 @@ import * as WebBrowser from "expo-web-browser";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppState } from "react-native";
+import { AppState, View } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
@@ -21,6 +21,10 @@ import { syncWidgets } from "@/lib/widgets/syncWidgets";
 WebBrowser.maybeCompleteAuthSession();
 
 SplashScreen.preventAutoHideAsync();
+const SPLASH_MIN_MS = 700;
+const splashShownAt = Date.now();
+/** Matches native splash + `expo.splash` background so RN never flashes black while auth loads. */
+const SPLASH_BACKGROUND = "#F3FBDE";
 
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
@@ -28,8 +32,13 @@ function RootLayoutContent() {
 
   useEffect(() => {
     if (initialized) {
-      SplashScreen.hideAsync();
+      const elapsed = Date.now() - splashShownAt;
+      const waitMs = Math.max(0, SPLASH_MIN_MS - elapsed);
+      const timeoutId = setTimeout(() => {
+        void SplashScreen.hideAsync();
+      }, waitMs);
       syncWidgets();
+      return () => clearTimeout(timeoutId);
     }
   }, [initialized]);
 
@@ -43,7 +52,7 @@ function RootLayoutContent() {
   }, []);
 
   if (!initialized) {
-    return null;
+    return <View style={{ flex: 1, backgroundColor: SPLASH_BACKGROUND }} />;
   }
 
   return (
@@ -109,7 +118,9 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView
+        style={{ flex: 1, backgroundColor: SPLASH_BACKGROUND }}
+      >
         <AuthProvider>
           <OnboardingProvider>
             <RootLayoutContent />
