@@ -107,6 +107,65 @@ export function getIslandWorldLayout(windowHeight: number) {
   const CHICKEN_TRUNK_TOP =
     CHICKEN_WORLD_Y - Math.round(CHICKEN_DISPLAY_H * 0.38);
 
+  /** Activities kiosk on east grass (same anchor as the cow before it moved onto the hills). */
+  const ACTIVITIES_HEADING = require("@/assets/Game/activities/Heading.png");
+  const ACTIVITIES_BREATHING = require("@/assets/Game/activities/Breathing.png");
+  const ACTIVITIES_PUZZLES = require("@/assets/Game/activities/Puzzles.png");
+  const ACTIVITIES_GRATITUDE = require("@/assets/Game/activities/Gratitude.png");
+  const ACTIVITIES_CENTER_X = Math.round(ISLAND_LEFT + ISLAND_W * 0.882);
+  const ACTIVITIES_GROUND_Y = Math.round(ISLAND_TOP + ISLAND_H * 0.456);
+  /** Feet Y north of this line = draw character behind the activities cluster. */
+  const ACTIVITIES_DEPTH_Y = ACTIVITIES_GROUND_Y;
+  const ACTIVITIES_ICON_W = Math.max(32, Math.round(ISLAND_W * 0.032));
+  const ACTIVITIES_ICON_H = Math.round(ACTIVITIES_ICON_W * (141 / 151));
+  const ACTIVITIES_ICON_GAP = Math.max(9, Math.round(ISLAND_W * 0.0155));
+  const ACTIVITIES_ROW_W =
+    3 * ACTIVITIES_ICON_W + 2 * ACTIVITIES_ICON_GAP;
+  /** Narrower than the icon row; cap keeps the banner visually light. */
+  const ACTIVITIES_HEADING_W = Math.min(
+    Math.round(ACTIVITIES_ROW_W * 0.85),
+    Math.round(ISLAND_W * 0.108),
+  );
+  const ACTIVITIES_HEADING_H = Math.round(
+    ACTIVITIES_HEADING_W * (111 / 354),
+  );
+  const ACTIVITIES_HEADING_ICON_GAP = Math.max(
+    10,
+    Math.round(ISLAND_H * 0.019),
+  );
+  const ACTIVITIES_ICONS_TOP = ACTIVITIES_GROUND_Y - ACTIVITIES_ICON_H;
+  const ACTIVITIES_HEADING_TOP =
+    ACTIVITIES_ICONS_TOP -
+    ACTIVITIES_HEADING_ICON_GAP -
+    ACTIVITIES_HEADING_H;
+  const ACTIVITIES_HEADING_LEFT =
+    ACTIVITIES_CENTER_X - Math.round(ACTIVITIES_HEADING_W / 2);
+  const ACTIVITIES_ICONS_ROW_LEFT =
+    ACTIVITIES_CENTER_X - Math.round(ACTIVITIES_ROW_W / 2);
+  const ACTIVITIES_BREATHING_LEFT = ACTIVITIES_ICONS_ROW_LEFT;
+  const ACTIVITIES_PUZZLES_LEFT =
+    ACTIVITIES_ICONS_ROW_LEFT + ACTIVITIES_ICON_W + ACTIVITIES_ICON_GAP;
+  const ACTIVITIES_GRATITUDE_LEFT =
+    ACTIVITIES_ICONS_ROW_LEFT +
+    2 * (ACTIVITIES_ICON_W + ACTIVITIES_ICON_GAP);
+  const ACTIVITIES_CLUSTER_HALF_W =
+    Math.max(
+      Math.ceil(ACTIVITIES_HEADING_W / 2),
+      Math.ceil(ACTIVITIES_ROW_W / 2),
+    ) + Math.max(6, Math.round(ISLAND_W * 0.006));
+  const ACTIVITIES_CLUSTER_TOP = ACTIVITIES_HEADING_TOP;
+
+  /**
+   * Narrow stand collision (center post only): player can walk past the left/right
+   * sides of the kiosk while still colliding with its base.
+   */
+  const ACTIVITIES_TRUNK_HALF_W = Math.max(
+    10,
+    Math.round(ACTIVITIES_ICON_W * 0.38),
+  );
+  const ACTIVITIES_TRUNK_TOP = ACTIVITIES_ICONS_TOP;
+  const ACTIVITIES_TRUNK_BOTTOM = ACTIVITIES_GROUND_Y;
+
   const TREE_SHAKE_FRAMES = [
     require("@/assets/Game/Sprites/shake_tree/Tree_shake_1.png"),
     require("@/assets/Game/Sprites/shake_tree/Tree_shake_2.png"),
@@ -382,6 +441,40 @@ export function getIslandWorldLayout(windowHeight: number) {
   const START_X = WORLD_W / 2 + 20;
   const START_Y = WORLD_H / 2 - 50;
 
+  function isActivitiesTrunkBlocking(worldX: number, feetY: number): boolean {
+    if (feetY < ACTIVITIES_TRUNK_TOP || feetY > ACTIVITIES_TRUNK_BOTTOM)
+      return false;
+    return (
+      worldX >= ACTIVITIES_CENTER_X - ACTIVITIES_TRUNK_HALF_W &&
+      worldX <= ACTIVITIES_CENTER_X + ACTIVITIES_TRUNK_HALF_W
+    );
+  }
+
+  /** South of the banner art (camera-facing side): block so the player can't stand in front of the header. */
+  function isActivitiesHeaderFrontBlocking(
+    worldX: number,
+    feetY: number,
+  ): boolean {
+    const headingBottom = ACTIVITIES_HEADING_TOP + ACTIVITIES_HEADING_H;
+    if (feetY < headingBottom || feetY > ACTIVITIES_GROUND_Y) return false;
+    return (
+      worldX >= ACTIVITIES_HEADING_LEFT &&
+      worldX <= ACTIVITIES_HEADING_LEFT + ACTIVITIES_HEADING_W
+    );
+  }
+
+  function isActivitiesWalkBlocking(worldX: number, feetY: number): boolean {
+    return (
+      isActivitiesHeaderFrontBlocking(worldX, feetY) ||
+      isActivitiesTrunkBlocking(worldX, feetY)
+    );
+  }
+
+  /** Same depth rule as other island props: feet north of ground line = character behind the cluster. */
+  function isActivitiesCharBehind(_worldX: number, feetY: number): boolean {
+    return feetY < ACTIVITIES_DEPTH_Y;
+  }
+
   return {
     BG_ASPECT,
     WORLD_H,
@@ -434,6 +527,27 @@ export function getIslandWorldLayout(windowHeight: number) {
     CHICKEN_DEPTH_Y,
     CHICKEN_TRUNK_HALF_W,
     CHICKEN_TRUNK_TOP,
+    ACTIVITIES_HEADING,
+    ACTIVITIES_BREATHING,
+    ACTIVITIES_PUZZLES,
+    ACTIVITIES_GRATITUDE,
+    ACTIVITIES_CENTER_X,
+    ACTIVITIES_GROUND_Y,
+    ACTIVITIES_DEPTH_Y,
+    ACTIVITIES_ICON_W,
+    ACTIVITIES_ICON_H,
+    ACTIVITIES_HEADING_LEFT,
+    ACTIVITIES_HEADING_TOP,
+    ACTIVITIES_HEADING_W,
+    ACTIVITIES_HEADING_H,
+    ACTIVITIES_ICONS_TOP,
+    ACTIVITIES_BREATHING_LEFT,
+    ACTIVITIES_PUZZLES_LEFT,
+    ACTIVITIES_GRATITUDE_LEFT,
+    ACTIVITIES_CLUSTER_TOP,
+    ACTIVITIES_CLUSTER_HALF_W,
+    isActivitiesWalkBlocking,
+    isActivitiesCharBehind,
     BIG_TREE,
     BIG_TREE_DISPLAY_W,
     BIG_TREE_DISPLAY_H,

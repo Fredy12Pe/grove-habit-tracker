@@ -36,6 +36,7 @@ import {
   LayoutChangeEvent,
   Platform,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -131,6 +132,21 @@ export function GamePreview({
     CHICKEN_WORLD_X,
     CHICKEN_WORLD_Y,
     CHICKEN_DEPTH_Y,
+    ACTIVITIES_HEADING,
+    ACTIVITIES_BREATHING,
+    ACTIVITIES_PUZZLES,
+    ACTIVITIES_GRATITUDE,
+    ACTIVITIES_HEADING_LEFT,
+    ACTIVITIES_HEADING_TOP,
+    ACTIVITIES_HEADING_W,
+    ACTIVITIES_HEADING_H,
+    ACTIVITIES_ICONS_TOP,
+    ACTIVITIES_BREATHING_LEFT,
+    ACTIVITIES_PUZZLES_LEFT,
+    ACTIVITIES_GRATITUDE_LEFT,
+    ACTIVITIES_ICON_W,
+    ACTIVITIES_ICON_H,
+    ACTIVITIES_DEPTH_Y,
     BIG_TREE,
     BIG_TREE_DISPLAY_W,
     BIG_TREE_DISPLAY_H,
@@ -246,6 +262,11 @@ export function GamePreview({
     WALKWAY_TOP,
   } = island;
 
+  const activitiesHeadingFloatPx = Math.max(
+    3,
+    Math.round(ACTIVITIES_HEADING_H * 0.12),
+  );
+
   const habitCountForGarden = Math.min(habits.length, GARDEN_MAX_PLANTS);
   const backupGardenLayout = useMemo(() => {
     const { cols, rows } = getGardenGridDimensionsForPlantCount(
@@ -269,6 +290,7 @@ export function GamePreview({
   const feetY = START_Y + FEET_OFFSET_Y;
   const charBehindTree = feetY < TREE_DEPTH_Y;
   const charBehindCow = feetY < COW_DEPTH_Y;
+  const charBehindActivities = feetY < ACTIVITIES_DEPTH_Y;
   const charBehindChicken = feetY < CHICKEN_DEPTH_Y;
   const charBehindBigTree = feetY < BIG_TREE_DEPTH_Y;
   const charBehindWell = feetY < WELL_DEPTH_Y;
@@ -286,6 +308,7 @@ export function GamePreview({
   const [chickenPeckPlaying, setChickenPeckPlaying] = useState(false);
   const arrowNudge = useRef(new Animated.Value(0)).current;
   const arrowAnim = useRef(new Animated.Value(0)).current;
+  const activitiesHeadingFloat = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -380,6 +403,27 @@ export function GamePreview({
     loop.start();
     return () => loop.stop();
   }, [arrowAnim]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(activitiesHeadingFloat, {
+          toValue: 1,
+          duration: 1250,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(activitiesHeadingFloat, {
+          toValue: 0,
+          duration: 1250,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [activitiesHeadingFloat]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -502,6 +546,134 @@ export function GamePreview({
                 style={{
                   width: PLANT_DISPLAY_W,
                   height: PLANT_DISPLAY_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: ACTIVITIES_HEADING_LEFT,
+                top: ACTIVITIES_HEADING_TOP,
+                width: ACTIVITIES_HEADING_W,
+                height: ACTIVITIES_HEADING_H,
+                overflow: "visible",
+                zIndex: charBehindActivities ? 26 : 10,
+                elevation:
+                  Platform.OS === "android" && charBehindActivities ? 26 : 0,
+              }}
+            >
+              <Animated.View
+                style={{
+                  width: ACTIVITIES_HEADING_W,
+                  height: ACTIVITIES_HEADING_H,
+                  transform: [
+                    {
+                      translateY: activitiesHeadingFloat.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -activitiesHeadingFloatPx],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <Image
+                  source={ACTIVITIES_HEADING}
+                  style={{
+                    width: ACTIVITIES_HEADING_W,
+                    height: ACTIVITIES_HEADING_H,
+                  }}
+                  resizeMode="contain"
+                />
+                <View
+                  style={styles.activitiesHeadingTextWrap}
+                  pointerEvents="none"
+                >
+                  <Text
+                    accessibilityRole="header"
+                    accessibilityLabel="Activities"
+                    style={[
+                      styles.activitiesHeadingText,
+                      {
+                        fontSize: Math.min(
+                          18,
+                          Math.max(
+                            11,
+                            Math.round(ACTIVITIES_HEADING_H * 0.42),
+                          ),
+                        ),
+                      },
+                    ]}
+                  >
+                    Activities
+                  </Text>
+                </View>
+              </Animated.View>
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: ACTIVITIES_BREATHING_LEFT,
+                top: ACTIVITIES_ICONS_TOP,
+                width: ACTIVITIES_ICON_W,
+                height: ACTIVITIES_ICON_H,
+                zIndex: charBehindActivities ? 26 : 10,
+                elevation:
+                  Platform.OS === "android" && charBehindActivities ? 26 : 0,
+              }}
+            >
+              <Image
+                source={ACTIVITIES_BREATHING}
+                style={{
+                  width: ACTIVITIES_ICON_W,
+                  height: ACTIVITIES_ICON_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: ACTIVITIES_PUZZLES_LEFT,
+                top: ACTIVITIES_ICONS_TOP,
+                width: ACTIVITIES_ICON_W,
+                height: ACTIVITIES_ICON_H,
+                zIndex: charBehindActivities ? 26 : 10,
+                elevation:
+                  Platform.OS === "android" && charBehindActivities ? 26 : 0,
+              }}
+            >
+              <Image
+                source={ACTIVITIES_PUZZLES}
+                style={{
+                  width: ACTIVITIES_ICON_W,
+                  height: ACTIVITIES_ICON_H,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: ACTIVITIES_GRATITUDE_LEFT,
+                top: ACTIVITIES_ICONS_TOP,
+                width: ACTIVITIES_ICON_W,
+                height: ACTIVITIES_ICON_H,
+                zIndex: charBehindActivities ? 26 : 10,
+                elevation:
+                  Platform.OS === "android" && charBehindActivities ? 26 : 0,
+              }}
+            >
+              <Image
+                source={ACTIVITIES_GRATITUDE}
+                style={{
+                  width: ACTIVITIES_ICON_W,
+                  height: ACTIVITIES_ICON_H,
                 }}
                 resizeMode="contain"
               />
@@ -1065,7 +1237,10 @@ export function GamePreview({
                 activeOpacity={0.8}
                 onPress={() => {
                   gameSelection();
-                  router.navigate("/(tabs)/game");
+                  router.navigate({
+                    pathname: "/(tabs)/game",
+                    params: { resetFromHome: String(Date.now()) },
+                  });
                 }}
               >
                 <Animated.View
@@ -1091,6 +1266,20 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     flex: 1,
+  },
+  activitiesHeadingTextWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  activitiesHeadingText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    ...(Platform.OS === "android" ? { includeFontPadding: false } : {}),
   },
   touchable: {
     flex: 1,

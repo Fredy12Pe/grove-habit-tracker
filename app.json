@@ -64,7 +64,8 @@
       "expo-font",
       "expo-image",
       "expo-web-browser",
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

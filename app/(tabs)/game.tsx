@@ -23,6 +23,16 @@ import {
 } from "@/lib/game/plantSprites";
 import unifiedCollision from "@/lib/game/unifiedCollision.json";
 import {
+  playDoorCloseSound,
+  playDoorOpenSound,
+  playCowPettingSound,
+  playGameFootstep,
+  playTreeChopSound,
+  playTreeShakeSound,
+  syncGameAmbience,
+  unloadGameSounds,
+} from "@/lib/gameScreenAudio";
+import {
   gameImpactLight,
   gameImpactMedium,
   gameImpactRigid,
@@ -34,7 +44,7 @@ import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 import type { Habit } from "@/lib/types";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -112,6 +122,25 @@ const {
   CHICKEN_DEPTH_Y,
   CHICKEN_TRUNK_HALF_W,
   CHICKEN_TRUNK_TOP,
+  ACTIVITIES_HEADING,
+  ACTIVITIES_BREATHING,
+  ACTIVITIES_PUZZLES,
+  ACTIVITIES_GRATITUDE,
+  ACTIVITIES_CENTER_X,
+  ACTIVITIES_GROUND_Y,
+  ACTIVITIES_DEPTH_Y,
+  ACTIVITIES_ICON_W,
+  ACTIVITIES_ICON_H,
+  ACTIVITIES_HEADING_LEFT,
+  ACTIVITIES_HEADING_TOP,
+  ACTIVITIES_HEADING_W,
+  ACTIVITIES_HEADING_H,
+  ACTIVITIES_ICONS_TOP,
+  ACTIVITIES_BREATHING_LEFT,
+  ACTIVITIES_PUZZLES_LEFT,
+  ACTIVITIES_GRATITUDE_LEFT,
+  isActivitiesWalkBlocking,
+  isActivitiesCharBehind,
   BIG_TREE,
   BIG_TREE_DISPLAY_W,
   BIG_TREE_DISPLAY_H,
@@ -256,6 +285,12 @@ const {
   START_Y,
 } = getIslandWorldLayout(H);
 
+/** Vertical bob amplitude for the activities heading (native-driver friendly). */
+const ACTIVITIES_HEADING_FLOAT_PX = Math.max(
+  3,
+  Math.round(ACTIVITIES_HEADING_H * 0.12),
+);
+
 /** Same horizontal padding as `isOnWalkway` / door trigger. */
 const WALKWAY_PAD_X = Math.max(6, Math.round(WALKWAY_DISPLAY_W * 0.15));
 
@@ -297,6 +332,10 @@ const BACKUP_GARDEN_GRID_DEBUG = false;
  * World + UI hit zones for tuning (walk mask, circles, button outlines). Keep false for players; set true when adjusting layout.
  */
 const GAME_INTERACTION_DEBUG = false;
+
+/** Activity kiosk zones only (always on). Garden plot zones stay under `GAME_INTERACTION_DEBUG`. */
+const ACTIVITY_TRIGGER_ZONE_FILL = "rgba(255, 255, 255, 0.1)";
+const ACTIVITY_TRIGGER_ZONE_STROKE = "rgba(255, 255, 255, 0.32)";
 
 /**
  * Dev-only plant frame cycling was removed; this stub stays so stale Fast Refresh /
@@ -535,6 +574,12 @@ function isWalkable(worldX: number, worldY: number): boolean {
   )
     return false;
   if (
+    isActivitiesWalkBlocking(worldX, feetY) ||
+    isActivitiesWalkBlocking(worldX - FEET_HALF_W, feetY) ||
+    isActivitiesWalkBlocking(worldX + FEET_HALF_W, feetY)
+  )
+    return false;
+  if (
     isChickenBodyBlocking(worldX, feetY) ||
     isChickenBodyBlocking(worldX - FEET_HALF_W, feetY) ||
     isChickenBodyBlocking(worldX + FEET_HALF_W, feetY)
@@ -685,6 +730,50 @@ function nearGardenIndex(worldX: number, worldY: number): number {
   return -1;
 }
 
+/** Small square in front of each activity (half-edge from center, world px). */
+const ACTIVITY_TRIGGER_HALF = Math.max(
+  12,
+  Math.round(ACTIVITIES_ICON_W * 0.34),
+);
+
+/** Slightly south of icon base so the square reads “on the grass” in front. */
+const ACTIVITIES_TRIGGER_FEET_Y = Math.round(
+  ACTIVITIES_GROUND_Y + Math.round(ACTIVITY_TRIGGER_HALF * 0.45),
+);
+const ACTIVITIES_TRIGGERS = [
+  {
+    x: ACTIVITIES_BREATHING_LEFT + ACTIVITIES_ICON_W / 2,
+    y: ACTIVITIES_TRIGGER_FEET_Y,
+  },
+  {
+    x: ACTIVITIES_PUZZLES_LEFT + ACTIVITIES_ICON_W / 2,
+    y: ACTIVITIES_TRIGGER_FEET_Y,
+  },
+  {
+    x: ACTIVITIES_GRATITUDE_LEFT + ACTIVITIES_ICON_W / 2,
+    y: ACTIVITIES_TRIGGER_FEET_Y,
+  },
+] as const;
+
+/** Axis-aligned square zones in front of each activity icon. */
+function nearActivityIndex(worldX: number, feetY: number): number {
+  const h = ACTIVITY_TRIGGER_HALF;
+  for (let i = 0; i < ACTIVITIES_TRIGGERS.length; i++) {
+    const dx = Math.abs(worldX - ACTIVITIES_TRIGGERS[i].x);
+    const dy = Math.abs(feetY - ACTIVITIES_TRIGGERS[i].y);
+    if (dx <= h && dy <= h) return i;
+  }
+  return -1;
+}
+
+const ACTIVITY_ACTION_LABELS = ["Breathing", "Puzzles", "Gratitude"] as const;
+
+const ACTIVITY_ROUTES = [
+  "/breathe",
+  "/puzzles",
+  "/gratitude",
+] as const;
+
 function isOnWalkway(worldX: number, feetY: number): boolean {
   return (
     worldX >= WALKWAY_LEFT - WALKWAY_PAD_X &&
@@ -709,6 +798,9 @@ function isNearDoor(worldX: number, worldY: number, indoor: boolean): boolean {
 
 export default function GameScreen() {
   const router = useRouter();
+  const { resetFromHome } = useLocalSearchParams<{
+    resetFromHome?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const habits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
@@ -750,17 +842,21 @@ export default function GameScreen() {
   const dirRef = useRef<AnimKey>("idle");
   const [animKey, setAnimKey] = useState<AnimKey>("idle");
   const [frame, setFrame] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const lastFootstepFrameRef = useRef<number | null>(null);
   const [spriteError, setSpriteError] = useState(false);
 
   const [insideHouse, setInsideHouse] = useState(false);
   const [nearDoor, setNearDoor] = useState(false);
   const [nearGarden, setNearGarden] = useState(-1);
+  const [nearActivity, setNearActivity] = useState(-1);
   const [nearTree, setNearTree] = useState(false);
   const [nearShakeTree, setNearShakeTree] = useState(false);
   const [nearCow, setNearCow] = useState(false);
   const [charBehindTree, setCharBehindTree] = useState(false);
   const [charBehindShakeTree, setCharBehindShakeTree] = useState(false);
   const [charBehindCow, setCharBehindCow] = useState(false);
+  const [charBehindActivities, setCharBehindActivities] = useState(false);
   const [charBehindChicken, setCharBehindChicken] = useState(false);
   const [charBehindBigTree, setCharBehindBigTree] = useState(false);
   const [charBehindWell, setCharBehindWell] = useState(false);
@@ -786,6 +882,7 @@ export default function GameScreen() {
   const charBehindTreeRef = useRef(false);
   const charBehindShakeTreeRef = useRef(false);
   const charBehindCowRef = useRef(false);
+  const charBehindActivitiesRef = useRef(false);
   const charBehindChickenRef = useRef(false);
   const charBehindBigTreeRef = useRef(false);
   const charBehindWellRef = useRef(false);
@@ -795,6 +892,7 @@ export default function GameScreen() {
   const insideHouseRef = useRef(false);
   const nearDoorRef = useRef(false);
   const nearGardenRef = useRef(-1);
+  const nearActivityRef = useRef(-1);
   const nearTreeRef = useRef(false);
   const nearShakeTreeRef = useRef(false);
   const nearCowRef = useRef(false);
@@ -802,7 +900,39 @@ export default function GameScreen() {
 
   const isFocused = useIsFocused();
 
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    return () => {
+      void unloadGameSounds();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    void syncGameAmbience(soundEnabled, isFocused);
+  }, [soundEnabled, isFocused]);
+
+  useEffect(() => {
+    if (
+      Platform.OS === "web" ||
+      !soundEnabled ||
+      !isFocused ||
+      animKey === "idle"
+    ) {
+      lastFootstepFrameRef.current = null;
+      return;
+    }
+    if (frame !== 0 && frame !== 3) {
+      lastFootstepFrameRef.current = frame;
+      return;
+    }
+    if (lastFootstepFrameRef.current === frame) return;
+    lastFootstepFrameRef.current = frame;
+    void playGameFootstep(insideHouseRef.current);
+  }, [frame, animKey, soundEnabled, isFocused]);
+
   const arrowAnim = useRef(new Animated.Value(0)).current;
+  const activitiesHeadingFloat = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -825,6 +955,28 @@ export default function GameScreen() {
   }, [arrowAnim]);
 
   useEffect(() => {
+    if (!isFocused) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(activitiesHeadingFloat, {
+          toValue: 1,
+          duration: 1250,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(activitiesHeadingFloat, {
+          toValue: 0,
+          duration: 1250,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [activitiesHeadingFloat, isFocused]);
+
+  useEffect(() => {
     charAnim.setValue({
       x: START_X - CHAR_SIZE / 2,
       y: START_Y - CHAR_SIZE / 2,
@@ -832,42 +984,49 @@ export default function GameScreen() {
     cameraAnim.setValue(getCameraOffset(START_X, START_Y));
   }, [charAnim, cameraAnim]);
 
+  const resetToStartRef = useRef<string | null>(null);
+  const resetCharacterToStart = useCallback(() => {
+    joystickRef.current = { x: 0, y: 0 };
+    insideHouseRef.current = false;
+    setInsideHouse(false);
+    const start = { x: START_X, y: START_Y };
+    worldPosRef.current = start;
+    charAnim.setValue({
+      x: start.x - CHAR_SIZE / 2,
+      y: start.y - CHAR_SIZE / 2,
+    });
+    cameraAnim.setValue(getCameraOffset(start.x, start.y));
+  }, [cameraAnim, charAnim]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    if (!resetFromHome) return;
+    if (resetToStartRef.current === resetFromHome) return;
+    resetToStartRef.current = resetFromHome;
+    resetCharacterToStart();
+    router.setParams({ resetFromHome: undefined });
+  }, [isFocused, resetCharacterToStart, resetFromHome, router]);
+
   useFocusEffect(
     useCallback(() => {
       ensureDayReset();
-      worldPosRef.current = { x: START_X, y: START_Y };
-      charAnim.setValue({
-        x: START_X - CHAR_SIZE / 2,
-        y: START_Y - CHAR_SIZE / 2,
-      });
-      cameraAnim.setValue(getCameraOffset(START_X, START_Y));
-      dirRef.current = "idle";
-      setAnimKey("idle");
-      setFrame(0);
-      insideHouseRef.current = false;
-      setInsideHouse(false);
-      nearDoorRef.current = false;
-      setNearDoor(false);
-      nearGardenRef.current = -1;
-      setNearGarden(-1);
-      nearTreeRef.current = false;
-      nearShakeTreeRef.current = false;
-      nearCowRef.current = false;
-      setNearTree(false);
-      setNearShakeTree(false);
-      setNearCow(false);
-      idleProximityPhaseRef.current = 0;
+      // Do not reset world position, camera, or proximity here — that runs on every
+      // focus, including when returning from stack routes (breathe, gratitude, etc.).
+      // Spawn / remount still uses START_* via initial refs + the mount effect below.
       // Tree chop state is intentionally NOT reset here — useFocusEffect can re-run when
       // callback deps change while focused, which was resetting the tree to frame 0.
-    }, [charAnim, cameraAnim, ensureDayReset]),
+    }, [ensureDayReset]),
   );
 
   const handleChopTree = useCallback(() => {
     if (treeHasFallenRef.current || treeFallAnimatingRef.current) return;
     gameImpactMedium();
+    if (soundEnabled) {
+      void playTreeChopSound();
+    }
     treeFallAnimatingRef.current = true;
     setTreeFallPlaying(true);
-  }, []);
+  }, [soundEnabled]);
 
   useEffect(() => {
     if (!treeFallPlaying) return;
@@ -911,9 +1070,12 @@ export default function GameScreen() {
   const handlePetCow = useCallback(() => {
     if (cowPetPlaying) return;
     gameImpactLight();
+    if (soundEnabled) {
+      void playCowPettingSound();
+    }
     setCowHeartFrameIndex(0);
     setCowPetPlaying(true);
-  }, [cowPetPlaying]);
+  }, [cowPetPlaying, soundEnabled]);
 
   useEffect(() => {
     if (chickenPeckPlaying) return;
@@ -978,6 +1140,9 @@ export default function GameScreen() {
   const handleShakeTree = useCallback(() => {
     if (shakeTreeSeqRef.current) return;
     gameImpactRigid();
+    if (soundEnabled) {
+      void playTreeShakeSound();
+    }
     shakeTreeSeqRef.current = true;
     setShakeTreeFrameIndex(0);
     const id = setInterval(() => {
@@ -990,7 +1155,7 @@ export default function GameScreen() {
         return prev + 1;
       });
     }, 72);
-  }, []);
+  }, [soundEnabled]);
 
   const handleMove = useCallback((delta: JoystickDelta) => {
     joystickRef.current = delta;
@@ -1001,15 +1166,21 @@ export default function GameScreen() {
   }, []);
 
   const handleEnterHouse = useCallback(() => {
+    if (soundEnabled) {
+      void playDoorOpenSound();
+    }
     insideHouseRef.current = true;
     setInsideHouse(true);
     const pos = HOUSE_ENTER_POS;
     worldPosRef.current = { x: pos.x, y: pos.y };
     charAnim.setValue({ x: pos.x - CHAR_SIZE / 2, y: pos.y - CHAR_SIZE / 2 });
     cameraAnim.setValue(getCameraOffset(pos.x, pos.y));
-  }, [charAnim, cameraAnim]);
+  }, [cameraAnim, charAnim, soundEnabled]);
 
   const handleExitHouse = useCallback(() => {
+    if (soundEnabled) {
+      void playDoorCloseSound();
+    }
     insideHouseRef.current = false;
     setInsideHouse(false);
     const feetY = WALKWAY_TOP + Math.round(WALKWAY_DISPLAY_H * 0.58);
@@ -1018,7 +1189,7 @@ export default function GameScreen() {
     worldPosRef.current = { x, y };
     charAnim.setValue({ x: x - CHAR_SIZE / 2, y: y - CHAR_SIZE / 2 });
     cameraAnim.setValue(getCameraOffset(x, y));
-  }, [charAnim, cameraAnim]);
+  }, [cameraAnim, charAnim, soundEnabled]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -1104,6 +1275,12 @@ export default function GameScreen() {
         setCharBehindCow(behindCow);
       }
 
+      const behindActivities = !indoor && isActivitiesCharBehind(px, feetY);
+      if (behindActivities !== charBehindActivitiesRef.current) {
+        charBehindActivitiesRef.current = behindActivities;
+        setCharBehindActivities(behindActivities);
+      }
+
       const behindChicken = !indoor && feetY < CHICKEN_DEPTH_Y;
       if (behindChicken !== charBehindChickenRef.current) {
         charBehindChickenRef.current = behindChicken;
@@ -1185,6 +1362,15 @@ export default function GameScreen() {
             gameImpactLight();
           }
         }
+        const na = nearActivityIndex(px, feetY);
+        if (na !== nearActivityRef.current) {
+          const prevA = nearActivityRef.current;
+          nearActivityRef.current = na;
+          setNearActivity(na);
+          if (na >= 0 && prevA < 0) {
+            gameImpactLight();
+          }
+        }
         const tdx = px - TREE_INTERACT_CENTER_X;
         const tdy = py - TREE_INTERACT_CENTER_Y;
         const tr2 = TREE_INTERACT_RADIUS * TREE_INTERACT_RADIUS;
@@ -1238,6 +1424,10 @@ export default function GameScreen() {
           nearCowRef.current = false;
           setNearCow(false);
         }
+        if (nearActivityRef.current >= 0) {
+          nearActivityRef.current = -1;
+          setNearActivity(-1);
+        }
       }
 
       const newDir = getAnimKey(jx, jy);
@@ -1269,6 +1459,11 @@ export default function GameScreen() {
     ? 1 + 0.12 * Math.sin((safeFrame / Math.max(1, frameCount)) * Math.PI * 2)
     : 1;
 
+  const activitiesHeaderLabel =
+    !insideHouse && nearActivity >= 0
+      ? ACTIVITY_ACTION_LABELS[nearActivity]
+      : "Activities";
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -1286,6 +1481,32 @@ export default function GameScreen() {
         accessibilityLabel="Back to Garden"
       >
         <IconSymbol name="house.fill" size={22} color="#3a5a20" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {
+          gameSelection();
+          setSoundEnabled((prev) => !prev);
+        }}
+        style={[
+          styles.homeButton,
+          {
+            top: insets.top + 10,
+            left: insets.left + 12 + 44 + 8,
+            opacity: soundEnabled ? 1 : 0.38,
+          },
+          GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+        ]}
+        activeOpacity={1}
+        accessibilityRole="button"
+        accessibilityLabel={soundEnabled ? "Sound on" : "Sound off"}
+        accessibilityState={{ selected: soundEnabled }}
+      >
+        <IconSymbol
+          name={soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"}
+          size={22}
+          color="#3a5a20"
+        />
       </TouchableOpacity>
 
       <Animated.View
@@ -1393,6 +1614,140 @@ export default function GameScreen() {
             style={{
               width: PLANT_DISPLAY_W,
               height: PLANT_DISPLAY_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* East grass: activities kiosk (former cow spot); shake tree + chicken to the right */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: ACTIVITIES_HEADING_LEFT,
+            top: ACTIVITIES_HEADING_TOP,
+            width: ACTIVITIES_HEADING_W,
+            height: ACTIVITIES_HEADING_H,
+            overflow: "visible",
+            zIndex: charBehindActivities && !insideHouse ? 26 : 10,
+            elevation:
+              Platform.OS === "android" && charBehindActivities && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Animated.View
+            style={{
+              width: ACTIVITIES_HEADING_W,
+              height: ACTIVITIES_HEADING_H,
+              transform: [
+                {
+                  translateY: activitiesHeadingFloat.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -ACTIVITIES_HEADING_FLOAT_PX],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Image
+              source={ACTIVITIES_HEADING}
+              style={{
+                width: ACTIVITIES_HEADING_W,
+                height: ACTIVITIES_HEADING_H,
+              }}
+              resizeMode="contain"
+            />
+            <View style={styles.activitiesHeadingTextWrap} pointerEvents="none">
+              <Text
+                accessibilityRole="header"
+                accessibilityLabel={activitiesHeaderLabel}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+                style={[
+                  styles.activitiesHeadingText,
+                  {
+                    fontSize: Math.min(
+                      18,
+                      Math.max(11, Math.round(ACTIVITIES_HEADING_H * 0.42)),
+                    ),
+                  },
+                ]}
+              >
+                {activitiesHeaderLabel}
+              </Text>
+            </View>
+          </Animated.View>
+        </View>
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: ACTIVITIES_BREATHING_LEFT,
+            top: ACTIVITIES_ICONS_TOP,
+            width: ACTIVITIES_ICON_W,
+            height: ACTIVITIES_ICON_H,
+            zIndex: charBehindActivities && !insideHouse ? 26 : 10,
+            elevation:
+              Platform.OS === "android" && charBehindActivities && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={ACTIVITIES_BREATHING}
+            style={{
+              width: ACTIVITIES_ICON_W,
+              height: ACTIVITIES_ICON_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: ACTIVITIES_PUZZLES_LEFT,
+            top: ACTIVITIES_ICONS_TOP,
+            width: ACTIVITIES_ICON_W,
+            height: ACTIVITIES_ICON_H,
+            zIndex: charBehindActivities && !insideHouse ? 26 : 10,
+            elevation:
+              Platform.OS === "android" && charBehindActivities && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={ACTIVITIES_PUZZLES}
+            style={{
+              width: ACTIVITIES_ICON_W,
+              height: ACTIVITIES_ICON_H,
+            }}
+            resizeMode="contain"
+          />
+        </View>
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: ACTIVITIES_GRATITUDE_LEFT,
+            top: ACTIVITIES_ICONS_TOP,
+            width: ACTIVITIES_ICON_W,
+            height: ACTIVITIES_ICON_H,
+            zIndex: charBehindActivities && !insideHouse ? 26 : 10,
+            elevation:
+              Platform.OS === "android" && charBehindActivities && !insideHouse
+                ? 26
+                : 0,
+          }}
+        >
+          <Image
+            source={ACTIVITIES_GRATITUDE}
+            style={{
+              width: ACTIVITIES_ICON_W,
+              height: ACTIVITIES_ICON_H,
             }}
             resizeMode="contain"
           />
@@ -2002,6 +2357,30 @@ export default function GameScreen() {
           )}
         </Animated.View>
 
+        {!insideHouse &&
+          ACTIVITIES_TRIGGERS.map((g, i) => {
+            const side = ACTIVITY_TRIGGER_HALF * 2;
+            return (
+              <View
+                key={`activity-trigger-zone-${i}`}
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: g.x - ACTIVITY_TRIGGER_HALF,
+                  top: g.y - ACTIVITY_TRIGGER_HALF,
+                  width: side,
+                  height: side,
+                  borderRadius: 2,
+                  borderWidth: 2,
+                  borderColor: ACTIVITY_TRIGGER_ZONE_STROKE,
+                  backgroundColor: ACTIVITY_TRIGGER_ZONE_FILL,
+                  zIndex: 12,
+                  elevation: Platform.OS === "android" ? 12 : 0,
+                }}
+              />
+            );
+          })}
+
         {GAME_INTERACTION_DEBUG ? (
           <>
             {!insideHouse ? (
@@ -2166,6 +2545,25 @@ export default function GameScreen() {
           activeOpacity={1}
         >
           <Text style={styles.gardenButtonText}>View Garden</Text>
+        </TouchableOpacity>
+      )}
+
+      {nearActivity >= 0 && !insideHouse && (
+        <TouchableOpacity
+          onPress={() => {
+            gameSelection();
+            router.push(ACTIVITY_ROUTES[nearActivity]);
+          }}
+          style={[
+            styles.activityButton,
+            nearGarden >= 0 && styles.activityButtonOffset,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+          ]}
+          activeOpacity={1}
+        >
+          <Text style={styles.activityButtonText}>
+            {ACTIVITY_ACTION_LABELS[nearActivity]}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -2531,6 +2929,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#C5E8A0",
     overflow: "hidden",
   },
+  activitiesHeadingTextWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  activitiesHeadingText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    ...(Platform.OS === "android" ? { includeFontPadding: false } : {}),
+  },
   /** Visible when `GAME_INTERACTION_DEBUG` — screen-space action button bounds. */
   interactionDebugUiOutline: {
     borderWidth: 2,
@@ -2624,6 +3036,25 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
   gardenButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3a5a20",
+  },
+  activityButton: {
+    position: "absolute",
+    bottom: 228,
+    alignSelf: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 28,
+    paddingVertical: 10,
+    borderRadius: 20,
+    zIndex: 20,
+    elevation: 20,
+  },
+  activityButtonOffset: {
+    bottom: 308,
+  },
+  activityButtonText: {
     fontSize: 16,
     fontWeight: "700",
     color: "#3a5a20",

@@ -33,6 +33,8 @@ const MAPPING = {
   'play.fill': 'play-arrow',
   'eye.fill': 'visibility',
   'eye.slash.fill': 'visibility-off',
+  'speaker.wave.2.fill': 'volume-up',
+  'speaker.slash.fill': 'volume-off',
 } as IconMapping;
 
 /**
