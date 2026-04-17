@@ -11,9 +11,9 @@ const sharp = require("sharp");
 const path = require("path");
 const fs = require("fs");
 
-const ISLAND_WA  = path.resolve(__dirname, "../assets/game-backup/island/main-island-walkArea.png");
-const HILLS_BB   = path.resolve(__dirname, "../assets/game-backup/hills/bounding-box.png");
-const OUTPUT_PNG  = path.resolve(__dirname, "../assets/game-backup/island/unified-walkArea.png");
+const ISLAND_WA  = path.resolve(__dirname, "../assets/Game/island/main-island-walkArea.png");
+const HILLS_BB   = path.resolve(__dirname, "../assets/Game/hills/bounding-box.png");
+const OUTPUT_PNG  = path.resolve(__dirname, "../assets/Game/island/unified-walkArea.png");
 const OUTPUT_JSON = path.resolve(__dirname, "../lib/game/unifiedCollision.json");
 
 // Native island image size

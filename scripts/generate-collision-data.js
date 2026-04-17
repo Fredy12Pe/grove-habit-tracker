@@ -1,5 +1,5 @@
 /**
- * Reads PNGs from assets/game/Collision-shapes and outputs lib/game/collisionData.json.
+ * Reads PNGs from assets/Game/Collision-shapes and outputs lib/game/collisionData.json.
  * Each pixel with alpha > 128 is treated as solid. Run: node scripts/generate-collision-data.js
  */
 
@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
 
-const ASSETS_DIR = path.join(__dirname, "../assets/game/Collision-shapes");
+const ASSETS_DIR = path.join(__dirname, "../assets/Game/Collision-shapes");
 const OUT_PATH = path.join(__dirname, "../lib/game/collisionData.json");
 
 // World rect (x, y, w, h) for each collision image. Tune these so the grey collision

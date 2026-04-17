@@ -48,7 +48,7 @@ const ATLAS_COLS = 6;
 const ATLAS_ROWS = 9;
 const ATLAS_W = ATLAS_COLS * ATLAS_CELL;
 const ATLAS_H = ATLAS_ROWS * ATLAS_CELL;
-const CHARACTER_ATLAS = require("@/assets/game/character-atlas.png");
+const CHARACTER_ATLAS = require("@/assets/Game/character-atlas.png");
 
 const FEET_OFFSET_Y = CHAR_SIZE * 0.32;
 const BACKUP_GARDEN_PLANT_FILL = 1.8;

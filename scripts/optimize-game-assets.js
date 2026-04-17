@@ -1,6 +1,6 @@
 /**
- * Resize and compress game assets to display size for faster loading.
- * Outputs to assets/game/optimized/ (game.tsx loads from there).
+ * Resize and compress select PNGs from assets/Game for faster loading.
+ * Outputs to assets/Game/optimized/ (optional; island layout uses full-res paths).
  * Run: npm run optimize-game-assets
  */
 
@@ -8,51 +8,23 @@ const path = require("path");
 const fs = require("fs");
 
 const ROOT = path.resolve(__dirname, "..");
-const GAME = path.join(ROOT, "assets", "game");
+const GAME = path.join(ROOT, "assets", "Game");
 const OUT = path.join(GAME, "optimized");
 
-// Display sizes (match game.tsx: SCALE = 1/3, WORLD_W=727, WORLD_H=1024)
+// Each entry: source path under assets/Game, output filename in optimized/, target size.
 const CONFIG = [
   {
-    file: "Background.png",
+    src: "background/Background.png",
+    dest: "Background.png",
     width: 727,
     height: 1024,
-    description: "background (was ~9MB at full res)",
+    description: "background",
   },
   {
-    file: "house.png",
-    width: 349,
-    height: 310,
-  },
-  {
-    file: "Bushes-top-left.png",
-    width: 275,
-    height: 127,
-  },
-  {
-    file: "pond.png",
-    width: 120,
-    height: 77,
-  },
-  {
-    file: "Garden-top-left.png",
-    width: 290,
-    height: 165,
-  },
-  {
-    file: "Garden-top-right.png",
-    width: 290,
-    height: 165,
-  },
-  {
-    file: "Garden-Bottom-left.png",
-    width: 290,
-    height: 165,
-  },
-  {
-    file: "Garden-Bottom-right.png",
-    width: 290,
-    height: 165,
+    src: "hills/hills.png",
+    dest: "hills.png",
+    width: 400,
+    height: 220,
   },
 ];
 
@@ -62,23 +34,23 @@ async function main() {
     fs.mkdirSync(OUT, { recursive: true });
   }
 
-  for (const { file, width, height, description } of CONFIG) {
-    const src = path.join(GAME, file);
-    const dest = path.join(OUT, file);
-    if (!fs.existsSync(src)) {
-      console.warn("Skip (missing):", file);
+  for (const { src, dest, width, height, description } of CONFIG) {
+    const srcPath = path.join(GAME, src);
+    const destPath = path.join(OUT, dest);
+    if (!fs.existsSync(srcPath)) {
+      console.warn("Skip (missing):", src);
       continue;
     }
 
-    const before = fs.statSync(src).size;
-    await sharp(src)
+    const before = fs.statSync(srcPath).size;
+    await sharp(srcPath)
       .resize(width, height, { fit: "fill" })
       .png({ compressionLevel: 9, effort: 10 })
-      .toFile(dest);
-    const after = fs.statSync(dest).size;
+      .toFile(destPath);
+    const after = fs.statSync(destPath).size;
     const pct = ((1 - after / before) * 100).toFixed(0);
     console.log(
-      `${file}: ${(before / 1024).toFixed(0)}KB → ${(after / 1024).toFixed(0)}KB (-${pct}%)${description ? " " + description : ""}`
+      `${dest}: ${(before / 1024).toFixed(0)}KB → ${(after / 1024).toFixed(0)}KB (-${pct}%)${description ? " " + description : ""}`
     );
   }
 

@@ -8,7 +8,7 @@ const fs = require("fs");
 
 const INPUT = path.resolve(
   __dirname,
-  "../assets/game-backup/island/main-island-walkArea.png",
+  "../assets/Game/island/main-island-walkArea.png",
 );
 const OUTPUT = path.resolve(__dirname, "../lib/game/islandCollision.json");
 const CELL_SIZE = 8; // sample every 8px for reasonable grid size

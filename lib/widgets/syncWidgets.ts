@@ -63,6 +63,10 @@ function titleVariant(completed: number, total: number): { title: string; subtit
  * Safe to call often (e.g. app foreground, after toggles).
  */
 export function syncWidgets() {
+  // Clear stale `completedToday` when the calendar day changes before reading counts.
+  // Otherwise root `syncWidgets` (without visiting Habits/Game) can push yesterday’s
+  // progress into the widget extension.
+  useHabitStore.getState().ensureDayReset();
   const state = useHabitStore.getState();
   const habits = state.habits.slice(0, MAX_PLANTS);
   const todayIso = calendarDateKey();

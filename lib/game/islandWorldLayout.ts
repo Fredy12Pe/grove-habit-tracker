@@ -10,9 +10,9 @@ export function getIslandWorldLayout(windowHeight: number) {
   const WORLD_H = windowHeight;
   const WORLD_W = Math.round(windowHeight * BG_ASPECT);
 
-  const BG = require("@/assets/game-backup/background/Background.png");
-  const ISLAND = require("@/assets/game-backup/island/island-main.png");
-  const WALK_AREA = require("@/assets/game-backup/island/unified-walkArea.png");
+  const BG = require("@/assets/Game/background/Background.png");
+  const ISLAND = require("@/assets/Game/island/island-main.png");
+  const WALK_AREA = require("@/assets/Game/island/unified-walkArea.png");
 
   const ISLAND_W = Math.round(1751 * (WORLD_H / 1000));
   const ISLAND_H = Math.round(705 * (WORLD_H / 1000));
@@ -20,19 +20,19 @@ export function getIslandWorldLayout(windowHeight: number) {
   const ISLAND_TOP = (WORLD_H - ISLAND_H) / 2 - WORLD_H * 0.102;
 
   const TREE_FALL_FRAMES = [
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-01.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-02.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-03.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-04.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-05.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-06.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-07.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-08.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-09.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-10.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-11.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-12.png"),
-    require("@/assets/game-backup/Sprites/Tree_falling/Tree_falling-13.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-01.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-02.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-03.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-04.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-05.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-06.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-07.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-08.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-09.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-10.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-11.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-12.png"),
+    require("@/assets/Game/Sprites/Tree_falling/Tree_falling-13.png"),
   ] as const;
   const TREE_FALL_FRAME_COUNT = TREE_FALL_FRAMES.length;
   const TREE_DISPLAY_H = Math.round(ISLAND_H * 0.23);
@@ -52,21 +52,21 @@ export function getIslandWorldLayout(windowHeight: number) {
   );
 
   const COW_EATING_FRAMES = [
-    require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_1.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_2.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_3.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_4.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_5.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_6.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/cow_eating/cow_eating_7.png"),
+    require("@/assets/Game/Sprites/cow-animation/cow_eating/cow_eating_1.png"),
+    require("@/assets/Game/Sprites/cow-animation/cow_eating/cow_eating_2.png"),
+    require("@/assets/Game/Sprites/cow-animation/cow_eating/cow_eating_3.png"),
+    require("@/assets/Game/Sprites/cow-animation/cow_eating/cow_eating_4.png"),
+    require("@/assets/Game/Sprites/cow-animation/cow_eating/cow_eating_5.png"),
+    require("@/assets/Game/Sprites/cow-animation/cow_eating/cow_eating_6.png"),
+    require("@/assets/Game/Sprites/cow-animation/cow_eating/cow_eating_7.png"),
   ] as const;
   const COW_HEART_FRAMES = [
-    require("@/assets/game-backup/Sprites/cow-animation/Cow_heart/Cow_heart_1.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/Cow_heart/Cow_heart_2.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/Cow_heart/Cow_heart_3.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/Cow_heart/Cow_heart_4.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/Cow_heart/Cow_heart_5.png"),
-    require("@/assets/game-backup/Sprites/cow-animation/Cow_heart/Cow_heart_6.png"),
+    require("@/assets/Game/Sprites/cow-animation/Cow_heart/Cow_heart_1.png"),
+    require("@/assets/Game/Sprites/cow-animation/Cow_heart/Cow_heart_2.png"),
+    require("@/assets/Game/Sprites/cow-animation/Cow_heart/Cow_heart_3.png"),
+    require("@/assets/Game/Sprites/cow-animation/Cow_heart/Cow_heart_4.png"),
+    require("@/assets/Game/Sprites/cow-animation/Cow_heart/Cow_heart_5.png"),
+    require("@/assets/Game/Sprites/cow-animation/Cow_heart/Cow_heart_6.png"),
   ] as const;
   const COW_FRAME_COUNT = COW_EATING_FRAMES.length;
   const COW_HEART_FRAME_COUNT = COW_HEART_FRAMES.length;
@@ -76,37 +76,21 @@ export function getIslandWorldLayout(windowHeight: number) {
   const COW_HEART_ANIM_INTERVAL_MS = 200;
   const COW_DISPLAY_W = Math.round(ISLAND_W * 0.079);
   const COW_DISPLAY_H = Math.round(ISLAND_H * 0.112);
-  const COW_WORLD_X = ISLAND_LEFT + ISLAND_W * 0.86;
-  const COW_WORLD_Y = ISLAND_TOP + ISLAND_H * 0.41;
-  /** Feet Y north of this line = draw character behind the cow (ground line at sprite base). */
-  const COW_DEPTH_Y = COW_WORLD_Y;
-  const COW_TRUNK_HALF_W = Math.max(10, Math.round(COW_DISPLAY_W * 0.22));
-  const COW_TRUNK_TOP = COW_WORLD_Y - Math.round(COW_DISPLAY_H * 0.38);
-  /** "Pet" proximity: slightly below sprite midpoint (toward hooves / ground). */
-  const COW_INTERACT_CENTER_X = COW_WORLD_X;
-  const COW_INTERACT_CENTER_Y =
-    COW_WORLD_Y -
-    Math.round(COW_DISPLAY_H / 2) +
-    Math.round(COW_DISPLAY_H * 0.14);
-  const COW_INTERACT_RADIUS = Math.max(
-    46,
-    Math.round(Math.min(COW_DISPLAY_W, COW_DISPLAY_H) * 0.7),
-  );
 
   const CHICKEN_IDLE_FRAMES = [
-    require("@/assets/game-backup/Sprites/Chickens_animations/Idle/Mask group.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Idle/Mask group-1.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Idle/Mask group-2.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Idle/Mask group-3.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group-1.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group-2.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group-3.png"),
   ] as const;
   const CHICKEN_IDLE_FRAME_COUNT = CHICKEN_IDLE_FRAMES.length;
   const CHICKEN_PECK_FRAMES = [
-    require("@/assets/game-backup/Sprites/Chickens_animations/Pecking_reverse/Mask group.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Pecking_reverse/Mask group-1.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Pecking_reverse/Mask group-2.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Pecking_reverse/Mask group-3.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Pecking_reverse/Mask group-4.png"),
-    require("@/assets/game-backup/Sprites/Chickens_animations/Pecking_reverse/Mask group-5.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-1.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-2.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-3.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-4.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-5.png"),
   ] as const;
   const CHICKEN_PECK_FRAME_COUNT = CHICKEN_PECK_FRAMES.length;
   /** Milliseconds between idle and peck animation frames. */
@@ -115,7 +99,7 @@ export function getIslandWorldLayout(windowHeight: number) {
   const CHICKEN_IDLE_BEFORE_PECK_MS = 3200;
   const CHICKEN_DISPLAY_W = Math.round(ISLAND_W * 0.032);
   const CHICKEN_DISPLAY_H = Math.round(ISLAND_H * 0.05);
-  /** To the right of the cow (cow ~0.86), left of shake tree (~0.96). */
+  /** East on the flat ground: right of the hills / cow terrace, left of shake tree (~0.96). */
   const CHICKEN_WORLD_X = ISLAND_LEFT + ISLAND_W * 0.92;
   const CHICKEN_WORLD_Y = ISLAND_TOP + ISLAND_H * 0.415;
   const CHICKEN_DEPTH_Y = CHICKEN_WORLD_Y;
@@ -124,17 +108,17 @@ export function getIslandWorldLayout(windowHeight: number) {
     CHICKEN_WORLD_Y - Math.round(CHICKEN_DISPLAY_H * 0.38);
 
   const TREE_SHAKE_FRAMES = [
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_1.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_2.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_3.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_4.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_5.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_6.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_7.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_8.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_9.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_10.png"),
-    require("@/assets/game-backup/Sprites/shake_tree/Tree_shake_11.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_1.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_2.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_3.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_4.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_5.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_6.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_7.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_8.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_9.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_10.png"),
+    require("@/assets/Game/Sprites/shake_tree/Tree_shake_11.png"),
   ] as const;
   const TREE_SHAKE_FRAME_COUNT = TREE_SHAKE_FRAMES.length;
   const SHAKE_TREE_DISPLAY_W = Math.round(ISLAND_W * 0.085);
@@ -157,20 +141,36 @@ export function getIslandWorldLayout(windowHeight: number) {
     Math.round(SHAKE_TREE_DISPLAY_H * 0.14);
   const SHAKE_TREE_INTERACT_RADIUS = Math.max(
     46,
-    Math.round(
-      Math.min(SHAKE_TREE_DISPLAY_W, SHAKE_TREE_DISPLAY_H) * 0.7,
-    ),
+    Math.round(Math.min(SHAKE_TREE_DISPLAY_W, SHAKE_TREE_DISPLAY_H) * 0.7),
   );
 
-  const HILLS = require("@/assets/game-backup/hills/hills.png");
+  const HILLS = require("@/assets/Game/hills/hills.png");
   const HILLS_SCALE = ISLAND_W / 1751;
   const HILLS_W = Math.round(417 * HILLS_SCALE);
   const HILLS_H = Math.round(219 * HILLS_SCALE);
   const HILLS_LEFT = ISLAND_LEFT + ISLAND_W * 0.34 - HILLS_W / 2;
   const HILLS_TOP = ISLAND_TOP + ISLAND_H * 0.14 - HILLS_H / 2;
 
-  const HILLS_BTM1 = require("@/assets/game-backup/hills/Hills-bottom-1.png");
-  const HILLS_BTM2 = require("@/assets/game-backup/hills/Hills-bottom-2.png");
+  /** Right terrace of `hills.png` (grass near the house entrance arrow). */
+  const COW_WORLD_X = HILLS_LEFT + Math.round(HILLS_W * 0.2);
+  const COW_WORLD_Y = HILLS_TOP + Math.round(HILLS_H * 0.48);
+  /** Feet Y north of this line = draw character behind the cow (ground line at sprite base). */
+  const COW_DEPTH_Y = COW_WORLD_Y;
+  const COW_TRUNK_HALF_W = Math.max(10, Math.round(COW_DISPLAY_W * 0.22));
+  const COW_TRUNK_TOP = COW_WORLD_Y - Math.round(COW_DISPLAY_H * 0.38);
+  /** "Pet" proximity: slightly below sprite midpoint (toward hooves / ground). */
+  const COW_INTERACT_CENTER_X = COW_WORLD_X;
+  const COW_INTERACT_CENTER_Y =
+    COW_WORLD_Y -
+    Math.round(COW_DISPLAY_H / 2) +
+    Math.round(COW_DISPLAY_H * 0.14);
+  const COW_INTERACT_RADIUS = Math.max(
+    46,
+    Math.round(Math.min(COW_DISPLAY_W, COW_DISPLAY_H) * 0.7),
+  );
+
+  const HILLS_BTM1 = require("@/assets/Game/hills/Hills-bottom-1.png");
+  const HILLS_BTM2 = require("@/assets/Game/hills/Hills-bottom-2.png");
   const HBTM1_W = Math.round(172 * HILLS_SCALE);
   const HBTM1_H = Math.round(30 * HILLS_SCALE);
   const HBTM2_W = Math.round(128 * HILLS_SCALE);
@@ -182,7 +182,7 @@ export function getIslandWorldLayout(windowHeight: number) {
   const HBTM2_TOP = HILLS_TOP + HILLS_H - HBTM2_H * 2.2;
 
   /** Bush sitting just below the left hill-bottom strip (sprite 49×48). */
-  const BUSH_2 = require("@/assets/game-backup/Misc/Bush_2.png");
+  const BUSH_2 = require("@/assets/Game/Misc/Bush_2.png");
   const BUSH_2_W = Math.max(16, Math.round(49 * HILLS_SCALE * 1.02));
   const BUSH_2_H = Math.round(BUSH_2_W * (48 / 49));
   const BUSH_2_LEFT =
@@ -192,14 +192,14 @@ export function getIslandWorldLayout(windowHeight: number) {
   const BUSH_2_TOP = HBTM1_TOP + HBTM1_H - Math.round(BUSH_2_H * 0.1) - 6;
 
   /** Rock on the grass just past the right edge of the cliff (sprite 43×48). */
-  const ROCK = require("@/assets/game-backup/Misc/Rock.png");
+  const ROCK = require("@/assets/Game/Misc/Rock.png");
   const ROCK_W = Math.round(HILLS_W * 0.1);
   const ROCK_H = Math.round(ROCK_W * (48 / 43));
   const ROCK_LEFT = HILLS_LEFT + HILLS_W + Math.round(HILLS_W * 0.05);
   const ROCK_TOP = HILLS_TOP + Math.round(HILLS_H * 0.54);
 
   /** Tall bush on the upper-left terrace of the hill (sprite 52×92). */
-  const TALL_BUSH = require("@/assets/game-backup/Misc/Tall_bush.png");
+  const TALL_BUSH = require("@/assets/Game/Misc/Tall_bush.png");
   const TALL_BUSH_DISPLAY_W = Math.round(HILLS_W * 0.13);
   const TALL_BUSH_DISPLAY_H = Math.round(TALL_BUSH_DISPLAY_W * (92 / 52));
   const TALL_BUSH_WORLD_X = HILLS_LEFT + Math.round(HILLS_W * 0.09);
@@ -213,16 +213,16 @@ export function getIslandWorldLayout(windowHeight: number) {
   const ARROW_Y = HILLS_TOP + HILLS_H * 0.75;
   const ARROW_SIZE = Math.round(HILLS_W * 0.08);
 
-  const HOUSE_FRAME = require("@/assets/game-backup/house/house-frame.png");
-  const HOUSE_FLOOR = require("@/assets/game-backup/house/house-floor.png");
-  const HOUSE_BED = require("@/assets/game-backup/house/house-bed.png");
-  const HOUSE_DRAWER = require("@/assets/game-backup/house/house-drawer.png");
-  const HOUSE_IMAGE = require("@/assets/game-backup/house/house-image.png");
-  const HOUSE_DESK = require("@/assets/game-backup/house/desk-and-table.png");
+  const HOUSE_FRAME = require("@/assets/Game/house/house-frame.png");
+  const HOUSE_FLOOR = require("@/assets/Game/house/house-floor.png");
+  const HOUSE_BED = require("@/assets/Game/house/house-bed.png");
+  const HOUSE_DRAWER = require("@/assets/Game/house/house-drawer.png");
+  const HOUSE_IMAGE = require("@/assets/Game/house/house-image.png");
+  const HOUSE_DESK = require("@/assets/Game/house/desk-and-table.png");
   /** Bottom facade strip (231×42); drawn above character when inside (z-order). */
-  const HOUSE_FRONT = require("@/assets/game-backup/house/house_front.png");
+  const HOUSE_FRONT = require("@/assets/Game/house/house_front.png");
   /** Roof overlay (231×168); shown only when the player is outside the house. */
-  const HOUSE_ROOFTOP = require("@/assets/game-backup/house/rooftop.png");
+  const HOUSE_ROOFTOP = require("@/assets/Game/house/rooftop.png");
 
   const FRAME_NW = 233;
   const FRAME_NH = 194;
@@ -298,7 +298,7 @@ export function getIslandWorldLayout(windowHeight: number) {
   };
 
   /** Path from door onto grass (sprite 41×80); top tucks under house bottom. */
-  const WALKWAY = require("@/assets/game-backup/house/Walkway.png");
+  const WALKWAY = require("@/assets/Game/house/Walkway.png");
   const WALKWAY_DISPLAY_W = Math.round(HOUSE_W * 0.11);
   const WALKWAY_DISPLAY_H = Math.round(WALKWAY_DISPLAY_W * (80 / 41));
   const WALKWAY_LEFT = Math.round(HOUSE_DOOR_X - WALKWAY_DISPLAY_W / 2);
@@ -306,7 +306,7 @@ export function getIslandWorldLayout(windowHeight: number) {
     HOUSE_TOP + HOUSE_H - Math.round(WALKWAY_DISPLAY_H * 0.08);
 
   /** Decorative tree to the left of the house (sprite 191×176, aspect preserved). */
-  const BIG_TREE = require("@/assets/game-backup/Misc/Big_tree.png");
+  const BIG_TREE = require("@/assets/Game/Misc/Big_tree.png");
   const BIG_TREE_DISPLAY_W = Math.round(ISLAND_W * 0.095);
   const BIG_TREE_DISPLAY_H = Math.round(BIG_TREE_DISPLAY_W * (176 / 191));
   const BIG_TREE_WORLD_X = HOUSE_LEFT - Math.round(BIG_TREE_DISPLAY_W * 0.52);
@@ -320,7 +320,7 @@ export function getIslandWorldLayout(windowHeight: number) {
     BIG_TREE_WORLD_Y - Math.round(BIG_TREE_DISPLAY_H * 0.36);
 
   /** Stone well just left of the house (sprite 49×49). */
-  const WELL = require("@/assets/game-backup/Misc/Well.png");
+  const WELL = require("@/assets/Game/Misc/Well.png");
   const WELL_DISPLAY_W = Math.round(HOUSE_W * 0.16);
   const WELL_DISPLAY_H = WELL_DISPLAY_W;
   const WELL_GAP_FROM_HOUSE = Math.round(HOUSE_W * 0.46);
@@ -336,7 +336,7 @@ export function getIslandWorldLayout(windowHeight: number) {
    * Decorative sunflower on grass near the coast (~62% × 40% of island;
    * sprite 34×67).
    */
-  const PLANT = require("@/assets/game-backup/Misc/Plant.png");
+  const PLANT = require("@/assets/Game/Misc/Plant.png");
   const PLANT_DISPLAY_W = Math.round(ISLAND_W * 0.024);
   const PLANT_DISPLAY_H = Math.round(PLANT_DISPLAY_W * (67 / 34));
   const PLANT_WORLD_X = ISLAND_LEFT + Math.round(ISLAND_W * 0.62);
@@ -345,14 +345,14 @@ export function getIslandWorldLayout(windowHeight: number) {
   const PLANT_TOP = PLANT_WORLD_Y - PLANT_DISPLAY_H;
   const PLANT_DEPTH_Y = PLANT_WORLD_Y;
 
-  const GARDEN_FLOOR = require("@/assets/game-backup/garden/garden-floor.png");
-  const GARDEN_BACK = require("@/assets/game-backup/garden/Back.png");
-  const GARDEN_SIDES = require("@/assets/game-backup/garden/garden-sides.png");
+  const GARDEN_FLOOR = require("@/assets/Game/garden/garden-floor.png");
+  const GARDEN_BACK = require("@/assets/Game/garden/Back.png");
+  const GARDEN_SIDES = require("@/assets/Game/garden/garden-sides.png");
   const GARDEN_FRONTS = [
-    require("@/assets/game-backup/garden/Front-1.png"),
-    require("@/assets/game-backup/garden/Front-2.png"),
-    require("@/assets/game-backup/garden/Front-3.png"),
-    require("@/assets/game-backup/garden/Front-4.png"),
+    require("@/assets/Game/garden/Front-1.png"),
+    require("@/assets/Game/garden/Front-2.png"),
+    require("@/assets/Game/garden/Front-3.png"),
+    require("@/assets/Game/garden/Front-4.png"),
   ];
 
   const G_CONTAINER_W = 144;

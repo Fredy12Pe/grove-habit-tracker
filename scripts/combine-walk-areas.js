@@ -8,9 +8,9 @@
 const sharp = require("sharp");
 const path = require("path");
 
-const ISLAND_WA = path.resolve(__dirname, "../assets/game-backup/island/main-island-walkArea.png");
-const HILLS_WA = path.resolve(__dirname, "../assets/game-backup/hills/hills-walk-area.png");
-const OUTPUT = path.resolve(__dirname, "../assets/game-backup/island/combined-walkArea.png");
+const ISLAND_WA = path.resolve(__dirname, "../assets/Game/island/main-island-walkArea.png");
+const HILLS_WA = path.resolve(__dirname, "../assets/Game/hills/hills-walk-area.png");
+const OUTPUT = path.resolve(__dirname, "../assets/Game/island/combined-walkArea.png");
 
 // Hills walk area position in native island image coordinates (1751×705)
 // Derived from: ISLAND_W * 0.38 - 422/2 + (422-392)/2 = 0.38*1751 - 211 + 15 ≈ 469

@@ -338,7 +338,7 @@ type AnimKey =
   | "south-east"
   | "south-west";
 
-const CHARACTER_ATLAS = require("@/assets/game/character-atlas.png");
+const CHARACTER_ATLAS = require("@/assets/Game/character-atlas.png");
 const ATLAS_CELL = 96;
 const ATLAS_COLS = 6;
 const ATLAS_ROWS = 9;
@@ -1398,7 +1398,7 @@ export default function GameScreen() {
           />
         </View>
 
-        {/* Right side: ambient shaking tree + cow */}
+        {/* Hills-adjacent: cow (layout on hills art); right: shake tree + chicken */}
         <View
           pointerEvents="none"
           style={{

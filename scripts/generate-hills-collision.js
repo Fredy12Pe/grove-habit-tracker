@@ -6,7 +6,7 @@ const sharp = require("sharp");
 const path = require("path");
 const fs = require("fs");
 
-const INPUT = path.resolve(__dirname, "../assets/game-backup/hills/bounding-box.png");
+const INPUT = path.resolve(__dirname, "../assets/Game/hills/bounding-box.png");
 const OUTPUT = path.resolve(__dirname, "../lib/game/hillsCollision.json");
 const CELL_SIZE = 8;
 const ERODE_RADIUS = 2;
