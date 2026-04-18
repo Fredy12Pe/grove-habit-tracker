@@ -75,7 +75,8 @@
       "expo-image",
       "expo-web-browser",
       "@bacons/apple-targets",
-      "expo-audio"
+      "expo-audio",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

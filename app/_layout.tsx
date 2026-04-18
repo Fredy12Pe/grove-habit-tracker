@@ -98,6 +98,14 @@ function RootLayoutContent() {
           options={{ headerShown: false, animation: "slide_from_right" }}
         />
         <Stack.Screen
+          name="house-desk"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
+        <Stack.Screen
+          name="house-bed"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
+        <Stack.Screen
           name="add-custom-habit"
           options={{ headerShown: false, animation: "slide_from_right" }}
         />

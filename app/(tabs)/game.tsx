@@ -29,6 +29,7 @@ import {
   playGameFootstep,
   playTreeChopSound,
   playTreeShakeSound,
+  stopGameFootsteps,
   syncGameAmbience,
   unloadGameSounds,
 } from "@/lib/gameScreenAudio";
@@ -44,7 +45,7 @@ import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 import type { Habit } from "@/lib/types";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -794,12 +795,39 @@ function isNearDoor(worldX: number, worldY: number, indoor: boolean): boolean {
   return isOnWalkway(worldX, worldY + FEET_OFFSET_Y);
 }
 
+/** Ellipse in front of desk / bed (same anchor as door: `worldPosRef` x/y). */
+const HOUSE_DESK_INTERACT_CX = HOUSE_LEFT + HDESK_X + HDESK_W * 0.52;
+const HOUSE_DESK_INTERACT_CY =
+  HOUSE_TOP + HDESK_Y + HDESK_H + Math.max(8, Math.round(HOUSE_H * 0.035));
+const HOUSE_BED_INTERACT_CX = HOUSE_LEFT + HBED_X + HBED_W * 0.48;
+const HOUSE_BED_INTERACT_CY =
+  HOUSE_TOP + HBED_Y + HBED_H + Math.max(8, Math.round(HOUSE_H * 0.035));
+const HOUSE_FURNITURE_INTERACT_RX = Math.max(22, Math.round(HOUSE_EXIT_RX * 0.82));
+const HOUSE_FURNITURE_INTERACT_RY = Math.max(10, Math.round(HOUSE_EXIT_RY * 1.05));
+
+function isNearHouseDesk(worldX: number, worldY: number): boolean {
+  const dx = worldX - HOUSE_DESK_INTERACT_CX;
+  const dy = worldY - HOUSE_DESK_INTERACT_CY;
+  const nx = dx / HOUSE_FURNITURE_INTERACT_RX;
+  const ny = dy / HOUSE_FURNITURE_INTERACT_RY;
+  return nx * nx + ny * ny <= 1;
+}
+
+function isNearHouseBed(worldX: number, worldY: number): boolean {
+  const dx = worldX - HOUSE_BED_INTERACT_CX;
+  const dy = worldY - HOUSE_BED_INTERACT_CY;
+  const nx = dx / HOUSE_FURNITURE_INTERACT_RX;
+  const ny = dy / HOUSE_FURNITURE_INTERACT_RY;
+  return nx * nx + ny * ny <= 1;
+}
+
 // ─── Game screen ──────────────────────────────────────────────────────────────
 
 export default function GameScreen() {
   const router = useRouter();
-  const { resetFromHome } = useLocalSearchParams<{
+  const { resetFromHome, resetHouseInterior } = useLocalSearchParams<{
     resetFromHome?: string;
+    resetHouseInterior?: string;
   }>();
   const insets = useSafeAreaInsets();
   const habits = useHabitStore((s) => s.habits);
@@ -848,6 +876,8 @@ export default function GameScreen() {
 
   const [insideHouse, setInsideHouse] = useState(false);
   const [nearDoor, setNearDoor] = useState(false);
+  const [nearHouseDesk, setNearHouseDesk] = useState(false);
+  const [nearHouseBed, setNearHouseBed] = useState(false);
   const [nearGarden, setNearGarden] = useState(-1);
   const [nearActivity, setNearActivity] = useState(-1);
   const [nearTree, setNearTree] = useState(false);
@@ -891,6 +921,8 @@ export default function GameScreen() {
   const charBehindIndoorFurnitureRef = useRef(false);
   const insideHouseRef = useRef(false);
   const nearDoorRef = useRef(false);
+  const nearHouseDeskRef = useRef(false);
+  const nearHouseBedRef = useRef(false);
   const nearGardenRef = useRef(-1);
   const nearActivityRef = useRef(-1);
   const nearTreeRef = useRef(false);
@@ -930,6 +962,13 @@ export default function GameScreen() {
     lastFootstepFrameRef.current = frame;
     void playGameFootstep(insideHouseRef.current);
   }, [frame, animKey, soundEnabled, isFocused]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (animKey === "idle" || !soundEnabled || !isFocused) {
+      stopGameFootsteps();
+    }
+  }, [animKey, soundEnabled, isFocused]);
 
   const arrowAnim = useRef(new Animated.Value(0)).current;
   const activitiesHeadingFloat = useRef(new Animated.Value(0)).current;
@@ -998,6 +1037,20 @@ export default function GameScreen() {
     cameraAnim.setValue(getCameraOffset(start.x, start.y));
   }, [cameraAnim, charAnim]);
 
+  const resetCharacterToHouseEntry = useCallback(() => {
+    joystickRef.current = { x: 0, y: 0 };
+    insideHouseRef.current = true;
+    setInsideHouse(true);
+    const pos = HOUSE_ENTER_POS;
+    worldPosRef.current = { x: pos.x, y: pos.y };
+    charAnim.setValue({
+      x: pos.x - CHAR_SIZE / 2,
+      y: pos.y - CHAR_SIZE / 2,
+    });
+    cameraAnim.setValue(getCameraOffset(pos.x, pos.y));
+  }, [cameraAnim, charAnim]);
+
+  const resetHouseEntryRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isFocused) return;
     if (!resetFromHome) return;
@@ -1007,6 +1060,15 @@ export default function GameScreen() {
     router.setParams({ resetFromHome: undefined });
   }, [isFocused, resetCharacterToStart, resetFromHome, router]);
 
+  useEffect(() => {
+    if (!isFocused) return;
+    if (!resetHouseInterior) return;
+    if (resetHouseEntryRef.current === resetHouseInterior) return;
+    resetHouseEntryRef.current = resetHouseInterior;
+    resetCharacterToHouseEntry();
+    router.setParams({ resetHouseInterior: undefined });
+  }, [isFocused, resetCharacterToHouseEntry, resetHouseInterior, router]);
+
   useFocusEffect(
     useCallback(() => {
       ensureDayReset();
@@ -1015,6 +1077,18 @@ export default function GameScreen() {
       // Spawn / remount still uses START_* via initial refs + the mount effect below.
       // Tree chop state is intentionally NOT reset here — useFocusEffect can re-run when
       // callback deps change while focused, which was resetting the tree to frame 0.
+      // Always start silent when the island is shown (tab focus or return from activities).
+      setSoundEnabled(false);
+      if (Platform.OS !== "web") {
+        stopGameFootsteps();
+        void syncGameAmbience(false, true);
+      }
+      return () => {
+        if (Platform.OS !== "web") {
+          stopGameFootsteps();
+          void syncGameAmbience(false, false);
+        }
+      };
     }, [ensureDayReset]),
   );
 
@@ -1352,6 +1426,37 @@ export default function GameScreen() {
           gameImpactLight();
         }
       }
+
+      if (indoor) {
+        const nearDesk = isNearHouseDesk(px, py);
+        if (nearDesk !== nearHouseDeskRef.current) {
+          const was = nearHouseDeskRef.current;
+          nearHouseDeskRef.current = nearDesk;
+          setNearHouseDesk(nearDesk);
+          if (nearDesk && !was) {
+            gameImpactLight();
+          }
+        }
+        const nearBed = isNearHouseBed(px, py);
+        if (nearBed !== nearHouseBedRef.current) {
+          const was = nearHouseBedRef.current;
+          nearHouseBedRef.current = nearBed;
+          setNearHouseBed(nearBed);
+          if (nearBed && !was) {
+            gameImpactLight();
+          }
+        }
+      } else {
+        if (nearHouseDeskRef.current) {
+          nearHouseDeskRef.current = false;
+          setNearHouseDesk(false);
+        }
+        if (nearHouseBedRef.current) {
+          nearHouseBedRef.current = false;
+          setNearHouseBed(false);
+        }
+      }
+
       if (!indoor) {
         const ng = nearGardenIndex(px, feetY);
         if (ng !== nearGardenRef.current) {
@@ -2400,22 +2505,56 @@ export default function GameScreen() {
                 }}
               />
             ) : (
-              <View
-                pointerEvents="none"
-                style={{
-                  position: "absolute",
-                  left: HOUSE_EXIT_X - HOUSE_EXIT_RX,
-                  top: HOUSE_EXIT_Y - HOUSE_EXIT_RY,
-                  width: HOUSE_EXIT_RX * 2,
-                  height: HOUSE_EXIT_RY * 2,
-                  borderRadius: HOUSE_EXIT_RY,
-                  borderWidth: 2,
-                  borderColor: "#6A1B9A",
-                  backgroundColor: "rgba(106, 27, 154, 0.22)",
-                  zIndex: 26,
-                  elevation: 26,
-                }}
-              />
+              <>
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left: HOUSE_EXIT_X - HOUSE_EXIT_RX,
+                    top: HOUSE_EXIT_Y - HOUSE_EXIT_RY,
+                    width: HOUSE_EXIT_RX * 2,
+                    height: HOUSE_EXIT_RY * 2,
+                    borderRadius: HOUSE_EXIT_RY,
+                    borderWidth: 2,
+                    borderColor: "#6A1B9A",
+                    backgroundColor: "rgba(106, 27, 154, 0.22)",
+                    zIndex: 26,
+                    elevation: 26,
+                  }}
+                />
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left: HOUSE_DESK_INTERACT_CX - HOUSE_FURNITURE_INTERACT_RX,
+                    top: HOUSE_DESK_INTERACT_CY - HOUSE_FURNITURE_INTERACT_RY,
+                    width: HOUSE_FURNITURE_INTERACT_RX * 2,
+                    height: HOUSE_FURNITURE_INTERACT_RY * 2,
+                    borderRadius: HOUSE_FURNITURE_INTERACT_RY,
+                    borderWidth: 2,
+                    borderColor: "#00695C",
+                    backgroundColor: "rgba(0, 105, 92, 0.2)",
+                    zIndex: 26,
+                    elevation: 26,
+                  }}
+                />
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left: HOUSE_BED_INTERACT_CX - HOUSE_FURNITURE_INTERACT_RX,
+                    top: HOUSE_BED_INTERACT_CY - HOUSE_FURNITURE_INTERACT_RY,
+                    width: HOUSE_FURNITURE_INTERACT_RX * 2,
+                    height: HOUSE_FURNITURE_INTERACT_RY * 2,
+                    borderRadius: HOUSE_FURNITURE_INTERACT_RY,
+                    borderWidth: 2,
+                    borderColor: "#C62828",
+                    backgroundColor: "rgba(198, 40, 40, 0.18)",
+                    zIndex: 26,
+                    elevation: 26,
+                  }}
+                />
+              </>
             )}
             {!insideHouse &&
               GARDEN_TRIGGERS.map((g, i) => (
@@ -2530,6 +2669,40 @@ export default function GameScreen() {
           <Text style={styles.doorButtonText}>
             {insideHouse ? "Exit" : "Enter"}
           </Text>
+        </TouchableOpacity>
+      )}
+
+      {nearHouseDesk && insideHouse && (
+        <TouchableOpacity
+          onPress={() => {
+            gameSelection();
+            router.push("/house-desk" as Href);
+          }}
+          style={[
+            styles.activityButton,
+            nearDoor && styles.activityButtonOffset,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+          ]}
+          activeOpacity={1}
+        >
+          <Text style={styles.activityButtonText}>Pomodoro</Text>
+        </TouchableOpacity>
+      )}
+
+      {nearHouseBed && insideHouse && (
+        <TouchableOpacity
+          onPress={() => {
+            gameSelection();
+            router.push("/house-bed" as Href);
+          }}
+          style={[
+            styles.activityButton,
+            (nearDoor || nearHouseDesk) && styles.activityButtonOffset,
+            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
+          ]}
+          activeOpacity={1}
+        >
+          <Text style={styles.activityButtonText}>Rest</Text>
         </TouchableOpacity>
       )}
 

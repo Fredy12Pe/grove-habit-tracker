@@ -57,6 +57,13 @@ export async function playGameFootstep(indoor = false): Promise<void> {
   return m.playGameFootstep(indoor);
 }
 
+export function stopGameFootsteps(): void {
+  if (Platform.OS === "web") return;
+  void loadImpl().then((m) => {
+    if (m) m.stopGameFootsteps();
+  });
+}
+
 export async function playCowPettingSound(): Promise<void> {
   const m = await loadImpl();
   if (!m) return;

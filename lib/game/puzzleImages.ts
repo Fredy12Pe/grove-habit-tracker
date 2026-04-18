@@ -1,0 +1,37 @@
+/**
+ * Sources for the island picture-puzzle activity (3×3 sliding tiles).
+ * Files: assets/Game/activities/puzzles-images/
+ */
+export const PUZZLE_IMAGES = [
+  require("@/assets/Game/activities/puzzles-images/img-1.png"),
+  require("@/assets/Game/activities/puzzles-images/img-2.png"),
+  require("@/assets/Game/activities/puzzles-images/img-3.png"),
+  require("@/assets/Game/activities/puzzles-images/img-4.png"),
+  require("@/assets/Game/activities/puzzles-images/img-5.png"),
+  require("@/assets/Game/activities/puzzles-images/img-6.png"),
+  require("@/assets/Game/activities/puzzles-images/img-7.png"),
+  require("@/assets/Game/activities/puzzles-images/img-8.png"),
+  require("@/assets/Game/activities/puzzles-images/img-9.png"),
+  require("@/assets/Game/activities/puzzles-images/img-10.png"),
+  require("@/assets/Game/activities/puzzles-images/img-11.png"),
+  require("@/assets/Game/activities/puzzles-images/img-12.png"),
+  require("@/assets/Game/activities/puzzles-images/img-13.png"),
+  require("@/assets/Game/activities/puzzles-images/img-14.png"),
+  require("@/assets/Game/activities/puzzles-images/img-15.png"),
+  require("@/assets/Game/activities/puzzles-images/img-16.png"),
+  require("@/assets/Game/activities/puzzles-images/img-17.png"),
+  require("@/assets/Game/activities/puzzles-images/img-18.png"),
+  require("@/assets/Game/activities/puzzles-images/img-19.png"),
+  require("@/assets/Game/activities/puzzles-images/img-20.png"),
+  require("@/assets/Game/activities/puzzles-images/img-21.png"),
+  require("@/assets/Game/activities/puzzles-images/img-22.png"),
+  require("@/assets/Game/activities/puzzles-images/img-23.png"),
+  require("@/assets/Game/activities/puzzles-images/img-24.png"),
+  require("@/assets/Game/activities/puzzles-images/img-25.png"),
+  require("@/assets/Game/activities/puzzles-images/img-26.png"),
+  require("@/assets/Game/activities/puzzles-images/img-27.png"),
+  require("@/assets/Game/activities/puzzles-images/img-28.png"),
+  require("@/assets/Game/activities/puzzles-images/img-29.png"),
+  require("@/assets/Game/activities/puzzles-images/img-30.png"),
+  require("@/assets/Game/activities/puzzles-images/img-31.png"),
+] as const;

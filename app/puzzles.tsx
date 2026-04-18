@@ -1,6 +1,7 @@
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/contexts/auth-context";
+import { PUZZLE_IMAGES } from "@/lib/game/puzzleImages";
 import { gameImpactLight, gameImpactMedium } from "@/lib/gameHaptics";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
 import { Redirect, useRouter } from "expo-router";
@@ -30,13 +31,9 @@ const SOLVED: PuzzlePieces = Object.freeze(
   Array.from({ length: PIECE_COUNT }, (_, i) => i),
 ) as PuzzlePieces;
 
-/** Local images only — add files here as you grow a puzzle library. The component has no built-in catalog. */
-const PUZZLE_IMAGES = [
-  require("@/assets/Game/activities/Puzzles.png"),
-  require("@/assets/Game/activities/Breathing.png"),
-  require("@/assets/Game/activities/Gratitude.png"),
-  require("@/assets/Game/activities/Heading.png"),
-] as const;
+/** Fewer random slides → starts closer to solved (library is fixed 3×3). */
+const SHUFFLE_MOVES_INITIAL = 42;
+const SHUFFLE_MOVES_NEW = 48;
 
 function randomImageIndex(exclude?: number): number {
   const n = PUZZLE_IMAGES.length;
@@ -78,7 +75,9 @@ function PuzzlesScreenContent() {
 
   const [hidden, setHidden] = useState<number | null>(HIDDEN_PIECE);
   const [imageIndex, setImageIndex] = useState(() => randomImageIndex());
-  const [pieces, setPieces] = useState<PuzzlePieces>(() => shufflePieces(120));
+  const [pieces, setPieces] = useState<PuzzlePieces>(() =>
+    shufflePieces(SHUFFLE_MOVES_INITIAL),
+  );
   const [won, setWon] = useState(false);
 
   const source = PUZZLE_IMAGES[imageIndex];
@@ -87,7 +86,7 @@ function PuzzlesScreenContent() {
     gameImpactMedium();
     setImageIndex((prev) => randomImageIndex(prev));
     setHidden(HIDDEN_PIECE);
-    setPieces(shufflePieces(140));
+    setPieces(shufflePieces(SHUFFLE_MOVES_NEW));
     setWon(false);
   }, []);
 

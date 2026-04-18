@@ -21,6 +21,8 @@ const INDOOR_FOOTSTEP_SOURCE = require("@/assets/Game/Game sounds/Footsteps-inHo
 const AMBIENCE_VOLUME = 0.18;
 const FOOTSTEP_VOLUME = 0.06;
 const INDOOR_FOOTSTEP_VOLUME = 0.06;
+/** Outdoor + indoor clips are full-length WAVs; cap playback so tails don't bleed after each step or when idle. */
+const FOOTSTEP_MAX_DURATION_MS = 130;
 const COW_PETTING_VOLUME = 0.2;
 const TREE_SHAKE_VOLUME = 0.02;
 const TREE_CHOP_VOLUME = 0.02;
@@ -38,6 +40,40 @@ let treeShakePlayer: AudioPlayer | null = null;
 let treeChopPlayer: AudioPlayer | null = null;
 let doorOpenPlayer: AudioPlayer | null = null;
 let doorClosePlayer: AudioPlayer | null = null;
+
+const footstepCutoffTimers = new Map<
+  AudioPlayer,
+  ReturnType<typeof setTimeout>
+>();
+
+function clearFootstepCutoffForPlayer(p: AudioPlayer): void {
+  const t = footstepCutoffTimers.get(p);
+  if (t) {
+    clearTimeout(t);
+    footstepCutoffTimers.delete(p);
+  }
+}
+
+function clearAllFootstepCutoffTimers(): void {
+  for (const t of footstepCutoffTimers.values()) {
+    clearTimeout(t);
+  }
+  footstepCutoffTimers.clear();
+}
+
+function scheduleFootstepCutoff(p: AudioPlayer): void {
+  clearFootstepCutoffForPlayer(p);
+  const t = setTimeout(() => {
+    footstepCutoffTimers.delete(p);
+    try {
+      p.pause();
+      void p.seekTo(0);
+    } catch {
+      /* ignore */
+    }
+  }, FOOTSTEP_MAX_DURATION_MS);
+  footstepCutoffTimers.set(p, t);
+}
 
 async function configureAudioMode(): Promise<void> {
   if (Platform.OS === "web") return;
@@ -106,6 +142,7 @@ export async function ensureGameSoundsLoaded(): Promise<void> {
 
 export function unloadGameSounds(): void {
   if (Platform.OS === "web") return;
+  clearAllFootstepCutoffTimers();
   loadPromise = null;
   footstepRotate = 0;
   modeConfigured = false;
@@ -175,6 +212,28 @@ export function unloadGameSounds(): void {
   }
 }
 
+/** Stop footstep playback immediately (e.g. when the walk animation ends). */
+export function stopGameFootsteps(): void {
+  if (Platform.OS === "web") return;
+  clearAllFootstepCutoffTimers();
+  for (const p of footstepPlayers) {
+    try {
+      p.pause();
+      void p.seekTo(0);
+    } catch {
+      /* ignore */
+    }
+  }
+  if (indoorFootstepPlayer) {
+    try {
+      indoorFootstepPlayer.pause();
+      void indoorFootstepPlayer.seekTo(0);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 export async function syncGameAmbience(
   shouldPlay: boolean,
   isFocused: boolean,
@@ -219,6 +278,7 @@ export async function playGameFootstep(indoor = false): Promise<void> {
   try {
     await p.seekTo(0);
     p.play();
+    scheduleFootstepCutoff(p);
   } catch {
     /* ignore */
   }
