@@ -1,20 +1,21 @@
+import { AddCustomHabitRow } from '@/components/habits/AddCustomHabitRow';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Dimensions,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppText } from '@/components/ui/AppText';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { GroveBorderRadius, GroveColors, GroveSpacing } from '@/styles/theme';
 import { CATALOG_ID_SET, HABIT_SECTIONS } from '@/lib/habitCatalog';
+import { markReopenAddHabitSheetFromSheet } from '@/lib/reopenAddHabitSheetFromSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
@@ -68,6 +69,7 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
   };
 
   const openAddCustom = () => {
+    markReopenAddHabitSheetFromSheet();
     onClose();
     router.push('/add-custom-habit');
   };
@@ -88,15 +90,6 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
               {Math.min(MAX_ACTIVE_HABITS, customCount + selected.size)}/{MAX_ACTIVE_HABITS}
             </AppText>
             <View style={styles.titleActions}>
-              <Pressable
-                onPress={openAddCustom}
-                style={({ pressed }) => [styles.addCustomBtn, pressed && styles.addCustomBtnPressed]}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Add a custom habit"
-              >
-                <AppText style={styles.addCustomBtnText}>+</AppText>
-              </Pressable>
               <TouchableOpacity
                 onPress={onClose}
                 activeOpacity={0.7}
@@ -113,6 +106,10 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            <AddCustomHabitRow
+              style={styles.addCustomHabitInSheet}
+              onPress={openAddCustom}
+            />
             {HABIT_SECTIONS.map((section) => (
               <View key={section.title} style={styles.section}>
                 <View style={styles.sectionHeader}>
@@ -220,22 +217,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  addCustomBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: GroveColors.cardBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addCustomBtnPressed: {
-    opacity: 0.75,
-  },
-  addCustomBtnText: {
-    fontSize: 22,
-    color: GroveColors.primaryGreen,
-    fontWeight: '400',
-    lineHeight: 26,
+  addCustomHabitInSheet: {
+    marginBottom: 16,
   },
   scroll: {
     flex: 1,

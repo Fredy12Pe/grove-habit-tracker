@@ -1,8 +1,13 @@
 import { MonthHeatmap } from "@/components/progress/MonthHeatmap";
 import { AppText } from "@/components/ui/AppText";
 import { CATALOG_ICON_MAP } from "@/lib/habitCatalog";
-import { calendarDateKey, parseDateKeyLocal } from "@/lib/calendarDate";
+import { calendarDateKey } from "@/lib/calendarDate";
 import { useHabitStore } from "@/lib/store";
+import {
+  getActiveDaysInMonth,
+  getCompletionsInMonth,
+  getCurrentStreak,
+} from "@/lib/stats";
 import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useState } from "react";
@@ -43,103 +48,6 @@ const HEATMAP_COLORS = [
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-/** All dates (YYYY-MM-DD) where the user completed at least one habit. */
-function getActiveDates(
-  completionDates: Record<string, string[]>,
-  habits: { id: string; completedToday: boolean }[],
-  today: string,
-): Set<string> {
-  const set = new Set<string>();
-  for (const h of habits) {
-    const dates = completionDates[h.id] ?? [];
-    dates.forEach((d) => set.add(d));
-    if (h.completedToday) set.add(today);
-  }
-  return set;
-}
-
-/** Unique days in the given month with at least one completion. */
-function getDaysInMonthCount(
-  completionDates: Record<string, string[]>,
-  habits: { id: string; completedToday: boolean }[],
-  today: string,
-  year: number,
-  month: number,
-): number {
-  const active = getActiveDates(completionDates, habits, today);
-  let count = 0;
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  for (let day = 1; day <= lastDay; day++) {
-    const d = new Date(year, month, day);
-    if (active.has(calendarDateKey(d))) count += 1;
-  }
-  return count;
-}
-
-/** Total habit-completions (checkmarks) in the given month. */
-function getTotalCompletionsInMonth(
-  completionDates: Record<string, string[]>,
-  habits: { id: string; completedToday: boolean }[],
-  today: string,
-  year: number,
-  month: number,
-): number {
-  let total = 0;
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  for (let day = 1; day <= lastDay; day++) {
-    const d = calendarDateKey(new Date(year, month, day));
-    for (const h of habits) {
-      const dates = completionDates[h.id] ?? [];
-      if (dates.includes(d) || (h.completedToday && d === today)) total += 1;
-    }
-  }
-  return total;
-}
-
-/** Consecutive days ending today with at least one completion (0 if today doesn't count). */
-function getCurrentStreak(
-  completionDates: Record<string, string[]>,
-  habits: { id: string; completedToday: boolean }[],
-  today: string,
-): number {
-  const active = getActiveDates(completionDates, habits, today);
-  if (!active.has(today)) return 0;
-  let streak = 0;
-  const t = parseDateKeyLocal(today);
-  while (true) {
-    const d = calendarDateKey(t);
-    if (!active.has(d)) break;
-    streak += 1;
-    t.setDate(t.getDate() - 1);
-  }
-  return streak;
-}
-
-/** All-time longest run of consecutive days with at least one completion. */
-function getBestStreak(
-  completionDates: Record<string, string[]>,
-  habits: { id: string; completedToday: boolean }[],
-  today: string,
-): number {
-  const active = getActiveDates(completionDates, habits, today);
-  const sorted = [...active].sort();
-  if (sorted.length === 0) return 0;
-  let best = 1;
-  let current = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = parseDateKeyLocal(sorted[i - 1]).getTime();
-    const curr = parseDateKeyLocal(sorted[i]).getTime();
-    const diffDays = Math.round((curr - prev) / (24 * 60 * 60 * 1000));
-    if (diffDays === 1) {
-      current += 1;
-      best = Math.max(best, current);
-    } else {
-      current = 1;
-    }
-  }
-  return best;
 }
 
 export default function ProgressScreen() {
@@ -186,14 +94,14 @@ export default function ProgressScreen() {
 
   const records = useMemo(
     () => ({
-      daysInMonth: getDaysInMonthCount(
+      daysInMonth: getActiveDaysInMonth(
         completionDates,
         habits,
         today,
         year,
         month,
       ),
-      totalDaysDone: getTotalCompletionsInMonth(
+      completionsInMonth: getCompletionsInMonth(
         completionDates,
         habits,
         today,
@@ -201,7 +109,6 @@ export default function ProgressScreen() {
         month,
       ),
       currentStreak: getCurrentStreak(completionDates, habits, today),
-      bestStreak: getBestStreak(completionDates, habits, today),
     }),
     [completionDates, habits, today, year, month],
   );
@@ -229,7 +136,7 @@ export default function ProgressScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Records: 2×2 stat cards */}
+        {/* Records: stat cards */}
         <View style={styles.recordsSection}>
           <View style={styles.recordsRow}>
             <View style={styles.recordCard}>
@@ -258,18 +165,16 @@ export default function ProgressScreen() {
                   color={GroveColors.primaryText}
                 />
                 <AppText variant="h2" style={styles.recordNumber}>
-                  {records.totalDaysDone}
+                  {records.completionsInMonth}
                 </AppText>
               </View>
               <AppText variant="small" style={styles.recordUnit}>
-                {records.totalDaysDone === 1 ? "Day" : "Days"}
+                {records.completionsInMonth === 1 ? "Completion" : "Completions"}
               </AppText>
               <AppText variant="small" style={styles.recordLabel}>
-                Total Days Done
+                Completions in {MONTH_NAMES[month]}
               </AppText>
             </View>
-          </View>
-          <View style={styles.recordsRow}>
             <View style={styles.recordCard}>
               <View style={styles.recordIconNumberRow}>
                 <MaterialIcons
@@ -286,24 +191,6 @@ export default function ProgressScreen() {
               </AppText>
               <AppText variant="small" style={styles.recordLabel}>
                 Current Streak
-              </AppText>
-            </View>
-            <View style={styles.recordCard}>
-              <View style={styles.recordIconNumberRow}>
-                <MaterialIcons
-                  name="emoji-events"
-                  size={20}
-                  color={GroveColors.primaryText}
-                />
-                <AppText variant="h2" style={styles.recordNumber}>
-                  {records.bestStreak}
-                </AppText>
-              </View>
-              <AppText variant="small" style={styles.recordUnit}>
-                {records.bestStreak === 1 ? "Day" : "Days"}
-              </AppText>
-              <AppText variant="small" style={styles.recordLabel}>
-                Best Streak
               </AppText>
             </View>
           </View>

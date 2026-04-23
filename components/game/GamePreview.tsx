@@ -1237,7 +1237,7 @@ export function GamePreview({
                 activeOpacity={0.8}
                 onPress={() => {
                   gameSelection();
-                  router.navigate({
+                  router.replace({
                     pathname: "/(tabs)/game",
                     params: { resetFromHome: String(Date.now()) },
                   });

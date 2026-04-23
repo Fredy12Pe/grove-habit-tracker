@@ -6,8 +6,9 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
 import { useResolvedAvatarUri } from "@/hooks/useResolvedAvatarUri";
 import { useAuth } from "@/contexts/auth-context";
+import { calendarDateKey } from "@/lib/calendarDate";
 import { useHabitStore } from "@/lib/store";
-import { getBestStreak } from "@/lib/stats";
+import { getCurrentStreak } from "@/lib/stats";
 import { getDisplayName } from "@/lib/user-display";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
 import { useRouter } from "expo-router";
@@ -32,9 +33,9 @@ export default function GardenScreen() {
 
   const storeHabits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const bestStreak = useMemo(
-    () => getBestStreak(completionDates, storeHabits, today),
+  const today = calendarDateKey();
+  const currentStreak = useMemo(
+    () => getCurrentStreak(completionDates, storeHabits, today),
     [completionDates, storeHabits, today]
   );
 
@@ -78,7 +79,7 @@ export default function GardenScreen() {
             <View style={styles.streakPill}>
               <IconSymbol name="flame.fill" size={14} color="#FF8C00" />
               <AppText variant="small" style={styles.streakText}>
-                {streakLabel(bestStreak)}
+                {streakLabel(currentStreak)}
               </AppText>
             </View>
           </View>

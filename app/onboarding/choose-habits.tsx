@@ -1,7 +1,7 @@
+import { AddCustomHabitRow } from "@/components/habits/AddCustomHabitRow";
 import { HabitSelectRow, type HabitSelectData } from "@/components/habits/HabitSelectRow";
 import { AppText } from "@/components/ui/AppText";
 import { useOnboarding } from "@/contexts/onboarding-context";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { CATALOG_ICON_MAP, CATALOG_ID_SET, CATALOG_NAME_MAP } from "@/lib/habitCatalog";
 import { ONBOARDING_HABIT_SECTIONS } from "@/lib/onboarding-habit-sections";
 import { useHabitStore } from "@/lib/store";
@@ -151,28 +151,10 @@ export default function ChooseHabitsOnboardingScreen() {
             </AppText>
           </View>
 
-          <TouchableOpacity
-            style={styles.addCustomRow}
-            activeOpacity={0.8}
+          <AddCustomHabitRow
+            style={styles.addCustomRowWrap}
             onPress={() => router.push("/add-custom-habit")}
-          >
-            <View style={styles.addCustomIcon}>
-              <IconSymbol
-                name="plus"
-                size={16}
-                color={GroveColors.primaryText}
-                weight="bold"
-              />
-            </View>
-            <View style={styles.addCustomTextCol}>
-              <AppText variant="paragraph" style={styles.addCustomTitle}>
-                Add a custom habit
-              </AppText>
-              <AppText variant="small" style={styles.addCustomSubtle}>
-                Something personal, simple, and yours
-              </AppText>
-            </View>
-          </TouchableOpacity>
+          />
 
           {sections.map((section) => (
             <View key={section.title} style={styles.section}>
@@ -267,37 +249,8 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 18,
   },
-  addCustomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: GroveColors.white,
-    borderRadius: GroveBorderRadius.card,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 14,
+  addCustomRowWrap: {
     marginBottom: 18,
-    overflow: "hidden",
-  },
-  addCustomIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: GroveColors.cardBackground,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addCustomTextCol: {
-    flex: 1,
-    gap: 3,
-  },
-  addCustomTitle: {
-    fontWeight: "600",
-    color: GroveColors.primaryText,
-    fontSize: 15,
-  },
-  addCustomSubtle: {
-    color: GroveColors.secondaryText,
-    fontSize: 11,
   },
   sectionLabel: {
     fontSize: 13,

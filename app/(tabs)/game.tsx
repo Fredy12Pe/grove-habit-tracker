@@ -1203,14 +1203,6 @@ export default function GameScreen() {
     cowPetPlayingRef.current = cowPetPlaying;
   }, [cowPetPlaying]);
 
-  const chickenPeckPlayingRef = useRef(false);
-  useEffect(() => {
-    if (!chickenPeckPlayingRef.current && chickenPeckPlaying) {
-      gameImpactLight();
-    }
-    chickenPeckPlayingRef.current = chickenPeckPlaying;
-  }, [chickenPeckPlaying]);
-
   const handleShakeTree = useCallback(() => {
     if (shakeTreeSeqRef.current) return;
     gameImpactRigid();

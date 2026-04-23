@@ -1,13 +1,13 @@
 import { AddHabitSheet } from "@/components/habits/AddHabitSheet";
 import { HabitFormInline } from "@/components/habits/HabitFormInline";
 import { HabitRow, type HabitData } from "@/components/habits/HabitRow";
+import { HabitsCompletionOverlay } from "@/components/habits/HabitsCompletionOverlay";
 import { TodayProgressBanner } from "@/components/habits/TodayProgressBanner";
 import { WeekCalendar } from "@/components/habits/WeekCalendar";
 import { AppText } from "@/components/ui/AppText";
 import { calendarDateKey } from "@/lib/calendarDate";
 import { CATALOG_ICON_MAP, HABIT_CATALOG } from "@/lib/habitCatalog";
 import {
-    triggerAllHabitsCompleteHaptic,
     triggerHabitTimerFinishedHaptic,
     triggerHabitToggleHaptic,
 } from "@/lib/habitHaptics";
@@ -22,8 +22,10 @@ import {
     buildHabitsWithActionsListFromStore,
 } from "@/lib/habitWithActionsFromStore";
 import { useHabitStore } from "@/lib/store";
+import { takeReopenAddHabitSheetFromSheet } from "@/lib/reopenAddHabitSheetFromSheet";
 import { syncWidgets } from "@/lib/widgets/syncWidgets";
 import { GroveColors, GroveSpacing } from "@/styles/theme";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -39,6 +41,15 @@ export default function HabitsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sheetVisible, setSheetVisible] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (takeReopenAddHabitSheetFromSheet()) {
+        setSheetVisible(true);
+      }
+    }, []),
+  );
 
   const storeHabits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
@@ -111,7 +122,7 @@ export default function HabitsScreen() {
             if (habits.length === 0) return;
             const allDone = habits.every((x) => x.completedToday);
             if (becomingComplete) {
-              if (allDone) triggerAllHabitsCompleteHaptic();
+              if (allDone) setShowCompletionOverlay(true);
               else triggerHabitToggleHaptic(true);
             } else {
               triggerHabitToggleHaptic(false);
@@ -157,7 +168,7 @@ export default function HabitsScreen() {
                 const habits = useHabitStore.getState().habits;
                 const allDone =
                   habits.length > 0 && habits.every((x) => x.completedToday);
-                if (allDone) triggerAllHabitsCompleteHaptic();
+                if (allDone) setShowCompletionOverlay(true);
                 else triggerHabitTimerFinishedHaptic();
               }
             });
@@ -230,7 +241,7 @@ export default function HabitsScreen() {
               if (wasComplete) {
                 triggerHabitToggleHaptic(false);
               } else if (allDone) {
-                triggerAllHabitsCompleteHaptic();
+                setShowCompletionOverlay(true);
               } else {
                 triggerHabitToggleHaptic(true);
               }
@@ -324,12 +335,13 @@ export default function HabitsScreen() {
           </View>
         )}
 
-        {/* Add habit button */}
+        {/* Add habit button — sheet includes custom habit row (onboarding style) */}
         <View style={styles.addSection}>
           <TouchableOpacity
             style={styles.addButton}
             activeOpacity={0.8}
             onPress={() => setSheetVisible(true)}
+            accessibilityLabel="Add habits"
           >
             <AppText style={styles.addIcon}>+</AppText>
           </TouchableOpacity>
@@ -345,6 +357,11 @@ export default function HabitsScreen() {
           onUpdate={(ids) => syncHabits(ids)}
         />
       ) : null}
+
+      <HabitsCompletionOverlay
+        visible={showCompletionOverlay}
+        onFinish={() => setShowCompletionOverlay(false)}
+      />
     </SafeAreaView>
   );
 }

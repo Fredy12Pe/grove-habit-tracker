@@ -64,7 +64,10 @@ function RootLayoutContent() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="(tabs)"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
         <Stack.Screen
           name="onboarding/index"
           options={{ headerShown: false }}
@@ -87,23 +90,43 @@ function RootLayoutContent() {
         />
         <Stack.Screen
           name="breathe"
-          options={{ headerShown: false, animation: "slide_from_right" }}
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+            gestureEnabled: false,
+          }}
         />
         <Stack.Screen
           name="gratitude"
-          options={{ headerShown: false, animation: "slide_from_right" }}
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+            gestureEnabled: false,
+          }}
         />
         <Stack.Screen
           name="puzzles"
-          options={{ headerShown: false, animation: "slide_from_right" }}
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+            gestureEnabled: false,
+          }}
         />
         <Stack.Screen
           name="house-desk"
-          options={{ headerShown: false, animation: "slide_from_right" }}
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+            gestureEnabled: false,
+          }}
         />
         <Stack.Screen
           name="house-bed"
-          options={{ headerShown: false, animation: "slide_from_right" }}
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+            gestureEnabled: false,
+          }}
         />
         <Stack.Screen
           name="add-custom-habit"

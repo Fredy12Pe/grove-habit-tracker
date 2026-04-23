@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
 import { HABIT_CATALOG } from "@/lib/habitCatalog";
+import { clearReopenAddHabitSheetFromSheet } from "@/lib/reopenAddHabitSheetFromSheet";
 import { useHabitStore } from "@/lib/store";
 import type {
   HabitCustomCategory,
@@ -77,6 +78,7 @@ function AddCustomHabitScreenContent() {
       customTracking: tracking,
       customCategory: category,
     });
+    clearReopenAddHabitSheetFromSheet();
     router.back();
   }, [
     addHabit,
