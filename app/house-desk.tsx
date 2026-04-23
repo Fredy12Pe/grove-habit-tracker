@@ -11,6 +11,8 @@ import { Redirect, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AppState,
+  type AppStateStatus,
   Modal,
   Pressable,
   SafeAreaView,
@@ -106,20 +108,78 @@ function HouseDeskContent() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draft, setDraft] = useState<PomodoroSettings>(DEFAULT_SETTINGS);
 
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+
   const player = useVideoPlayer(STUDY_VIDEO, (p) => {
     p.loop = true;
     p.muted = true;
+    /**
+     * The video is muted, so don't contend for the iOS audio session with the
+     * game's ambience (expo-audio). `doNotMix` (the iOS default) would cause
+     * the native video manager to tear down/rebuild the audio session, which
+     * has been observed to race with `play()` and leave the player stuck.
+     */
+    p.audioMixingMode = "mixWithOthers";
     p.play();
   });
 
+  const tryPlayVideo = useCallback(() => {
+    if (!isFocusedRef.current) return;
+    try {
+      player.play();
+    } catch {
+      /* native layer not ready */
+    }
+  }, [player]);
+
+  useEffect(() => {
+    const statusSub = player.addListener("statusChange", ({ status: s }) => {
+      if (s === "readyToPlay") {
+        tryPlayVideo();
+      } else if (s === "error") {
+        // Transient load error — retry shortly in case the native side recovers.
+        setTimeout(tryPlayVideo, 400);
+      }
+    });
+
+    // Some iOS scenarios never re-fire `statusChange` after the VideoView mounts
+    // (e.g. the player reached `readyToPlay` before listeners were attached).
+    // A few staggered retries cover those races without spamming native calls.
+    const retryTimers = [80, 300, 900, 2000].map((ms) =>
+      setTimeout(tryPlayVideo, ms),
+    );
+
+    return () => {
+      statusSub.remove();
+      for (const t of retryTimers) clearTimeout(t);
+    };
+  }, [player, tryPlayVideo]);
+
+  useEffect(() => {
+    const onAppState = (next: AppStateStatus) => {
+      if (next === "active") {
+        tryPlayVideo();
+      }
+    };
+    const sub = AppState.addEventListener("change", onAppState);
+    return () => {
+      sub.remove();
+    };
+  }, [tryPlayVideo]);
+
   useEffect(() => {
     if (!isFocused) {
-      player.pause();
+      try {
+        player.pause();
+      } catch {
+        /* ignore */
+      }
       setIsRunning(false);
       return;
     }
-    player.play();
-  }, [isFocused, player]);
+    tryPlayVideo();
+  }, [isFocused, player, tryPlayVideo]);
 
   const secondsForPhase = useCallback((p: Phase, cfg: PomodoroSettings) => {
     switch (p) {
@@ -547,7 +607,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: CONTROL_SURFACE,
+    backgroundColor: POMO_PANEL_BG,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 10,
