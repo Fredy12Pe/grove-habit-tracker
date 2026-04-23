@@ -300,23 +300,6 @@ export const useHabitStore = create<HabitStore>()(
         return next;
       };
 
-      // #region agent log
-      const __before = state.habits.map((h) => ({ id: h.id, completedToday: h.completedToday }));
-      const __branch = state.lastResetDate === today ? 'same-day-reconcile' : 'new-day-reset';
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      (require('@/lib/debug-log') as typeof import('@/lib/debug-log')).agentLog({
-        hypothesisId: 'H1',
-        location: 'useHabitStore.ts:ensureDayReset',
-        message: 'ensureDayReset called',
-        data: {
-          today,
-          lastResetDate: state.lastResetDate,
-          branch: __branch,
-          before: __before,
-        },
-      });
-      // #endregion
-
       if (state.lastResetDate === today) {
         return {
           ...state,
@@ -335,22 +318,6 @@ export const useHabitStore = create<HabitStore>()(
       for (const [id, arr] of Object.entries(state.completionDates)) {
         strippedDates[id] = arr.filter((d) => d !== today);
       }
-      // #region agent log
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      (require('@/lib/debug-log') as typeof import('@/lib/debug-log')).agentLog({
-        hypothesisId: 'H1',
-        location: 'useHabitStore.ts:ensureDayReset:afterReset',
-        message: 'habits reset for new day',
-        data: {
-          today,
-          previousLastResetDate: state.lastResetDate,
-          after: clearedHabits.map((h) => ({ id: h.id, completedToday: h.completedToday })),
-          completionDatesTodayCleared: Object.fromEntries(
-            Object.entries(strippedDates).map(([k, v]) => [k, v.length]),
-          ),
-        },
-      });
-      // #endregion
       return {
         lastResetDate: today,
         habits: clearedHabits,

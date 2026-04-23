@@ -2,7 +2,6 @@ import { useHabitStore } from "@/lib/store";
 import { calendarDateKey } from "@/lib/calendarDate";
 import { FRAMES_PER_PLANT, getPlantIndexForHabitSlot } from "@/lib/game/plantSprites";
 import { pushWidgetSnapshots } from "@/lib/widgets/widgetSharedStorage";
-import { agentLog } from "@/lib/debug-log";
 
 const MAX_PLANTS = 8;
 
@@ -75,25 +74,6 @@ export function syncWidgets() {
   const completedToday = habits.filter((h) => h.completedToday).length;
   const totalToday = habits.length;
 
-  // #region agent log
-  agentLog({
-    hypothesisId: 'H2,H4,H5',
-    location: 'syncWidgets.ts:syncWidgets',
-    message: 'syncWidgets snapshot built',
-    data: {
-      todayIsoLocal: todayIso,
-      lastResetDate: state.lastResetDate,
-      completedToday,
-      totalToday,
-      habits: habits.map((h) => ({
-        id: h.id,
-        completedToday: h.completedToday,
-        completionDatesLast3: (state.completionDates[h.id] ?? []).slice(-3),
-        todayInCompletionDates: (state.completionDates[h.id] ?? []).includes(todayIso),
-      })),
-    },
-  });
-  // #endregion
   const { title: smallTitle, subtitle: smallSubtitle } = titleVariant(completedToday, totalToday);
 
   const dailyProps: DailyStatusWidgetProps = {
@@ -140,21 +120,6 @@ export function syncWidgets() {
     plants,
   };
 
-  // #region agent log
-  agentLog({
-    hypothesisId: 'H4',
-    location: 'syncWidgets.ts:pushPayload',
-    message: 'payload pushed to widget',
-    data: {
-      todayIsoLocal: todayIso,
-      weekIsoDaysUTC: week.map((d) => d.iso),
-      tzOffsetMinutes: new Date().getTimezoneOffset(),
-      weeklySubtitle: weeklyProps.subtitle,
-      dailySubtitle: dailyProps.subtitle,
-      samplePlantWeekDays: plants[0]?.weekDays ?? null,
-    },
-  });
-  // #endregion
   pushWidgetSnapshots({
     dailyJson: JSON.stringify(dailyProps),
     weeklyJson: JSON.stringify(weeklyProps),
