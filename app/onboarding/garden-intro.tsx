@@ -57,14 +57,13 @@ export default function GardenIntroOnboardingScreen() {
       // Apply chosen habits immediately so the Garden/Habits tabs reflect the selection.
       applySelectedHabits(selectedHabitIds);
 
-      // Mark onboarding complete (Supabase user metadata).
-      if (session) {
-        const { error: err } = await completeOnboarding();
-        if (err) {
-          if (await recoverOrphanedSession(err.message)) return;
-          setError(err.message);
-          return;
-        }
+      // Mark onboarding complete (writes to Supabase for authenticated users,
+      // or to AsyncStorage for guests).
+      const { error: err } = await completeOnboarding();
+      if (err) {
+        if (session && await recoverOrphanedSession(err.message)) return;
+        setError(err.message);
+        return;
       }
 
       resetOnboardingState();

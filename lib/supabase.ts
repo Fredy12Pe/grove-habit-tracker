@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 import {
   isSupabaseConfigured,
@@ -33,7 +34,8 @@ export function getSupabase(): SupabaseClient {
         global: { fetch: nativeFetch },
         auth: {
           storage: supabaseAuthStorage,
-          autoRefreshToken: true,
+          /** On native, auth-js refreshes continuously in the background; offline / bad DNS causes infinite retries and Metro log spam (#_handleRequest does console.error on every failure). Expo web keeps token refresh tied to browser tab visibility internally. Native refresh is gated on AppState in `AuthProvider`. */
+          autoRefreshToken: Platform.OS === 'web',
           persistSession: true,
           detectSessionInUrl: false,
           /** Required for `signInWithOAuth` + `exchangeCodeForSession` on native. */

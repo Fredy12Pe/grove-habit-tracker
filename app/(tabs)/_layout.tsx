@@ -7,12 +7,12 @@ import { useAuth } from '@/contexts/auth-context';
 import { GroveColors } from '@/styles/theme';
 
 export default function TabLayout() {
-  const { initialized, session, needsOnboarding } = useAuth();
+  const { initialized, session, isGuest, needsOnboarding } = useAuth();
 
   if (!initialized) {
     return null;
   }
-  if (!session) {
+  if (!session && !isGuest) {
     return <Redirect href="/(auth)/login" />;
   }
   if (needsOnboarding) {

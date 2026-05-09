@@ -6,12 +6,14 @@ import {
   Alert,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui/AppText';
@@ -41,7 +43,11 @@ import { getAvatarUrl, getDisplayName } from '@/lib/user-display';
 const GROWTH_STAGE = 'Seedling';
 
 export default function ProfileScreen() {
-  const { user, session, signOut, applySessionUser } = useAuth();
+  const router = useRouter();
+  const { pickPhoto: pickPhotoParam } = useLocalSearchParams<{
+    pickPhoto?: string | string[];
+  }>();
+  const { user, session, isGuest, guestDisplayName, guestAvatarUri, signOut, applySessionUser, setGuestDisplayName, setGuestAvatarUri, clearGuest } = useAuth();
   const recoverOrphanedSession = useRecoverOrphanedSession();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -49,7 +55,7 @@ export default function ProfileScreen() {
   const [avatarUrlModalVisible, setAvatarUrlModalVisible] = useState(false);
   const [avatarUrlDraft, setAvatarUrlDraft] = useState('');
   const setAvatarPreviewUri = useAvatarPreviewStore((s) => s.setAvatarPreviewUri);
-  const resolvedAvatarUri = useResolvedAvatarUri(user);
+  const resolvedAvatarUri = useResolvedAvatarUri(user) ?? (isGuest ? guestAvatarUri : null);
   const storedAvatarUrl = getAvatarUrl(user);
 
   const userMetadataKey = user
@@ -57,26 +63,37 @@ export default function ProfileScreen() {
     : '';
 
   useEffect(() => {
+    if (isGuest) {
+      setNameDraft(guestDisplayName ?? '');
+      return;
+    }
     if (!user) {
       setNameDraft('');
       return;
     }
     setNameDraft(getDisplayName(user));
-  }, [user?.id, userMetadataKey]);
+  }, [user?.id, userMetadataKey, isGuest, guestDisplayName]);
+
+  const currentDisplayName = isGuest
+    ? (guestDisplayName ?? '')
+    : (user ? getDisplayName(user) : '');
 
   const nameDirty = useMemo(() => {
-    if (!user) return false;
-    return nameDraft.trim() !== getDisplayName(user).trim();
-  }, [nameDraft, user]);
+    return nameDraft.trim() !== currentDisplayName.trim();
+  }, [nameDraft, currentDisplayName]);
 
   const onSaveDisplayName = useCallback(async () => {
-    if (!user || savingName || !nameDirty) return;
-    if (!isSupabaseConfigured) {
-      Alert.alert('Not configured', 'Supabase is not configured.');
-      return;
-    }
+    if (savingName || !nameDirty) return;
     setSavingName(true);
     try {
+      if (isGuest) {
+        await setGuestDisplayName(nameDraft.trim());
+        return;
+      }
+      if (!user || !isSupabaseConfigured) {
+        Alert.alert('Not configured', 'Supabase is not configured.');
+        return;
+      }
       const { data, error } = await getSupabase().auth.updateUser({
         data: { display_name: nameDraft.trim() },
       });
@@ -89,7 +106,7 @@ export default function ProfileScreen() {
     } finally {
       setSavingName(false);
     }
-  }, [user, savingName, nameDirty, nameDraft, applySessionUser, recoverOrphanedSession]);
+  }, [user, isGuest, savingName, nameDirty, nameDraft, applySessionUser, recoverOrphanedSession, setGuestDisplayName]);
 
   const openAvatarUrlModal = useCallback(() => {
     setAvatarUrlDraft(storedAvatarUrl ?? '');
@@ -121,7 +138,8 @@ export default function ProfileScreen() {
   ]);
 
   const onChangeProfilePhoto = useCallback(async () => {
-    if (!user?.id || uploadingAvatar) return;
+    if (!user?.id && !isGuest) return;
+    if (uploadingAvatar) return;
 
     if (Platform.OS === 'web') {
       openAvatarUrlModal();
@@ -169,6 +187,14 @@ export default function ProfileScreen() {
 
       const asset = result.assets[0];
       setAvatarPreviewUri(asset.uri);
+
+      if (isGuest) {
+        // For guests, persist the local file URI (no cloud upload)
+        await setGuestAvatarUri(asset.uri);
+        return;
+      }
+
+      if (!user?.id) return;
       setUploadingAvatar(true);
       try {
         const res = await uploadAvatarFromUri(
@@ -208,12 +234,28 @@ export default function ProfileScreen() {
     }
   }, [
     user?.id,
+    isGuest,
     uploadingAvatar,
     openAvatarUrlModal,
     setAvatarPreviewUri,
+    setGuestAvatarUri,
     applySessionUser,
     recoverOrphanedSession,
   ]);
+
+  /** Garden → Profile with `pickPhoto=1`: open photo library once when this tab is focused. */
+  const shouldOpenPhotoPickerFromGarden = useMemo(() => {
+    const raw = Array.isArray(pickPhotoParam) ? pickPhotoParam[0] : pickPhotoParam;
+    return raw === "1" || raw === "true";
+  }, [pickPhotoParam]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!shouldOpenPhotoPickerFromGarden) return;
+      router.setParams({ pickPhoto: undefined });
+      void onChangeProfilePhoto();
+    }, [shouldOpenPhotoPickerFromGarden, router, onChangeProfilePhoto]),
+  );
 
   const habits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
@@ -377,30 +419,100 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Save progress prompt for guests */}
+        {isGuest ? (
+          <View style={styles.section}>
+            <View style={styles.saveProgressCard}>
+              <MaterialIcons name="cloud-off" size={28} color={GroveColors.primaryGreen} />
+              <AppText variant="paragraph" style={styles.saveProgressTitle}>
+                Your progress is saved on this device
+              </AppText>
+              <AppText variant="small" style={styles.saveProgressBody}>
+                Create a free account to back up your habits, access them on any device, and never lose your streak.
+              </AppText>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.saveProgressBtn,
+                  pressed && styles.saveProgressBtnPressed,
+                ]}
+                onPress={() => router.push('/(auth)/login?mode=signup')}
+              >
+                <AppText variant="paragraph" style={styles.saveProgressBtnText}>
+                  Create account
+                </AppText>
+              </Pressable>
+              <TouchableOpacity
+                style={styles.signInLink}
+                onPress={() => router.push('/(auth)/login?mode=signin')}
+                activeOpacity={0.7}
+              >
+                <AppText variant="small" style={styles.signInLinkText}>
+                  Already have an account? Sign in
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
         {/* Account */}
         <View style={styles.section}>
           <View style={styles.settingsCard}>
-            <TouchableOpacity
-              style={[styles.settingsRow, styles.settingsRowLast]}
-              activeOpacity={0.7}
-              onPress={() => {
-                void signOut();
-              }}
-            >
-              <MaterialIcons
-                name="logout"
-                size={22}
-                color={GroveColors.primaryText}
-              />
-              <AppText variant="paragraph" style={styles.settingsLabel}>
-                Sign out
-              </AppText>
-              <MaterialIcons
-                name="chevron-right"
-                size={22}
-                color={GroveColors.secondaryText}
-              />
-            </TouchableOpacity>
+            {isGuest ? (
+              <TouchableOpacity
+                style={[styles.settingsRow, styles.settingsRowLast]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  Alert.alert(
+                    'Exit guest mode?',
+                    'Your habits are saved on this device. You can create an account any time to back them up.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Exit',
+                        style: 'destructive',
+                        onPress: () => void clearGuest(),
+                      },
+                    ]
+                  );
+                }}
+              >
+                <MaterialIcons
+                  name="logout"
+                  size={22}
+                  color={GroveColors.primaryText}
+                />
+                <AppText variant="paragraph" style={styles.settingsLabel}>
+                  Exit guest mode
+                </AppText>
+                <MaterialIcons
+                  name="chevron-right"
+                  size={22}
+                  color={GroveColors.secondaryText}
+                />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.settingsRow, styles.settingsRowLast]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  void signOut();
+                }}
+              >
+                <MaterialIcons
+                  name="logout"
+                  size={22}
+                  color={GroveColors.primaryText}
+                />
+                <AppText variant="paragraph" style={styles.settingsLabel}>
+                  Sign out
+                </AppText>
+                <MaterialIcons
+                  name="chevron-right"
+                  size={22}
+                  color={GroveColors.secondaryText}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -626,6 +738,50 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  saveProgressCard: {
+    backgroundColor: GroveColors.cardBackground,
+    borderRadius: GroveBorderRadius.card,
+    padding: GroveSpacing.cardPaddingHorizontal,
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: GroveColors.outline,
+  },
+  saveProgressTitle: {
+    color: GroveColors.primaryText,
+    fontWeight: '700',
+    textAlign: 'center',
+    fontSize: 15,
+  },
+  saveProgressBody: {
+    color: GroveColors.secondaryText,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  saveProgressBtn: {
+    backgroundColor: GroveColors.primaryGreen,
+    borderRadius: GroveBorderRadius.pill,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    marginTop: 4,
+    width: '100%',
+  },
+  saveProgressBtnPressed: {
+    opacity: 0.88,
+  },
+  saveProgressBtnText: {
+    color: GroveColors.white,
+    fontWeight: '700',
+  },
+  signInLink: {
+    paddingVertical: 4,
+  },
+  signInLinkText: {
+    color: GroveColors.primaryGreen,
+    textDecorationLine: 'underline',
   },
   avatarUrlModalBackdrop: {
     flex: 1,

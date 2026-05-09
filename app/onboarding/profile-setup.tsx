@@ -35,7 +35,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
  */
 export default function OnboardingProfileSetupScreen() {
   const router = useRouter();
-  const { user, session, applySessionUser } = useAuth();
+  const { user, session, isGuest, guestDisplayName, applySessionUser, setGuestDisplayName, setGuestAvatarUri } = useAuth();
   const recoverOrphanedSession = useRecoverOrphanedSession();
   const setAvatarPreviewUri = useAvatarPreviewStore((s) => s.setAvatarPreviewUri);
 
@@ -49,6 +49,10 @@ export default function OnboardingProfileSetupScreen() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
+    if (isGuest) {
+      if (guestDisplayName) setName(guestDisplayName);
+      return;
+    }
     if (!user) return;
     const meta = user.user_metadata as Record<string, unknown> | undefined;
     const existing =
@@ -59,12 +63,13 @@ export default function OnboardingProfileSetupScreen() {
     }
     const dn = getDisplayName(user);
     if (dn && dn !== "Gardener") setName(dn);
-  }, [user?.id, user?.user_metadata]);
+  }, [user?.id, user?.user_metadata, isGuest, guestDisplayName]);
 
   const canContinue = useMemo(() => name.trim().length > 0, [name]);
 
   const onPickPhoto = useCallback(async () => {
-    if (!user?.id || uploadingPhoto) return;
+    if (!user?.id && !isGuest) return;
+    if (uploadingPhoto) return;
 
     if (Platform.OS === "web") {
       Alert.alert(
@@ -100,11 +105,15 @@ export default function OnboardingProfileSetupScreen() {
         base64: asset.base64,
       });
       setAvatarPreviewUri(asset.uri);
+      // For guests, persist the local URI so it survives app restarts
+      if (isGuest) {
+        await setGuestAvatarUri(asset.uri);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       Alert.alert("Something went wrong", msg);
     }
-  }, [user?.id, uploadingPhoto, setAvatarPreviewUri]);
+  }, [user?.id, isGuest, uploadingPhoto, setAvatarPreviewUri, setGuestAvatarUri]);
 
   const onNext = async () => {
     const trimmed = name.trim();
@@ -112,7 +121,11 @@ export default function OnboardingProfileSetupScreen() {
 
     setBusy(true);
     try {
-      if (session && isSupabaseConfigured && user?.id) {
+      if (isGuest) {
+        // Guest path: persist name locally, photo already persisted in onPickPhoto
+        await setGuestDisplayName(trimmed);
+      } else if (session && isSupabaseConfigured && user?.id) {
+        // Authenticated path: write to Supabase
         const { data: nameData, error: nameErr } =
           await getSupabase().auth.updateUser({
             data: { display_name: trimmed },

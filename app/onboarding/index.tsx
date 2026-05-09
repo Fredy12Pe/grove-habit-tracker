@@ -3,11 +3,11 @@ import { Redirect } from "expo-router";
 import React from "react";
 
 export default function OnboardingIndex() {
-  const { initialized, session, needsOnboarding } = useAuth();
+  const { initialized, session, isGuest, needsOnboarding } = useAuth();
 
   if (!initialized) return null;
 
-  if (!session) {
+  if (!session && !isGuest) {
     return <Redirect href="/(auth)/login" />;
   }
 

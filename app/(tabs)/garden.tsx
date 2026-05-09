@@ -17,6 +17,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -27,9 +28,9 @@ function streakLabel(days: number): string {
 
 export default function GardenScreen() {
   const router = useRouter();
-  const { user, session } = useAuth();
-  const displayName = getDisplayName(user);
-  const resolvedAvatarUri = useResolvedAvatarUri(user);
+  const { user, session, isGuest, guestDisplayName, guestAvatarUri } = useAuth();
+  const displayName = isGuest ? guestDisplayName ?? "Gardener" : getDisplayName(user);
+  const resolvedAvatarUri = useResolvedAvatarUri(user) ?? (isGuest ? guestAvatarUri : null);
 
   const storeHabits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
@@ -57,7 +58,18 @@ export default function GardenScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.profileRow}>
-            <View style={styles.avatarWrap}>
+            <TouchableOpacity
+              style={styles.avatarWrap}
+              onPress={() =>
+                router.push({
+                  pathname: "/(tabs)/profile",
+                  params: { pickPhoto: "1" },
+                })
+              }
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Open profile to update photo"
+            >
               <ProfileAvatar
                 uri={resolvedAvatarUri}
                 accessToken={session?.access_token}
@@ -70,7 +82,7 @@ export default function GardenScreen() {
                   />
                 }
               />
-            </View>
+            </TouchableOpacity>
             <AppText variant="h1" style={styles.userName}>
               {displayName}
             </AppText>

@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function LoginEmailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ prefillEmail?: string | string[] }>();
-  const { signIn, supabaseConfigured } = useAuth();
+  const { signIn, supabaseConfigured, waitForGuestMigrationIfAny } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,8 +53,9 @@ export default function LoginEmailScreen() {
       setError(err.message);
       return;
     }
+    await waitForGuestMigrationIfAny();
     router.replace("/");
-  }, [email, password, signIn, router]);
+  }, [email, password, signIn, router, waitForGuestMigrationIfAny]);
 
   const onBack = useCallback(() => {
     if (router.canGoBack()) {

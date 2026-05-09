@@ -24,7 +24,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { signUp, signIn, supabaseConfigured } = useAuth();
+  const { signUp, signIn, supabaseConfigured, waitForGuestMigrationIfAny } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +49,7 @@ export default function SignUpScreen() {
       const { error: signInErr } = await signIn(trimmed, password);
       if (!signInErr) {
         setSubmitting(false);
+        await waitForGuestMigrationIfAny();
         router.replace("/");
         return;
       }
@@ -86,8 +87,10 @@ export default function SignUpScreen() {
       router.replace("/(auth)/login-email");
       return;
     }
-    router.replace("/onboarding");
-  }, [email, password, signUp, signIn, router]);
+    // Let `AuthProvider` finish guest→account migration (onboarding_completed + name) before routing.
+    await waitForGuestMigrationIfAny();
+    router.replace("/");
+  }, [email, password, signUp, signIn, router, waitForGuestMigrationIfAny]);
 
   const onBack = useCallback(() => {
     if (router.canGoBack()) {
