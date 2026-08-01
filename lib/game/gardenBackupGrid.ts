@@ -2,8 +2,22 @@
  * Garden plot layout for the island game: aligns plant slots to the soil area
  * (garden-floor.png) inside each garden container.
  *
- * Ratios MUST match app/(tabs)/game.tsx (G_CONTAINER_*, G_FLOOR).
+ * Ratios MUST match G_CONTAINER_* / G_FLOOR in lib/game/islandWorldLayout.ts.
  */
+
+import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
+
+/** Count how many dates in completionDates[habitId] fall within [start, end] (ISO strings). */
+export function getWeekCompletionCount(
+  habitId: string,
+  completionDates: CompletionDatesByHabit,
+  start: string,
+  end: string,
+): number {
+  const dates = completionDates[habitId];
+  if (!dates) return 0;
+  return dates.filter((d) => d >= start && d <= end).length;
+}
 
 /** Max plant slots per plot; habits beyond this are omitted until Phase 2 (denser grid / scroll). */
 export const GARDEN_MAX_PLANTS = 25;

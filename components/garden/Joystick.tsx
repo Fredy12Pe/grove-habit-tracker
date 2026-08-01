@@ -1,9 +1,14 @@
-import { JOYSTICK } from "@/lib/game/constants";
 import React, { useRef } from "react";
 import { Animated, Dimensions, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const JOYSTICK = {
+  SIZE: 120,
+  KNOB_SIZE: 48,
+  DEADZONE: 0.15,
+} as const;
 
 export interface JoystickDelta {
   x: number;
