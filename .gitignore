@@ -35,6 +35,9 @@ yarn-error.*
 .env.local
 .env*.local
 
+# Cursor MCP config (contains API keys)
+.cursor/mcp.json
+
 # typescript
 *.tsbuildinfo
 

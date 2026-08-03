@@ -9,13 +9,35 @@ import * as WebBrowser from "expo-web-browser";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppState, View } from "react-native";
+import { AppState, Text, TextInput, View } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { syncWidgets } from "@/lib/widgets/syncWidgets";
+import { GroveFontFamily } from "@/styles/theme";
+
+type TextWithDefaults = typeof Text & {
+  defaultProps?: { style?: unknown; [key: string]: unknown };
+};
+type TextInputWithDefaults = typeof TextInput & {
+  defaultProps?: { style?: unknown; [key: string]: unknown };
+};
+
+/** Default all RN Text / TextInput to SF Pro Rounded (ui-rounded on iOS). */
+const GroveText = Text as TextWithDefaults;
+const GroveTextInput = TextInput as TextInputWithDefaults;
+const textDefaults = GroveText.defaultProps ?? {};
+GroveText.defaultProps = {
+  ...textDefaults,
+  style: [{ fontFamily: GroveFontFamily }, textDefaults.style],
+};
+const inputDefaults = GroveTextInput.defaultProps ?? {};
+GroveTextInput.defaultProps = {
+  ...inputDefaults,
+  style: [{ fontFamily: GroveFontFamily }, inputDefaults.style],
+};
 
 /** Lets `expo-web-browser` close the auth session when returning via deep link. */
 WebBrowser.maybeCompleteAuthSession();

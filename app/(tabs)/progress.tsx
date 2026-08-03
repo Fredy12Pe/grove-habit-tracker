@@ -453,6 +453,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bottomSpacer: {
-    height: 40,
+    height: 110,
   },
 });

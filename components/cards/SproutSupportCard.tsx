@@ -1,18 +1,12 @@
-import React from 'react';
-import { Image, StyleSheet, View, TouchableOpacity, Pressable } from 'react-native';
-import { Card } from '@/components/ui/Card';
-import { AppText } from '@/components/ui/AppText';
-import { GroveColors } from '@/styles/theme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AppText } from "@/components/ui/AppText";
+import { Card } from "@/components/ui/Card";
+import { GroveBorderRadius, GroveColors } from "@/styles/theme";
+import React from "react";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 
 interface SproutSupportCardProps {
   onPress?: () => void;
 }
-
-const cardText = {
-  heading: 13,
-  body: 10,
-};
 
 export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
   return (
@@ -27,26 +21,18 @@ export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
         <View style={styles.content}>
           <View style={styles.mascotWrap}>
             <Image
-              source={require('@/assets/garden/Sprout.png')}
+              source={require("@/assets/garden/redesign/sprout-waving.png")}
               style={styles.mascotImage}
               resizeMode="contain"
             />
           </View>
           <View style={styles.textBlock}>
-            <AppText variant="h2" style={styles.heading} numberOfLines={1} adjustsFontSizeToFit>
-              Feeling Overwhelmed?
+            <AppText variant="h1" style={styles.heading}>
+              Feeling Stressed?
             </AppText>
-            <AppText variant="paragraphRegular" style={styles.bodyLine1}>
-              Let's take a few calm breaths
+            <AppText variant="small" style={styles.body}>
+              Let's take a few calm breaths with Sprout.
             </AppText>
-            <View style={styles.bodyLine2Wrap}>
-              <AppText variant="paragraphRegular" style={styles.bodyLine2} boldSprout>
-                with Sprout.
-              </AppText>
-            </View>
-          </View>
-          <View style={styles.arrowButton}>
-            <IconSymbol name="chevron.right" size={22} color={GroveColors.primaryGreen} />
           </View>
         </View>
       </Card>
@@ -54,66 +40,60 @@ export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
   );
 }
 
-const MASCOT_SIZE = 100;
-const V_PAD = 24;
-
 const styles = StyleSheet.create({
   pressable: {
-    borderRadius: 24,
+    borderRadius: GroveBorderRadius.homeCard,
   },
   pressed: {
-    opacity: 0.9,
+    opacity: 0.92,
   },
   card: {
-    paddingTop: 0,
-    paddingBottom: 0,
+    backgroundColor: GroveColors.accentLimeSoft,
+    borderRadius: GroveBorderRadius.homeCard,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    overflow: "hidden",
+    minHeight: 174,
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 174,
+    // Right inset matches garden / progress (30); left is driven by Sprout
+    paddingRight: 30,
   },
+  // Figma: 119x165 sprout offset 8px from the left, cropped ~30px past the card bottom
   mascotWrap: {
-    width: MASCOT_SIZE,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    width: 146,
+    height: 174,
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
+    paddingLeft: 8,
   },
   mascotImage: {
-    width: MASCOT_SIZE,
-    height: MASCOT_SIZE,
+    width: 119,
+    height: 165,
+    marginTop: 39,
   },
   textBlock: {
     flex: 1,
     minWidth: 0,
-    paddingTop: V_PAD,
-    paddingBottom: V_PAD,
-    justifyContent: 'center',
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 20,
+    // Extra nudge so copy clears the sprout (Figma text starts ~156 from left)
+    paddingLeft: 10,
   },
   heading: {
-    fontSize: cardText.heading,
-    fontWeight: '700',
-    color: GroveColors.primaryText,
-    marginBottom: 6,
+    fontSize: 20.5,
+    lineHeight: 27,
+    fontWeight: "600",
+    color: GroveColors.white,
   },
-  bodyLine1: {
-    fontSize: cardText.body,
-    color: GroveColors.secondaryText,
-    lineHeight: 14,
-    marginBottom: 2,
-  },
-  bodyLine2Wrap: {
-    alignSelf: 'stretch',
-    alignItems: 'flex-start',
-  },
-  bodyLine2: {
-    fontSize: cardText.body,
-    color: GroveColors.secondaryText,
-    lineHeight: 14,
-    textAlign: 'left',
-  },
-  arrowButton: {
-    alignSelf: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+  body: {
+    fontSize: 14.5,
+    lineHeight: 21,
+    fontWeight: "600",
+    color: GroveColors.limeMuted,
   },
 });

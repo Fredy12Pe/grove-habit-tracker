@@ -13,6 +13,7 @@
     "optimize-game-assets": "node ./scripts/optimize-game-assets.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "dev:ios": "expo run:ios --device",
     "splash-icon-radius": "node ./scripts/apply-splash-icon-radius.js",
     "sync-ios-splash": "sips -z 200 200 assets/images/splash-icon.png --out ios/grove/Images.xcassets/SplashScreenLogo.imageset/image.png && sips -z 400 400 assets/images/splash-icon.png --out ios/grove/Images.xcassets/SplashScreenLogo.imageset/image@2x.png && sips -z 600 600 assets/images/splash-icon.png --out ios/grove/Images.xcassets/SplashScreenLogo.imageset/image@3x.png",
     "splash-ios": "npm run splash-icon-radius && npm run sync-ios-splash",

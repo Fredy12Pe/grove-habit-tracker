@@ -10,7 +10,7 @@ import { calendarDateKey } from "@/lib/calendarDate";
 import { useHabitStore } from "@/lib/store";
 import { getCurrentStreak } from "@/lib/stats";
 import { getDisplayName } from "@/lib/user-display";
-import { GroveColors, GroveSpacing } from "@/styles/theme";
+import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import {
@@ -22,8 +22,8 @@ import {
 } from "react-native";
 
 function streakLabel(days: number): string {
-  if (days === 1) return "1 day Streak";
-  return `${days} days Streak`;
+  if (days === 1) return "1 Day Streak";
+  return `${days} Days Streak`;
 }
 
 export default function GardenScreen() {
@@ -78,18 +78,22 @@ export default function GardenScreen() {
                   <IconSymbol
                     name="leaf.fill"
                     size={22}
-                    color={GroveColors.primaryGreen}
+                    color={GroveColors.accentLime}
                   />
                 }
               />
             </TouchableOpacity>
-            <AppText variant="h1" style={styles.userName}>
+            <AppText variant="display" style={styles.userName}>
               {displayName}
             </AppText>
           </View>
           <View style={styles.headerRight}>
             <View style={styles.streakPill}>
-              <IconSymbol name="flame.fill" size={14} color="#FF8C00" />
+              <IconSymbol
+                name="flame.fill"
+                size={14}
+                color={GroveColors.streakFlame}
+              />
               <AppText variant="small" style={styles.streakText}>
                 {streakLabel(currentStreak)}
               </AppText>
@@ -129,7 +133,7 @@ export default function GardenScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   scroll: {
     flex: 1,
@@ -147,24 +151,22 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 10,
+    flexShrink: 1,
   },
   avatarWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     overflow: "hidden",
-    backgroundColor: GroveColors.cardBackground,
-    borderWidth: 1,
-    borderColor: "rgba(124, 123, 103, 0.12)",
+    backgroundColor: GroveColors.softSurface,
   },
   avatarImage: {
     width: "100%",
     height: "100%",
   },
   userName: {
-    fontWeight: "700",
-    color: GroveColors.primaryText,
+    flexShrink: 1,
   },
   headerRight: {
     flexDirection: "row",
@@ -174,30 +176,20 @@ const styles = StyleSheet.create({
   streakPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: "transparent",
+    gap: 10,
+    height: 42,
+    paddingHorizontal: 16,
+    borderRadius: 40,
+    backgroundColor: GroveColors.white,
     borderWidth: 1,
-    borderColor: "rgba(124, 123, 103, 0.2)",
+    borderColor: "rgba(0, 0, 0, 0.1)",
   },
   streakText: {
-    color: GroveColors.secondaryText,
-  },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "rgba(124, 123, 103, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+    color: GroveColors.deepText,
   },
   gardenCardWrap: {
     width: "100%",
-    height: 320,
+    height: 325,
     marginBottom: GroveSpacing.sectionGap,
   },
   gardenCard: {
@@ -206,11 +198,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
     overflow: "hidden",
+    borderRadius: GroveBorderRadius.homeCard,
+    backgroundColor: GroveColors.accentLime,
   },
   section: {
     marginBottom: GroveSpacing.sectionGap,
   },
   bottomSpacer: {
-    height: 24,
+    height: 110,
   },
 });

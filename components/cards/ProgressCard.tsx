@@ -1,14 +1,10 @@
-import React from 'react';
-import {
-  Image,
-  StyleSheet,
-  View,
-  TouchableOpacity,
-} from 'react-native';
-import { Card } from '@/components/ui/Card';
-import { AppText } from '@/components/ui/AppText';
-import { GroveColors, GroveSpacing } from '@/styles/theme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ProgressBlobs } from "@/components/cards/ProgressBlobs";
+import { AppText } from "@/components/ui/AppText";
+import { Card } from "@/components/ui/Card";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { GroveBorderRadius, GroveColors } from "@/styles/theme";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export interface HabitItem {
   id: string;
@@ -33,167 +29,191 @@ export function ProgressCard({
   onCompleteHabits,
   readonly = false,
 }: ProgressCardProps) {
+  const segmentCount = Math.max(totalCount, 1);
+
   return (
     <Card style={styles.cardWrapper}>
-      <Image
-        source={require('@/assets/garden/ProgresCard_illustration.png')}
-        style={styles.illustration}
-        resizeMode="contain"
-      />
-      <AppText variant="h1" style={styles.title}>
-        Today's Progress
-      </AppText>
-      <AppText variant="paragraphRegular" style={styles.summary}>
-        {completedCount}/{totalCount} habits completed
+      <View style={styles.blobs} pointerEvents="none">
+        <ProgressBlobs />
+      </View>
+
+      <View style={styles.headerRow}>
+        <AppText variant="h1" style={styles.title}>
+          Today's Progress
+        </AppText>
+        {onCompleteHabits ? (
+          <TouchableOpacity
+            onPress={onCompleteHabits}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Go to habits"
+          >
+            <IconSymbol
+              name="chevron.right"
+              size={16}
+              color={GroveColors.deepText}
+            />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <AppText variant="small" style={styles.summary}>
+        {completedCount}/{totalCount} Habits Completed
       </AppText>
 
-      {/* Progress indicator: rounded segments */}
       <View style={styles.progressRow}>
-        {Array.from({ length: totalCount }).map((_, i) => (
+        {Array.from({ length: segmentCount }).map((_, i) => (
           <View
             key={i}
             style={[
               styles.progressSegment,
-              i < completedCount ? styles.progressSegmentFilled : styles.progressSegmentInactive,
+              i < completedCount
+                ? styles.progressSegmentFilled
+                : styles.progressSegmentInactive,
             ]}
           />
         ))}
       </View>
 
-      <AppText variant="h2" style={styles.sectionHeader}>
-        Today's Habits
-      </AppText>
-
-      <View style={styles.habitSection}>
-        <View style={styles.habitList}>
-          {habits.map((habit) => {
-            const RowComponent = readonly ? View : TouchableOpacity;
-            const rowProps = readonly
-              ? {}
-              : { onPress: () => onToggleHabit?.(habit.id), activeOpacity: 0.7 };
-            return (
-              <RowComponent key={habit.id} style={styles.habitRow} {...rowProps}>
-                <View
-                  style={[
-                    styles.checkbox,
-                    habit.completed ? styles.checkboxFilled : styles.checkboxEmpty,
-                  ]}
-                >
-                  {habit.completed && (
-                    <IconSymbol name="checkmark" size={12} color={GroveColors.white} />
-                  )}
-                </View>
-                <AppText variant="paragraph" style={styles.habitName}>
-                  {habit.name}
-                </AppText>
-              </RowComponent>
-            );
-          })}
-        </View>
-        <TouchableOpacity
-          style={styles.completeButton}
-          onPress={onCompleteHabits}
-          activeOpacity={0.8}
-        >
-          <AppText variant="paragraph" style={styles.completeButtonText}>
-            Complete Habits
-          </AppText>
-        </TouchableOpacity>
+      <View style={styles.habitList}>
+        {habits.map((habit) => {
+          const RowComponent = readonly ? View : TouchableOpacity;
+          const rowProps = readonly
+            ? {}
+            : {
+                onPress: () => onToggleHabit?.(habit.id),
+                activeOpacity: 0.7,
+              };
+          return (
+            <RowComponent key={habit.id} style={styles.habitRow} {...rowProps}>
+              <View
+                style={[
+                  styles.checkbox,
+                  habit.completed
+                    ? styles.checkboxFilled
+                    : styles.checkboxEmpty,
+                ]}
+              >
+                {habit.completed ? (
+                  <IconSymbol
+                    name="checkmark"
+                    size={10}
+                    color={GroveColors.white}
+                  />
+                ) : null}
+              </View>
+              <AppText
+                variant="h2"
+                style={[
+                  styles.habitName,
+                  !habit.completed && styles.habitNameInactive,
+                ]}
+              >
+                {habit.name}
+              </AppText>
+            </RowComponent>
+          );
+        })}
       </View>
     </Card>
   );
 }
 
-const cardText = {
-  title: 20,
-  summary: 15,
-  sectionHeader: 18,
-  body: 15,
-};
-
 const styles = StyleSheet.create({
   cardWrapper: {
-    overflow: 'hidden',
+    overflow: "hidden",
+    backgroundColor: GroveColors.softSurface,
+    borderRadius: GroveBorderRadius.homeCard,
+    paddingTop: 36,
+    paddingBottom: 10,
+    // Match garden / breathe text inset (30)
+    paddingHorizontal: 30,
+    minHeight: 384,
   },
-  illustration: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 140,
-    height: 140,
-    opacity: 0.9,
+  /**
+   * Whole blob cluster pinned to the bottom-right corner.
+   * Figma frame is 363×384; the cluster's box spans x 261→523, y 137→418,
+   * so it hangs 160px past the right edge and 34px past the bottom.
+   */
+  blobs: {
+    position: "absolute",
+    right: -130,
+    bottom: -34,
+    width: 262,
+    height: 281,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
   title: {
-    marginBottom: 8,
-    fontSize: cardText.title,
+    fontSize: 20.5,
+    lineHeight: 27,
+    fontWeight: "600",
+    color: GroveColors.deepText,
+    flex: 1,
+    paddingRight: 12,
   },
   summary: {
-    marginBottom: 16,
-    fontSize: cardText.summary,
+    marginBottom: 12,
+    fontSize: 14.5,
+    lineHeight: 19,
+    fontWeight: "600",
+    color: GroveColors.mutedGray,
   },
   progressRow: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    gap: 4,
-    marginBottom: 22,
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginBottom: 30,
   },
   progressSegment: {
-    width: 24,
+    width: 20,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 50,
   },
   progressSegmentFilled: {
-    backgroundColor: GroveColors.primaryGreen,
+    backgroundColor: GroveColors.accentLime,
   },
   progressSegmentInactive: {
-    backgroundColor: GroveColors.inactive,
-  },
-  sectionHeader: {
-    marginBottom: 16,
-    fontSize: cardText.sectionHeader,
-  },
-  habitSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 16,
+    backgroundColor: GroveColors.mutedGray,
   },
   habitList: {
-    flex: 1,
-    gap: GroveSpacing.habitRowGap,
+    gap: 12,
+    maxWidth: 220,
+    zIndex: 1,
   },
   habitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxEmpty: {
-    backgroundColor: GroveColors.white,
-    borderWidth: 2,
-    borderColor: GroveColors.inactive,
+    backgroundColor: "transparent",
+    borderWidth: 3,
+    borderColor: GroveColors.accentLime,
   },
   checkboxFilled: {
-    backgroundColor: GroveColors.primaryGreen,
+    backgroundColor: GroveColors.accentLime,
+    borderWidth: 3,
+    borderColor: GroveColors.accentLime,
   },
   habitName: {
-    flex: 1,
-    fontSize: cardText.body,
+    fontSize: 18.5,
+    lineHeight: 25,
+    fontWeight: "600",
+    color: GroveColors.deepText,
   },
-  completeButton: {
-    backgroundColor: GroveColors.primaryGreen,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-  },
-  completeButtonText: {
-    color: GroveColors.white,
-    fontWeight: '600',
-    fontSize: cardText.body,
+  habitNameInactive: {
+    color: GroveColors.mutedGray,
   },
 });

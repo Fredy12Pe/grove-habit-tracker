@@ -10,13 +10,13 @@ import {
   CHAR_SIZE,
   CharacterSprite,
 } from "@/components/game/world/sprites";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { getCurrentMonthWeekIndex } from "@/lib/game/gardenBackupGrid";
 import { getIslandWorldLayout } from "@/lib/game/islandWorldLayout";
 import { createIslandNavigation } from "@/lib/game/world/navigation";
 import { gameSelection } from "@/lib/gameHaptics";
 import { useHabitStore } from "@/lib/store";
-import { GroveColors, GroveSpacing } from "@/styles/theme";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { GroveBorderRadius, GroveColors } from "@/styles/theme";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -90,6 +90,14 @@ export function GamePreview({
     if (width > 0 && height > 0) setBox({ width, height });
   };
 
+  const openGame = () => {
+    gameSelection();
+    router.replace({
+      pathname: "/(tabs)/game",
+      params: { resetFromHome: String(Date.now()) },
+    });
+  };
+
   const scale = box
     ? Math.max(box.width / layout.WORLD_W, box.height / layout.WORLD_H) *
       PREVIEW_ZOOM
@@ -145,35 +153,34 @@ export function GamePreview({
         )}
 
         {showOverlay ? (
-          <View style={styles.overlay} pointerEvents="box-none">
+          <TouchableOpacity
+            style={styles.overlay}
+            activeOpacity={0.9}
+            onPress={openGame}
+            accessibilityRole="button"
+            accessibilityLabel="Check your garden"
+          >
             <View style={styles.overlayFill} />
             <View style={styles.overlayContent}>
-              <AppText variant="h1" style={styles.overlayText}>
-                See Your Garden Grow
-              </AppText>
-              <TouchableOpacity
-                style={styles.overlayButton}
-                activeOpacity={0.8}
-                onPress={() => {
-                  gameSelection();
-                  router.replace({
-                    pathname: "/(tabs)/game",
-                    params: { resetFromHome: String(Date.now()) },
-                  });
-                }}
+              <View style={styles.overlayTextBlock}>
+                <AppText variant="small" style={styles.overlayEyebrow}>
+                  Check Your Garden
+                </AppText>
+                <AppText variant="h1" style={styles.overlayTitle}>
+                  Your Plants Are Growing
+                </AppText>
+              </View>
+              <Animated.View
+                style={{ transform: [{ translateX: arrowNudge }] }}
               >
-                <Animated.View
-                  style={{ transform: [{ translateX: arrowNudge }] }}
-                >
-                  <MaterialIcons
-                    name="arrow-forward"
-                    size={18}
-                    color="#5D6D00"
-                  />
-                </Animated.View>
-              </TouchableOpacity>
+                <IconSymbol
+                  name="chevron.right"
+                  size={18}
+                  color={GroveColors.white}
+                />
+              </Animated.View>
             </View>
-          </View>
+          </TouchableOpacity>
         ) : null}
       </View>
     </View>
@@ -198,35 +205,40 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 84,
+    height: 100,
     overflow: "hidden",
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
+    borderBottomLeftRadius: GroveBorderRadius.homeCard,
+    borderBottomRightRadius: GroveBorderRadius.homeCard,
   },
   overlayFill: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: GroveColors.primaryGreen,
+    backgroundColor: GroveColors.accentLime,
   },
   overlayContent: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: GroveSpacing.cardPaddingHorizontal,
-    paddingVertical: 12,
+    // Shared home-card text inset (matches Progress / Breathe right edge)
+    paddingHorizontal: 30,
+    paddingVertical: 16,
   },
-  overlayText: {
-    color: "#5D6D00",
-    fontSize: 18,
+  overlayTextBlock: {
+    flex: 1,
+    paddingRight: 12,
   },
-  overlayButton: {
-    height: 38,
-    minWidth: 60,
-    paddingHorizontal: 16,
-    borderRadius: 19,
-    backgroundColor: "rgba(255, 255, 255, 0.6)",
-    alignItems: "center",
-    justifyContent: "center",
+  overlayEyebrow: {
+    color: GroveColors.limeMuted,
+    fontSize: 14.5,
+    lineHeight: 19,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  overlayTitle: {
+    color: GroveColors.white,
+    fontSize: 20.5,
+    lineHeight: 27,
+    fontWeight: "600",
   },
   worldWrap: {
     position: "absolute",

@@ -33,7 +33,7 @@ export const Fonts = Platform.select({
     sans: 'system-ui',
     /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
+    /** iOS `UIFontDescriptorSystemDesignRounded` — SF Pro Rounded */
     rounded: 'ui-rounded',
     /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
@@ -41,7 +41,7 @@ export const Fonts = Platform.select({
   default: {
     sans: 'normal',
     serif: 'serif',
-    rounded: 'normal',
+    rounded: 'sans-serif',
     mono: 'monospace',
   },
   web: {

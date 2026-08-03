@@ -22,6 +22,7 @@ const MAPPING = {
   'chevron.up': 'expand-less',
   'chevron.down': 'expand-more',
   'leaf.fill': 'eco',
+  'flame.fill': 'local-fire-department',
   'xmark': 'close',
   'checkmark': 'check',
   'checkmark.circle.fill': 'check-circle',

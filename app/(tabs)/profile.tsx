@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     color: GroveColors.primaryText,
   },
   bottomSpacer: {
-    height: 40,
+    height: 110,
   },
   saveProgressCard: {
     backgroundColor: GroveColors.cardBackground,
