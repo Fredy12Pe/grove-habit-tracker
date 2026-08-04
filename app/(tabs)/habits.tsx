@@ -1,11 +1,20 @@
 import { AddHabitSheet } from "@/components/habits/AddHabitSheet";
 import { HabitFormInline } from "@/components/habits/HabitFormInline";
-import { HabitRow, type HabitData } from "@/components/habits/HabitRow";
+import {
+  HabitRow,
+  habitCardAccentAt,
+  habitCardThemeFromAccent,
+  type HabitData,
+} from "@/components/habits/HabitRow";
 import { HabitsCompletionOverlay } from "@/components/habits/HabitsCompletionOverlay";
 import { TodayProgressBanner } from "@/components/habits/TodayProgressBanner";
 import { WeekCalendar } from "@/components/habits/WeekCalendar";
 import { AppText } from "@/components/ui/AppText";
-import { calendarDateKey } from "@/lib/calendarDate";
+import {
+  addCalendarDays,
+  calendarDateKey,
+  startOfWeekMonday,
+} from "@/lib/calendarDate";
 import { CATALOG_ICON_MAP, HABIT_CATALOG } from "@/lib/habitCatalog";
 import {
     triggerHabitTimerFinishedHaptic,
@@ -29,12 +38,18 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+    Dimensions,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
     View,
 } from "react-native";
+
+const SCREEN_W = Dimensions.get("window").width;
+const GRID_GAP = 12;
+const GRID_CARD_W =
+  (SCREEN_W - GroveSpacing.screenPaddingHorizontal * 2 - GRID_GAP) / 2;
 
 export default function HabitsScreen() {
   const router = useRouter();
@@ -190,6 +205,11 @@ export default function HabitsScreen() {
     return () => clearInterval(id);
   }, [expandedId, timerRunning, toggleHabit, isViewingToday]);
 
+  const weekStart = startOfWeekMonday(selectedDate);
+  const weekKeys = Array.from({ length: 7 }, (_, i) =>
+    calendarDateKey(addCalendarDays(weekStart, i)),
+  );
+
   const habitRows: HabitData[] = storeHabits.map((sh) => {
     const hwa = habitsWithActions.find((h) => h.id === sh.id);
     const iconSource =
@@ -197,6 +217,7 @@ export default function HabitsScreen() {
       HABIT_CATALOG[0].icon;
     const completedForDay =
       completionDates[sh.id]?.includes(selectedKey) ?? false;
+    const dates = completionDates[sh.id] ?? [];
     return {
       id: sh.id,
       name: sh.name,
@@ -205,27 +226,36 @@ export default function HabitsScreen() {
       completed: completedForDay,
       progressSummary:
         isViewingToday && hwa ? getProgressSummary(hwa) : undefined,
+      weekCompletion: weekKeys.map((key) => dates.includes(key)),
     };
   });
 
-  const inProgress = habitRows.filter((h) => !h.completed);
-  const completed = habitRows
-    .filter((h) => h.completed)
-    .slice()
-    .sort((a, b) => {
-      const ha = storeHabits.find((x) => x.id === a.id);
-      const hb = storeHabits.find((x) => x.id === b.id);
-      const ta = ha?.updatedAt ? new Date(ha.updatedAt).getTime() : 0;
-      const tb = hb?.updatedAt ? new Date(hb.updatedAt).getTime() : 0;
-      return ta - tb;
-    });
+  const completedCount = habitRows.filter((h) => h.completed).length;
 
-  const renderHabitRow = (habit: HabitData) => {
+  const renderHabitRow = (habit: HabitData, fullWidth: boolean) => {
     const hwa = habitsWithActions.find((h) => h.id === habit.id);
+    const storeHabit = storeHabits.find((h) => h.id === habit.id);
+    const listIndex = Math.max(
+      0,
+      storeHabits.findIndex((h) => h.id === habit.id),
+    );
+    const colorIndex =
+      typeof storeHabit?.customColorIndex === "number"
+        ? storeHabit.customColorIndex
+        : listIndex;
+    const customAccent = storeHabit?.customColor;
+    const accentColor = customAccent
+      ? habitCardThemeFromAccent(customAccent).accentDeep
+      : habitCardAccentAt(colorIndex);
     return (
-      <HabitRow
+      <View
         key={habit.id}
+        style={[styles.gridItem, fullWidth && styles.gridItemFull]}
+      >
+      <HabitRow
         habit={habit}
+        colorIndex={colorIndex}
+        customAccent={customAccent}
         onToggle={(habitId) => {
           if (calendarDateKey(selectedDate) > calendarDateKey()) return;
           if (isViewingToday) {
@@ -265,7 +295,11 @@ export default function HabitsScreen() {
         expandedContent={
           expandedId === habit.id && hwa ? (
             isViewingToday ? (
-              <HabitFormInline habit={hwa} onUpdate={updateHabit} />
+              <HabitFormInline
+                habit={hwa}
+                onUpdate={updateHabit}
+                accentColor={accentColor}
+              />
             ) : (
               <AppText
                 variant="small"
@@ -280,6 +314,7 @@ export default function HabitsScreen() {
           ) : undefined
         }
       />
+      </View>
     );
   };
 
@@ -302,7 +337,7 @@ export default function HabitsScreen() {
         {/* Today's progress banner */}
         <View style={styles.section}>
           <TodayProgressBanner
-            completedCount={completed.length}
+            completedCount={completedCount}
             totalCount={habitRows.length}
             title={
               isViewingToday
@@ -316,24 +351,11 @@ export default function HabitsScreen() {
           />
         </View>
 
-        {/* Completed — oldest-first so the most recently completed is at the bottom of this section */}
-        {completed.length > 0 && (
-          <View style={styles.section}>
-            <AppText variant="paragraphRegular" style={styles.sectionLabel}>
-              Completed
-            </AppText>
-            {completed.map(renderHabitRow)}
-          </View>
-        )}
-
-        {inProgress.length > 0 && (
-          <View style={styles.section}>
-            <AppText variant="paragraphRegular" style={styles.sectionLabel}>
-              In Progress
-            </AppText>
-            {inProgress.map(renderHabitRow)}
-          </View>
-        )}
+        <View style={styles.grid}>
+          {habitRows.map((habit) =>
+            renderHabitRow(habit, expandedId === habit.id),
+          )}
+        </View>
 
         {/* Add habit button — sheet includes custom habit row (onboarding style) */}
         <View style={styles.addSection}>
@@ -369,7 +391,7 @@ export default function HabitsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   scroll: {
     flex: 1,
@@ -381,11 +403,17 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
-  sectionLabel: {
-    fontSize: 13,
-    color: GroveColors.secondaryText,
-    marginBottom: 10,
-    fontWeight: "500",
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: GRID_GAP,
+    marginBottom: 20,
+  },
+  gridItem: {
+    width: GRID_CARD_W,
+  },
+  gridItemFull: {
+    width: "100%",
   },
   addSection: {
     alignItems: "center",

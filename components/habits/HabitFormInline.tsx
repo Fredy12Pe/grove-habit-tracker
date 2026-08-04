@@ -1,6 +1,11 @@
-import React from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { AppText } from "@/components/ui/AppText";
 import {
+  triggerHabitCounterStepHaptic,
+  triggerHabitTimerStartedHaptic,
+} from "@/lib/habitHaptics";
+import {
+  formatTime,
+  isHabitComplete,
   type CounterProgress,
   type CounterSetup,
   type HabitProgress,
@@ -13,28 +18,47 @@ import {
   type TimerProgress,
   type TimerSetup,
   type ToggleProgress,
-  formatTime,
-  isHabitComplete,
 } from "@/lib/habitsWithActions";
-import {
-  triggerHabitCounterStepHaptic,
-  triggerHabitTimerStartedHaptic,
-} from "@/lib/habitHaptics";
 import {
   GroveBorderRadius,
   GroveColors,
-  GroveSpacing,
+  GroveFontFamily,
 } from "@/styles/theme";
+import React from "react";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 interface HabitFormInlineProps {
   habit: HabitWithActions;
   onUpdate: (id: string, updates: Partial<HabitWithActions>) => void;
+  /** Darker shade of the habit card background for controls. */
+  accentColor: string;
 }
 
-export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
+export function HabitFormInline({
+  habit,
+  onUpdate,
+  accentColor,
+}: HabitFormInlineProps) {
+  const accentFill = {
+    backgroundColor: accentColor,
+    borderColor: accentColor,
+  };
+  const accentOutline = { borderColor: accentColor };
+  const accentFg = { color: accentColor };
+  const pillStyle = (selected: boolean) => [
+    styles.pill,
+    selected ? accentFill : accentOutline,
+  ];
+  const pillTextStyle = (selected: boolean) => [
+    styles.pillText,
+    selected ? styles.pillTextSelected : accentFg,
+  ];
+
   const updateProgress = (progress: HabitProgress) => {
     const next = { ...habit, progress };
-    (next as HabitWithActions).completedToday = isHabitComplete(next as HabitWithActions);
+    (next as HabitWithActions).completedToday = isHabitComplete(
+      next as HabitWithActions,
+    );
     onUpdate(habit.id, { progress, completedToday: next.completedToday });
   };
 
@@ -60,28 +84,39 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         const customMinutes = Math.max(1, Math.min(120, s.durationMinutes));
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Duration (minutes)</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Duration (minutes)
+            </AppText>
             <View style={styles.pillRow}>
               {presets.map((min) => (
                 <Pressable
                   key={min}
-                  style={[styles.pill, s.durationMinutes === min && styles.pillSelected]}
+                  style={pillStyle(s.durationMinutes === min)}
                   onPress={() => updateSetup({ durationMinutes: min })}
                 >
-                  <Text style={[styles.pillText, s.durationMinutes === min && styles.pillTextSelected]}>{min}</Text>
+                  <AppText
+                    variant="paragraph"
+                    style={pillTextStyle(s.durationMinutes === min)}
+                  >
+                    {min}
+                  </AppText>
                 </Pressable>
               ))}
             </View>
-            <Text style={styles.customLabel}>Or custom</Text>
+            <AppText variant="paragraphRegular" style={styles.customLabel}>
+              Or custom
+            </AppText>
             <View style={styles.stepperRow}>
               <TextInput
-                style={styles.customDurationInput}
+                style={[styles.customDurationInput, accentOutline]}
                 keyboardType="number-pad"
                 value={String(customMinutes)}
                 onChangeText={(text) => {
                   const num = parseInt(text, 10);
                   if (!isNaN(num)) {
-                    updateSetup({ durationMinutes: Math.max(1, Math.min(120, num)) });
+                    updateSetup({
+                      durationMinutes: Math.max(1, Math.min(120, num)),
+                    });
                   } else if (text === "") {
                     updateSetup({ durationMinutes: 1 });
                   }
@@ -89,7 +124,9 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
                 selectTextOnFocus
                 maxLength={3}
               />
-              <Text style={styles.customDurationUnit}>min</Text>
+              <AppText variant="paragraph" style={styles.customDurationUnit}>
+                min
+              </AppText>
             </View>
           </View>
         );
@@ -98,14 +135,30 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         const s = habit.setup as CounterSetup;
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Daily goal</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Daily goal
+            </AppText>
             <View style={styles.stepperRow}>
-              <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, goal: Math.max(1, s.goal - 1) })}>
-                <Text style={styles.stepperText}>−</Text>
+              <Pressable
+                style={[styles.stepperBtn, accentOutline]}
+                onPress={() =>
+                  updateSetup({ ...s, goal: Math.max(1, s.goal - 1) })
+                }
+              >
+                <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                  −
+                </AppText>
               </Pressable>
-              <Text style={styles.stepperValue}>{s.goal} {s.unit ?? ""}</Text>
-              <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, goal: s.goal + 1 })}>
-                <Text style={styles.stepperText}>+</Text>
+              <AppText variant="paragraph" style={styles.stepperValue}>
+                {s.goal} {s.unit ?? ""}
+              </AppText>
+              <Pressable
+                style={[styles.stepperBtn, accentOutline]}
+                onPress={() => updateSetup({ ...s, goal: s.goal + 1 })}
+              >
+                <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                  +
+                </AppText>
               </Pressable>
             </View>
           </View>
@@ -117,14 +170,35 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
           const count = s.gratitudeCount ?? 3;
           return (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Number of gratitude items</Text>
+              <AppText variant="small" style={styles.sectionTitle}>
+                Number of gratitude items
+              </AppText>
               <View style={styles.stepperRow}>
-                <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, gratitudeCount: Math.max(1, count - 1) })}>
-                  <Text style={styles.stepperText}>−</Text>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateSetup({
+                      ...s,
+                      gratitudeCount: Math.max(1, count - 1),
+                    })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    −
+                  </AppText>
                 </Pressable>
-                <Text style={styles.stepperValue}>{count}</Text>
-                <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, gratitudeCount: count + 1 })}>
-                  <Text style={styles.stepperText}>+</Text>
+                <AppText variant="paragraph" style={styles.stepperValue}>
+                  {count}
+                </AppText>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateSetup({ ...s, gratitudeCount: count + 1 })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    +
+                  </AppText>
                 </Pressable>
               </View>
             </View>
@@ -132,8 +206,12 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         }
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Journaling</Text>
-            <Text style={styles.hint}>Write at least 10 characters to complete.</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Journaling
+            </AppText>
+            <AppText variant="paragraphRegular" style={styles.hint}>
+              Write at least 10 characters to complete.
+            </AppText>
           </View>
         );
       case "scheduled": {
@@ -141,14 +219,38 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         if (s.goalHours != null) {
           return (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Target sleep (hours)</Text>
+              <AppText variant="small" style={styles.sectionTitle}>
+                Target sleep (hours)
+              </AppText>
               <View style={styles.stepperRow}>
-                <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, goalHours: Math.max(4, (s.goalHours ?? 7) - 1) })}>
-                  <Text style={styles.stepperText}>−</Text>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateSetup({
+                      ...s,
+                      goalHours: Math.max(4, (s.goalHours ?? 7) - 1),
+                    })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    −
+                  </AppText>
                 </Pressable>
-                <Text style={styles.stepperValue}>{s.goalHours ?? 7} h</Text>
-                <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, goalHours: (s.goalHours ?? 7) + 1 })}>
-                  <Text style={styles.stepperText}>+</Text>
+                <AppText variant="paragraph" style={styles.stepperValue}>
+                  {s.goalHours ?? 7} h
+                </AppText>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateSetup({
+                      ...s,
+                      goalHours: (s.goalHours ?? 7) + 1,
+                    })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    +
+                  </AppText>
                 </Pressable>
               </View>
             </View>
@@ -157,14 +259,38 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         if (s.maxHours != null) {
           return (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Max screen time (hours)</Text>
+              <AppText variant="small" style={styles.sectionTitle}>
+                Max screen time (hours)
+              </AppText>
               <View style={styles.stepperRow}>
-                <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, maxHours: Math.max(0, (s.maxHours ?? 2) - 1) })}>
-                  <Text style={styles.stepperText}>−</Text>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateSetup({
+                      ...s,
+                      maxHours: Math.max(0, (s.maxHours ?? 2) - 1),
+                    })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    −
+                  </AppText>
                 </Pressable>
-                <Text style={styles.stepperValue}>{s.maxHours ?? 2} h</Text>
-                <Pressable style={styles.stepperBtn} onPress={() => updateSetup({ ...s, maxHours: (s.maxHours ?? 2) + 1 })}>
-                  <Text style={styles.stepperText}>+</Text>
+                <AppText variant="paragraph" style={styles.stepperValue}>
+                  {s.maxHours ?? 2} h
+                </AppText>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateSetup({
+                      ...s,
+                      maxHours: (s.maxHours ?? 2) + 1,
+                    })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    +
+                  </AppText>
                 </Pressable>
               </View>
             </View>
@@ -175,8 +301,12 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
       case "toggle":
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Setup</Text>
-            <Text style={styles.hint}>Confirm daily when you’ve stayed on track.</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Setup
+            </AppText>
+            <AppText variant="paragraphRegular" style={styles.hint}>
+              Confirm daily when you’ve stayed on track.
+            </AppText>
           </View>
         );
     }
@@ -194,12 +324,25 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         const label = labels[habit.id] ?? "Mark complete";
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Daily action</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Daily action
+            </AppText>
             <Pressable
-              style={[styles.primaryBtn, p.confirmed && styles.primaryBtnDone]}
+              style={[
+                styles.primaryBtn,
+                p.confirmed ? styles.primaryBtnDone : accentFill,
+              ]}
               onPress={() => updateProgress({ confirmed: !p.confirmed })}
             >
-              <Text style={styles.primaryBtnText}>{p.confirmed ? "Completed ✓" : label}</Text>
+              <AppText
+                variant="paragraph"
+                style={[
+                  styles.primaryBtnText,
+                  p.confirmed && styles.primaryBtnTextDone,
+                ]}
+              >
+                {p.confirmed ? "Completed ✓" : label}
+              </AppText>
             </Pressable>
           </View>
         );
@@ -210,10 +353,12 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         const complete = p.current >= s.goal;
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today’s progress</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Today’s progress
+            </AppText>
             <View style={styles.counterRow}>
               <Pressable
-                style={styles.counterBtn}
+                style={[styles.counterBtn, accentFill]}
                 onPress={() => {
                   const next = Math.max(0, p.current - 1);
                   if (next === p.current) return;
@@ -221,23 +366,35 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
                   updateProgress({ current: next });
                 }}
               >
-                <Text style={styles.counterBtnText}>−</Text>
+                <AppText variant="h2" style={styles.counterBtnText}>
+                  −
+                </AppText>
               </Pressable>
               <View style={styles.counterValueWrap}>
-                <Text style={styles.counterValue}>{p.current}</Text>
-                <Text style={styles.counterUnit}>/ {s.goal} {s.unit ?? ""}</Text>
+                <AppText variant="h1" style={styles.counterValue}>
+                  {p.current}
+                </AppText>
+                <AppText variant="paragraphRegular" style={styles.counterUnit}>
+                  / {s.goal} {s.unit ?? ""}
+                </AppText>
               </View>
               <Pressable
-                style={styles.counterBtn}
+                style={[styles.counterBtn, accentFill]}
                 onPress={() => {
                   triggerHabitCounterStepHaptic();
                   updateProgress({ current: p.current + 1 });
                 }}
               >
-                <Text style={styles.counterBtnText}>+</Text>
+                <AppText variant="h2" style={styles.counterBtnText}>
+                  +
+                </AppText>
               </Pressable>
             </View>
-            {complete && <Text style={styles.reward}>Your plant grew a little 🌱</Text>}
+            {complete && (
+              <AppText variant="paragraphRegular" style={styles.reward}>
+                Your plant grew a little 🌱
+              </AppText>
+            )}
           </View>
         );
       }
@@ -246,14 +403,17 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         const s = habit.setup as TimerSetup;
         const done = p.completed || p.secondsRemaining <= 0;
         const fullDuration = s.durationMinutes * 60;
-        const isIdle = !p.isRunning && !done && p.secondsRemaining >= fullDuration;
+        const isIdle =
+          !p.isRunning && !done && p.secondsRemaining >= fullDuration;
 
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today’s action</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Today’s action
+            </AppText>
             {isIdle && (
               <Pressable
-                style={styles.primaryBtn}
+                style={[styles.primaryBtn, accentFill]}
                 onPress={() =>
                   updateProgress({
                     ...p,
@@ -262,35 +422,55 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
                   })
                 }
               >
-                <Text style={styles.primaryBtnText}>Start {s.durationMinutes} min</Text>
+                <AppText variant="paragraph" style={styles.primaryBtnText}>
+                  Start {s.durationMinutes} min
+                </AppText>
               </Pressable>
             )}
             {!isIdle && (
               <View style={styles.timerWrap}>
-                <Text style={styles.timerText}>{done ? "0:00" : formatTime(p.secondsRemaining)}</Text>
-                {done && <Text style={styles.reward}>A butterfly visited your grove 🦋</Text>}
+                <AppText variant="display" style={styles.timerText}>
+                  {done ? "0:00" : formatTime(p.secondsRemaining)}
+                </AppText>
+                {done && (
+                  <AppText variant="paragraphRegular" style={styles.reward}>
+                    A butterfly visited your grove 🦋
+                  </AppText>
+                )}
                 {!done && (
                   <View style={styles.timerControls}>
                     {p.isRunning ? (
                       <Pressable
-                        style={[styles.timerCtrlBtn, styles.timerCtrlPause]}
-                        onPress={() => updateProgress({ ...p, isRunning: false })}
+                        style={[styles.timerCtrlBtn, accentFill]}
+                        onPress={() =>
+                          updateProgress({ ...p, isRunning: false })
+                        }
                       >
-                        <Text style={styles.timerCtrlTextPrimary}>Pause</Text>
+                        <AppText
+                          variant="paragraph"
+                          style={styles.timerCtrlTextPrimary}
+                        >
+                          Pause
+                        </AppText>
                       </Pressable>
                     ) : (
                       <Pressable
-                        style={[styles.timerCtrlBtn, styles.timerCtrlPlay]}
+                        style={[styles.timerCtrlBtn, accentFill]}
                         onPress={() => {
                           triggerHabitTimerStartedHaptic();
                           updateProgress({ ...p, isRunning: true });
                         }}
                       >
-                        <Text style={styles.timerCtrlTextPrimary}>Play</Text>
+                        <AppText
+                          variant="paragraph"
+                          style={styles.timerCtrlTextPrimary}
+                        >
+                          Play
+                        </AppText>
                       </Pressable>
                     )}
                     <Pressable
-                      style={[styles.timerCtrlBtn, styles.timerCtrlStop]}
+                      style={[styles.timerCtrlBtn, styles.timerCtrlStop, accentOutline]}
                       onPress={() =>
                         updateProgress({
                           ...p,
@@ -300,7 +480,12 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
                         })
                       }
                     >
-                      <Text style={styles.timerCtrlTextMuted}>Stop</Text>
+                      <AppText
+                        variant="paragraph"
+                        style={[styles.timerCtrlTextMuted, accentFg]}
+                      >
+                        Stop
+                      </AppText>
                     </Pressable>
                   </View>
                 )}
@@ -324,27 +509,35 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
           };
           return (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Today’s gratitude</Text>
+              <AppText variant="small" style={styles.sectionTitle}>
+                Today’s gratitude
+              </AppText>
               {Array.from({ length: count }, (_, i) => (
                 <TextInput
                   key={i}
-                  style={styles.input}
+                  style={[styles.input, accentOutline]}
                   placeholder={`Gratitude ${i + 1}`}
                   placeholderTextColor={GroveColors.secondaryText}
                   value={items[i] ?? ""}
                   onChangeText={(val) => updateItem(i, val)}
                 />
               ))}
-              {isHabitComplete(habit) && <Text style={styles.reward}>Your plant grew a little 🌱</Text>}
+              {isHabitComplete(habit) && (
+                <AppText variant="paragraphRegular" style={styles.reward}>
+                  Your plant grew a little 🌱
+                </AppText>
+              )}
             </View>
           );
         }
         const p = habit.progress as InputProgress;
         return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today’s entry</Text>
+            <AppText variant="small" style={styles.sectionTitle}>
+              Today’s entry
+            </AppText>
             <TextInput
-              style={[styles.input, styles.inputMultiline]}
+              style={[styles.input, styles.inputMultiline, accentOutline]}
               placeholder="What's on your mind?"
               placeholderTextColor={GroveColors.secondaryText}
               value={p.text}
@@ -352,7 +545,11 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
               multiline
               numberOfLines={4}
             />
-            {isHabitComplete(habit) && <Text style={styles.reward}>Your plant grew a little 🌱</Text>}
+            {isHabitComplete(habit) && (
+              <AppText variant="paragraphRegular" style={styles.reward}>
+                Your plant grew a little 🌱
+              </AppText>
+            )}
           </View>
         );
       case "scheduled": {
@@ -361,34 +558,74 @@ export function HabitFormInline({ habit, onUpdate }: HabitFormInlineProps) {
         if (s.goalHours != null) {
           return (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>How many hours did you sleep?</Text>
+              <AppText variant="small" style={styles.sectionTitle}>
+                How many hours did you sleep?
+              </AppText>
               <View style={styles.stepperRow}>
-                <Pressable style={styles.stepperBtn} onPress={() => updateProgress({ value: Math.max(0, p.value - 1) })}>
-                  <Text style={styles.stepperText}>−</Text>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateProgress({ value: Math.max(0, p.value - 1) })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    −
+                  </AppText>
                 </Pressable>
-                <Text style={styles.stepperValue}>{p.value} h</Text>
-                <Pressable style={styles.stepperBtn} onPress={() => updateProgress({ value: p.value + 1 })}>
-                  <Text style={styles.stepperText}>+</Text>
+                <AppText variant="paragraph" style={styles.stepperValue}>
+                  {p.value} h
+                </AppText>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() => updateProgress({ value: p.value + 1 })}
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    +
+                  </AppText>
                 </Pressable>
               </View>
-              {isHabitComplete(habit) && <Text style={styles.reward}>Rest well 🌙</Text>}
+              {isHabitComplete(habit) && (
+                <AppText variant="paragraphRegular" style={styles.reward}>
+                  Rest well 🌙
+                </AppText>
+              )}
             </View>
           );
         }
         if (s.maxHours != null) {
           return (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Screen time today (hours)</Text>
+              <AppText variant="small" style={styles.sectionTitle}>
+                Screen time today (hours)
+              </AppText>
               <View style={styles.stepperRow}>
-                <Pressable style={styles.stepperBtn} onPress={() => updateProgress({ value: Math.max(0, p.value - 0.5) })}>
-                  <Text style={styles.stepperText}>−</Text>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() =>
+                    updateProgress({ value: Math.max(0, p.value - 0.5) })
+                  }
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    −
+                  </AppText>
                 </Pressable>
-                <Text style={styles.stepperValue}>{p.value} h</Text>
-                <Pressable style={styles.stepperBtn} onPress={() => updateProgress({ value: p.value + 0.5 })}>
-                  <Text style={styles.stepperText}>+</Text>
+                <AppText variant="paragraph" style={styles.stepperValue}>
+                  {p.value} h
+                </AppText>
+                <Pressable
+                  style={[styles.stepperBtn, accentOutline]}
+                  onPress={() => updateProgress({ value: p.value + 0.5 })}
+                >
+                  <AppText variant="h2" style={[styles.stepperText, accentFg]}>
+                    +
+                  </AppText>
                 </Pressable>
               </View>
-              {isHabitComplete(habit) && <Text style={styles.reward}>Under limit 📵</Text>}
+              {isHabitComplete(habit) && (
+                <AppText variant="paragraphRegular" style={styles.reward}>
+                  Under limit 📵
+                </AppText>
+              )}
             </View>
           );
         }
@@ -415,7 +652,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     marginBottom: 8,
   },
   hint: {
@@ -438,18 +675,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: GroveBorderRadius.pill,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.white,
     borderWidth: 2,
-    borderColor: GroveColors.inactive,
-  },
-  pillSelected: {
-    backgroundColor: GroveColors.primaryGreen,
-    borderColor: GroveColors.primaryGreen,
   },
   pillText: {
     fontSize: 14,
     fontWeight: "600",
-    color: GroveColors.primaryText,
   },
   pillTextSelected: {
     color: GroveColors.white,
@@ -464,33 +695,31 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: GroveBorderRadius.button,
     backgroundColor: GroveColors.white,
-    borderWidth: 1,
-    borderColor: GroveColors.inactive,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   stepperText: {
     fontSize: 18,
     fontWeight: "600",
-    color: GroveColors.primaryText,
   },
   stepperValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     minWidth: 44,
     textAlign: "center",
   },
   customDurationInput: {
+    fontFamily: GroveFontFamily,
     fontSize: 16,
     fontWeight: "700",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     textAlign: "center",
     minWidth: 48,
     paddingVertical: 6,
     paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: GroveColors.inactive,
+    borderWidth: 2,
     borderRadius: 8,
     backgroundColor: GroveColors.white,
   },
@@ -509,7 +738,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: GroveColors.primaryGreen,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -522,25 +750,27 @@ const styles = StyleSheet.create({
   counterValue: {
     fontSize: 24,
     fontWeight: "700",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
   },
   counterUnit: {
     fontSize: 13,
     color: GroveColors.secondaryText,
   },
   primaryBtn: {
-    backgroundColor: GroveColors.primaryGreen,
     paddingVertical: 14,
     borderRadius: GroveBorderRadius.button,
     alignItems: "center",
   },
   primaryBtnDone: {
-    backgroundColor: "#6B8E23",
+    backgroundColor: GroveColors.accentLime,
   },
   primaryBtnText: {
     fontSize: 15,
     fontWeight: "600",
     color: GroveColors.white,
+  },
+  primaryBtnTextDone: {
+    color: GroveColors.deepText,
   },
   timerWrap: {
     alignItems: "center",
@@ -549,7 +779,7 @@ const styles = StyleSheet.create({
   timerText: {
     fontSize: 36,
     fontWeight: "700",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontVariant: ["tabular-nums"],
   },
   timerControls: {
@@ -564,16 +794,9 @@ const styles = StyleSheet.create({
     minWidth: 72,
     alignItems: "center",
   },
-  timerCtrlPause: {
-    backgroundColor: GroveColors.primaryGreen,
-  },
-  timerCtrlPlay: {
-    backgroundColor: GroveColors.primaryGreen,
-  },
   timerCtrlStop: {
     backgroundColor: GroveColors.white,
     borderWidth: 2,
-    borderColor: GroveColors.inactive,
   },
   timerCtrlTextPrimary: {
     fontSize: 14,
@@ -583,17 +806,16 @@ const styles = StyleSheet.create({
   timerCtrlTextMuted: {
     fontSize: 14,
     fontWeight: "600",
-    color: GroveColors.primaryText,
   },
   input: {
+    fontFamily: GroveFontFamily,
     backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.button,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: GroveColors.primaryText,
-    borderWidth: 1,
-    borderColor: GroveColors.inactive,
+    color: GroveColors.deepText,
+    borderWidth: 2,
     marginBottom: 8,
   },
   inputMultiline: {
@@ -602,7 +824,7 @@ const styles = StyleSheet.create({
   },
   reward: {
     fontSize: 13,
-    color: "#6B8E23",
+    color: GroveColors.deepText,
     marginTop: 8,
     fontWeight: "500",
   },

@@ -1,18 +1,28 @@
+import { GroveColors } from '@/styles/theme';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 const CELL_SIZE = 14;
 const CELL_GAP = 4;
 const COLS = 10; // 10 columns to use width, ~3 rows for a month
+const EMPTY_CELL = GroveColors.inactive;
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const n = parseInt(hex.slice(1), 16);
+  const raw = hex.replace('#', '').trim();
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw;
+  const n = parseInt(full, 16);
   return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
 }
 
 function interpolateColor(hex: string, intensity: number): string {
   const { r, g, b } = hexToRgb(hex);
-  const white = 0xf9;
+  const white = 0xff;
   const r2 = Math.round(white + (r - white) * intensity);
   const g2 = Math.round(white + (g - white) * intensity);
   const b2 = Math.round(white + (b - white) * intensity);
@@ -38,7 +48,10 @@ export function MonthHeatmap({ year, month, getActivity, color }: MonthHeatmapPr
         {days.map((day) => {
           const date = new Date(year, month, day);
           const activity = getActivity(day, date);
-          const bg = activity <= 0 ? '#F2F1E4' : interpolateColor(color, 0.3 + 0.7 * activity);
+          const bg =
+            activity <= 0
+              ? EMPTY_CELL
+              : interpolateColor(color, 0.35 + 0.65 * activity);
           return <View key={day} style={[styles.cell, { backgroundColor: bg }]} />;
         })}
       </View>
@@ -56,6 +69,6 @@ const styles = StyleSheet.create({
   cell: {
     width: CELL_SIZE,
     height: CELL_SIZE,
-    borderRadius: 3,
+    borderRadius: 4,
   },
 });

@@ -27,6 +27,10 @@ export interface Habit {
   customIconCatalogId?: string;
   customTracking?: HabitCustomTracking;
   customCategory?: HabitCustomCategory;
+  /** Index into HABIT_CARD_THEMES for the habit card palette. */
+  customColorIndex?: number;
+  /** Custom accent hex from the color picker (overrides customColorIndex). */
+  customColor?: string;
 }
 
 export interface HabitCompletion {
@@ -39,4 +43,6 @@ export interface CustomHabitPayload {
   customIconCatalogId: string;
   customTracking: HabitCustomTracking;
   customCategory: HabitCustomCategory;
+  customColorIndex?: number;
+  customColor?: string;
 }

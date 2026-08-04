@@ -1,5 +1,5 @@
 import { AddCustomHabitRow } from '@/components/habits/AddCustomHabitRow';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -9,17 +9,30 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  type ImageSourcePropType,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppText } from '@/components/ui/AppText';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { GroveBorderRadius, GroveColors, GroveSpacing } from '@/styles/theme';
-import { CATALOG_ID_SET, HABIT_SECTIONS } from '@/lib/habitCatalog';
+import {
+  CATALOG_ICON_MAP,
+  CATALOG_ID_SET,
+  HABIT_SECTIONS,
+} from '@/lib/habitCatalog';
 import { markReopenAddHabitSheetFromSheet } from '@/lib/reopenAddHabitSheetFromSheet';
+import { useHabitStore } from '@/lib/store';
+import type { HabitCustomCategory } from '@/lib/types/habit';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.82;
 const MAX_ACTIVE_HABITS = 8;
+
+type SheetHabit = {
+  id: string;
+  name: string;
+  icon: ImageSourcePropType;
+};
 
 interface AddHabitSheetProps {
   activeHabitIds: string[];
@@ -33,23 +46,49 @@ interface AddHabitSheetProps {
  */
 export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitSheetProps) {
   const router = useRouter();
-  const customCount = activeHabitIds.filter((id) => !CATALOG_ID_SET.has(id)).length;
-  const maxCatalogSelectable = Math.max(0, MAX_ACTIVE_HABITS - customCount);
+  const storeHabits = useHabitStore((s) => s.habits);
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(activeHabitIds.filter((id) => CATALOG_ID_SET.has(id))),
+    () => new Set(activeHabitIds),
   );
 
   useEffect(() => {
-    const catalogOnly = activeHabitIds.filter((id) => CATALOG_ID_SET.has(id));
-    setSelected(new Set(catalogOnly));
+    setSelected(new Set(activeHabitIds));
   }, [activeHabitIds]);
+
+  const sections = useMemo(() => {
+    const customByCategory = new Map<HabitCustomCategory, SheetHabit[]>();
+    for (const h of storeHabits) {
+      if (CATALOG_ID_SET.has(h.id)) continue;
+      const category: HabitCustomCategory = h.customCategory ?? 'Well Being';
+      const iconId = h.customIconCatalogId ?? 'pray';
+      const icon = CATALOG_ICON_MAP[iconId] ?? CATALOG_ICON_MAP.pray;
+      const list = customByCategory.get(category) ?? [];
+      list.push({ id: h.id, name: h.name, icon });
+      customByCategory.set(category, list);
+    }
+
+    return HABIT_SECTIONS.map((section) => {
+      const title = section.title as HabitCustomCategory;
+      return {
+        title: section.title,
+        habits: [
+          ...section.habits.map((habit) => ({
+            id: habit.id,
+            name: habit.name,
+            icon: habit.icon,
+          })),
+          ...(customByCategory.get(title) ?? []),
+        ] as SheetHabit[],
+      };
+    });
+  }, [storeHabits]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else {
-        if (next.size >= maxCatalogSelectable) {
+        if (next.size >= MAX_ACTIVE_HABITS) {
           Alert.alert(
             'Limit reached',
             `You can only have ${MAX_ACTIVE_HABITS} habits. To add a new one, remove an existing habit first.`,
@@ -87,7 +126,7 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
               Add Habits
             </AppText>
             <AppText variant="small" style={styles.counter}>
-              {Math.min(MAX_ACTIVE_HABITS, customCount + selected.size)}/{MAX_ACTIVE_HABITS}
+              {Math.min(MAX_ACTIVE_HABITS, selected.size)}/{MAX_ACTIVE_HABITS}
             </AppText>
             <View style={styles.titleActions}>
               <TouchableOpacity
@@ -110,7 +149,7 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
               style={styles.addCustomHabitInSheet}
               onPress={openAddCustom}
             />
-            {HABIT_SECTIONS.map((section) => (
+            {sections.map((section) => (
               <View key={section.title} style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <AppText variant="paragraph" style={styles.sectionTitle}>
@@ -178,7 +217,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     height: SHEET_HEIGHT,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 32,
@@ -206,7 +245,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
   },
   counter: {
     color: GroveColors.secondaryText,
@@ -219,6 +258,7 @@ const styles = StyleSheet.create({
   },
   addCustomHabitInSheet: {
     marginBottom: 16,
+    backgroundColor: GroveColors.softSurface,
   },
   scroll: {
     flex: 1,
@@ -239,10 +279,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
   },
   habitList: {
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     overflow: 'hidden',
   },
@@ -253,13 +293,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.inactive,
+    borderBottomColor: GroveColors.divider,
   },
   iconWrap: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -270,7 +310,7 @@ const styles = StyleSheet.create({
   habitName: {
     flex: 1,
     fontSize: 14,
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: '500',
   },
   checkbox: {

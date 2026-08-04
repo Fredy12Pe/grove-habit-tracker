@@ -270,12 +270,17 @@ export const useHabitStore = create<HabitStore>()(
   syncHabits: (selectedIds) =>
     set((state) => {
       const existing = new Map(state.habits.map((h) => [h.id, h]));
-      const catalogOrdered = HABIT_CATALOG.filter((c) =>
-        selectedIds.includes(c.id),
-      ).map((c) => existing.get(c.id) ?? makeHabit(c.id));
-      const custom = state.habits.filter((h) => !CATALOG_ID_SET.has(h.id));
+      const selectedSet = new Set(selectedIds);
+      const catalogOrdered = HABIT_CATALOG.filter((c) => selectedSet.has(c.id)).map(
+        (c) => existing.get(c.id) ?? makeHabit(c.id),
+      );
+      const customSelected = state.habits.filter(
+        (h) => !CATALOG_ID_SET.has(h.id) && selectedSet.has(h.id),
+      );
       const remainingSlots = Math.max(0, MAX_ACTIVE_HABITS - catalogOrdered.length);
-      return { habits: [...catalogOrdered, ...custom.slice(0, remainingSlots)] };
+      return {
+        habits: [...catalogOrdered, ...customSelected.slice(0, remainingSlots)],
+      };
     }),
 
   ensureDayReset: () =>

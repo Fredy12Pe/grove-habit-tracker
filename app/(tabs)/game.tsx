@@ -50,6 +50,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 // ─── World setup ──────────────────────────────────────────────────────────────
 
@@ -435,8 +436,30 @@ export default function GameScreen() {
   const charBehindIndoorFurniture = behindSet.has("indoorFurniture");
   const characterZ = insideHouse ? (charBehindIndoorFurniture ? 14 : 17) : 25;
 
+  // Soft white veil behind the status bar so time/battery stay readable.
+  const statusBarFadeHeight = insets.top + 20;
+
   return (
     <View style={styles.container}>
+      <View
+        pointerEvents="none"
+        style={[styles.statusBarFade, { height: statusBarFadeHeight }]}
+      >
+        <Svg width={W} height={statusBarFadeHeight}>
+          <Defs>
+            <LinearGradient id="statusBarFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
+              <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect
+            width={W}
+            height={statusBarFadeHeight}
+            fill="url(#statusBarFade)"
+          />
+        </Svg>
+      </View>
+
       <TouchableOpacity
         onPress={() => {
           gameSelection();
@@ -803,6 +826,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#C5E8A0",
     overflow: "hidden",
   },
+  statusBarFade: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 25,
+    elevation: 25,
+  },
   /** Visible when `GAME_INTERACTION_DEBUG` — screen-space action button bounds. */
   interactionDebugUiOutline: {
     borderWidth: 2,
@@ -872,3 +903,4 @@ const styles = StyleSheet.create({
     color: "#4a3d2a",
   },
 });
+

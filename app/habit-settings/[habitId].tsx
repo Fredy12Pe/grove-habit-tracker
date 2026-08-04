@@ -123,7 +123,7 @@ function HabitSettingsScreenContent() {
             <IconSymbol
               name="chevron.left"
               size={20}
-              color={GroveColors.primaryText}
+              color={GroveColors.deepText}
             />
           </TouchableOpacity>
           <AppText variant="h2" style={styles.headerTitle}>
@@ -304,7 +304,7 @@ export default function HabitSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: GroveColors.background },
+  safe: { flex: 1, backgroundColor: GroveColors.white },
   flex: { flex: 1 },
   header: {
     flexDirection: "row",
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.inactive,
+    borderBottomColor: GroveColors.divider,
   },
   headerBtn: { padding: 4 },
   headerTitle: {
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 18,
     fontWeight: "600",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
   },
   headerSpacer: { width: 28 },
   scroll: { flex: 1 },
@@ -341,8 +341,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: GroveColors.primaryText,
-    backgroundColor: GroveColors.white,
+    color: GroveColors.deepText,
+    backgroundColor: GroveColors.softSurface,
     marginBottom: 8,
   },
   iconScroll: { gap: 10, paddingVertical: 4, marginBottom: 8 },
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -362,15 +362,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.inactive,
+    borderColor: GroveColors.divider,
     marginBottom: 16,
   },
-  trackingRowText: { fontWeight: "500", color: GroveColors.primaryText },
+  trackingRowText: { fontWeight: "500", color: GroveColors.deepText },
   dangerZone: {
     marginTop: 10,
     marginBottom: 12,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   pickerCard: {
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.card,
     overflow: "hidden",
   },
@@ -435,9 +435,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.inactive,
+    borderBottomColor: GroveColors.divider,
   },
   pickerRowLast: { borderBottomWidth: 0 },
-  pickerRowText: { color: GroveColors.primaryText, fontWeight: "500" },
+  pickerRowText: { color: GroveColors.deepText, fontWeight: "500" },
 });
 

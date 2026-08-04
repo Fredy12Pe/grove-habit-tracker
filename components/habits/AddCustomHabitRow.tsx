@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   addCustomRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.white,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   addCustomTitle: {
     fontWeight: "600",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontSize: 15,
   },
   addCustomSubtle: {

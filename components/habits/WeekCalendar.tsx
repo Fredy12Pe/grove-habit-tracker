@@ -1,21 +1,21 @@
-import {
-  addCalendarDays,
-  calendarDateKey,
-  calendarTodayDate,
-  startOfWeekMonday,
-} from "@/lib/calendarDate";
 import { AppText } from "@/components/ui/AppText";
+import {
+    addCalendarDays,
+    calendarDateKey,
+    calendarTodayDate,
+    startOfWeekMonday,
+} from "@/lib/calendarDate";
 import { GroveBorderRadius, GroveColors } from "@/styles/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Modal,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Modal,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -161,7 +161,9 @@ function CalendarPickerModal({
     { month: "long", year: "numeric" },
   );
 
-  const firstOfNextMonthKey = calendarDateKey(new Date(viewYear, viewMonth + 1, 1));
+  const firstOfNextMonthKey = calendarDateKey(
+    new Date(viewYear, viewMonth + 1, 1),
+  );
   const canGoNextMonth = firstOfNextMonthKey <= todayKey;
 
   const goPrevMonth = () => {
@@ -226,9 +228,7 @@ function CalendarPickerModal({
               name="chevron-right"
               size={28}
               color={
-                canGoNextMonth
-                  ? GroveColors.primaryText
-                  : GroveColors.inactive
+                canGoNextMonth ? GroveColors.primaryText : GroveColors.inactive
               }
             />
           </TouchableOpacity>
@@ -265,7 +265,10 @@ function CalendarPickerModal({
                   style={[
                     pickerStyles.dayDisk,
                     isSelected && pickerStyles.dayDiskSelected,
-                    isToday && !isSelected && !isFuture && pickerStyles.dayDiskToday,
+                    isToday &&
+                      !isSelected &&
+                      !isFuture &&
+                      pickerStyles.dayDiskToday,
                     isFuture && pickerStyles.dayDiskFuture,
                   ]}
                 >
@@ -303,7 +306,7 @@ const styles = StyleSheet.create({
   toolbarIconBtn: {
     padding: 6,
     borderRadius: GroveBorderRadius.button,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
   },
   row: {
     flexDirection: "row",
@@ -315,14 +318,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     borderRadius: GroveBorderRadius.button,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
     gap: 4,
   },
   dayCellSelected: {
     backgroundColor: GroveColors.primaryGreen,
   },
   dayCellFuture: {
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.softSurface,
     opacity: 0.55,
   },
   dayLabel: {

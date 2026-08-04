@@ -1,5 +1,5 @@
 import { AppText } from "@/components/ui/AppText";
-import { GroveBorderRadius, GroveColors } from "@/styles/theme";
+import { GroveColors } from "@/styles/theme";
 import React from "react";
 import { Image, StyleSheet, View } from "react-native";
 
@@ -74,9 +74,9 @@ export function TodayProgressBanner({
 
 const styles = StyleSheet.create({
   banner: {
-    borderRadius: GroveBorderRadius.card,
+    borderRadius: 24,
     overflow: "hidden",
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
   },
   bg: {
     position: "absolute",
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     marginBottom: 4,
   },
   summary: {
@@ -101,20 +101,20 @@ const styles = StyleSheet.create({
   },
   progressRow: {
     flexDirection: "row",
-    gap: 4,
+    gap: 6,
     alignSelf: "flex-start",
     marginBottom: 14,
   },
   segment: {
-    width: 22,
+    width: 20,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 50,
   },
   segmentFilled: {
-    backgroundColor: GroveColors.primaryGreen,
+    backgroundColor: GroveColors.accentLime,
   },
   segmentInactive: {
-    backgroundColor: GroveColors.inactive,
+    backgroundColor: GroveColors.mutedGray,
   },
   bottomRow: {
     flexDirection: "row",
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   messageTextBold: {
     fontSize: 12,
     fontWeight: "700",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     lineHeight: 16,
   },
 });

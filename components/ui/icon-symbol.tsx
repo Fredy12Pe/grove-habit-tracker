@@ -37,6 +37,8 @@ const MAPPING = {
   'speaker.wave.2.fill': 'volume-up',
   'speaker.slash.fill': 'volume-off',
   'arrow.counterclockwise': 'undo',
+  'calendar': 'calendar-today',
+  'plus': 'add',
 } as IconMapping;
 
 /**

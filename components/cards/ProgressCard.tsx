@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { GroveBorderRadius, GroveColors } from "@/styles/theme";
 import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 
 export interface HabitItem {
   id: string;
@@ -30,8 +30,9 @@ export function ProgressCard({
   readonly = false,
 }: ProgressCardProps) {
   const segmentCount = Math.max(totalCount, 1);
+  const cardTappable = readonly && !!onCompleteHabits;
 
-  return (
+  const content = (
     <Card style={styles.cardWrapper}>
       <View style={styles.blobs} pointerEvents="none">
         <ProgressBlobs />
@@ -42,18 +43,26 @@ export function ProgressCard({
           Today's Progress
         </AppText>
         {onCompleteHabits ? (
-          <TouchableOpacity
-            onPress={onCompleteHabits}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Go to habits"
-          >
+          cardTappable ? (
             <IconSymbol
               name="chevron.right"
               size={16}
               color={GroveColors.deepText}
             />
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={onCompleteHabits}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Go to habits"
+            >
+              <IconSymbol
+                name="chevron.right"
+                size={16}
+                color={GroveColors.deepText}
+              />
+            </TouchableOpacity>
+          )
         ) : null}
       </View>
 
@@ -117,9 +126,30 @@ export function ProgressCard({
       </View>
     </Card>
   );
+
+  if (cardTappable) {
+    return (
+      <Pressable
+        onPress={onCompleteHabits}
+        style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel="Go to habits"
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({
+  pressable: {
+    borderRadius: GroveBorderRadius.homeCard,
+  },
+  pressed: {
+    opacity: 0.92,
+  },
   cardWrapper: {
     overflow: "hidden",
     backgroundColor: GroveColors.softSurface,

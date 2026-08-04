@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   tabBarBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: GroveColors.softSurface,
+    backgroundColor: "#E8EAEB",
     borderTopLeftRadius: GroveBorderRadius.homeCard,
     borderTopRightRadius: GroveBorderRadius.homeCard,
     // Figma: iOS continuous corner smoothing ~60%

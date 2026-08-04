@@ -14,12 +14,16 @@ import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import {
-  SafeAreaView,
+  Dimensions,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+
+const { width: SCREEN_W } = Dimensions.get("window");
 
 function streakLabel(days: number): string {
   if (days === 1) return "1 Day Streak";
@@ -28,6 +32,7 @@ function streakLabel(days: number): string {
 
 export default function GardenScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, session, isGuest, guestDisplayName, guestAvatarUri } = useAuth();
   const displayName = isGuest ? guestDisplayName ?? "Gardener" : getDisplayName(user);
   const resolvedAvatarUri = useResolvedAvatarUri(user) ?? (isGuest ? guestAvatarUri : null);
@@ -48,11 +53,16 @@ export default function GardenScreen() {
   const completedCount = habits.filter((h) => h.completed).length;
   const totalCount = habits.length;
 
+  const statusBarFadeHeight = insets.top + 20;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.root}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + 20 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -119,28 +129,53 @@ export default function GardenScreen() {
           />
         </View>
 
-        {/* Sprout Support */}
-        <View style={styles.section}>
-          <SproutSupportCard onPress={() => router.push("/breathe")} />
-        </View>
+        {/* Sprout Support — no section gap; bottomSpacer clears the floating tab bar */}
+        <SproutSupportCard onPress={() => router.push("/breathe")} />
 
+        {/* Clear floating tab bar (96) plus breathing room above the menu */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Fixed status-bar veil — does not scroll with content */}
+      <View
+        pointerEvents="none"
+        style={[styles.statusBarFade, { height: statusBarFadeHeight }]}
+      >
+        <Svg width={SCREEN_W} height={statusBarFadeHeight}>
+          <Defs>
+            <LinearGradient id="homeStatusBarFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
+              <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect
+            width={SCREEN_W}
+            height={statusBarFadeHeight}
+            fill="url(#homeStatusBarFade)"
+          />
+        </Svg>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
     backgroundColor: GroveColors.white,
+  },
+  statusBarFade: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
-    paddingTop: 20,
   },
   header: {
     flexDirection: "row",
@@ -205,6 +240,6 @@ const styles = StyleSheet.create({
     marginBottom: GroveSpacing.sectionGap,
   },
   bottomSpacer: {
-    height: 110,
+    height: 124,
   },
 });

@@ -1,6 +1,8 @@
+import { HABIT_CARD_THEMES } from "@/components/habits/HabitRow";
 import { MonthHeatmap } from "@/components/progress/MonthHeatmap";
 import { AppText } from "@/components/ui/AppText";
-import { CATALOG_ICON_MAP } from "@/lib/habitCatalog";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { CATALOG_ICON_MAP, HABIT_CATALOG } from "@/lib/habitCatalog";
 import { calendarDateKey } from "@/lib/calendarDate";
 import { useHabitStore } from "@/lib/store";
 import {
@@ -9,7 +11,6 @@ import {
   getCurrentStreak,
 } from "@/lib/stats";
 import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -36,18 +37,20 @@ const MONTH_NAMES = [
   "December",
 ];
 
-const HEATMAP_COLORS = [
-  "#A7DE33", // green (overall / first)
-  "#8B7EC8", // purple
-  "#5B8DEE", // blue
-  "#4ECDC4", // teal
-  "#95E1A3", // light green
-  "#DDA0DD", // plum
-  "#87CEEB", // sky blue
-];
-
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function habitHeatColor(
+  habit: { customColor?: string; customColorIndex?: number },
+  index: number,
+): string {
+  if (habit.customColor) return habit.customColor;
+  if (typeof habit.customColorIndex === "number") {
+    return HABIT_CARD_THEMES[habit.customColorIndex % HABIT_CARD_THEMES.length]
+      .accent;
+  }
+  return HABIT_CARD_THEMES[index % HABIT_CARD_THEMES.length].accent;
 }
 
 export default function ProgressScreen() {
@@ -141,10 +144,10 @@ export default function ProgressScreen() {
           <View style={styles.recordsRow}>
             <View style={styles.recordCard}>
               <View style={styles.recordIconNumberRow}>
-                <MaterialIcons
-                  name="calendar-today"
-                  size={20}
-                  color={GroveColors.primaryText}
+                <IconSymbol
+                  name="calendar"
+                  size={18}
+                  color={GroveColors.deepText}
                 />
                 <AppText variant="h2" style={styles.recordNumber}>
                   {records.daysInMonth}
@@ -159,10 +162,10 @@ export default function ProgressScreen() {
             </View>
             <View style={styles.recordCard}>
               <View style={styles.recordIconNumberRow}>
-                <MaterialIcons
-                  name="check-circle"
-                  size={20}
-                  color={GroveColors.primaryText}
+                <IconSymbol
+                  name="checkmark.circle.fill"
+                  size={18}
+                  color={GroveColors.accentLime}
                 />
                 <AppText variant="h2" style={styles.recordNumber}>
                   {records.completionsInMonth}
@@ -177,10 +180,10 @@ export default function ProgressScreen() {
             </View>
             <View style={styles.recordCard}>
               <View style={styles.recordIconNumberRow}>
-                <MaterialIcons
-                  name="local-fire-department"
-                  size={20}
-                  color={GroveColors.primaryText}
+                <IconSymbol
+                  name="flame.fill"
+                  size={18}
+                  color={GroveColors.streakFlame}
                 />
                 <AppText variant="h2" style={styles.recordNumber}>
                   {records.currentStreak}
@@ -199,20 +202,21 @@ export default function ProgressScreen() {
         {/* Per-habit: two per row, month grid each */}
         <View style={styles.habitsGrid}>
           {habits.map((habit, index) => {
-            const color =
-              HEATMAP_COLORS[(index % (HEATMAP_COLORS.length - 1)) + 1] ??
-              HEATMAP_COLORS[1];
-            const icon = CATALOG_ICON_MAP[habit.id];
+            const color = habitHeatColor(habit, index);
+            const icon =
+              CATALOG_ICON_MAP[habit.customIconCatalogId ?? habit.id] ??
+              HABIT_CATALOG[0]?.icon;
             return (
               <View key={habit.id} style={styles.habitCard}>
-                <View style={styles.habitSectionBorder} />
                 <View style={styles.habitHeader}>
                   {icon != null && (
-                    <Image
-                      source={icon}
-                      style={styles.habitIcon}
-                      resizeMode="contain"
-                    />
+                    <View style={styles.habitIconWell}>
+                      <Image
+                        source={icon}
+                        style={styles.habitIcon}
+                        resizeMode="contain"
+                      />
+                    </View>
                   )}
                   <AppText
                     variant="paragraph"
@@ -308,7 +312,7 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   scroll: {
     flex: 1,
@@ -324,19 +328,21 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    color: GroveColors.primaryText,
-    fontWeight: "700",
+    color: GroveColors.deepText,
+    fontWeight: "600",
   },
   monthPill: {
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.white,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: GroveSpacing.sectionGap,
+    borderRadius: GroveBorderRadius.pill,
     minWidth: 120,
     alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.1)",
   },
   monthPillText: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: "600",
   },
   recordsSection: {
@@ -349,7 +355,7 @@ const styles = StyleSheet.create({
   },
   recordCard: {
     flex: 1,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     paddingVertical: 22,
     paddingHorizontal: 14,
@@ -361,14 +367,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recordNumber: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
+    fontWeight: "600",
   },
   recordUnit: {
     color: GroveColors.secondaryText,
     marginTop: 2,
   },
   recordLabel: {
-    color: GroveColors.secondaryText,
+    color: GroveColors.mutedGray,
     marginTop: 2,
   },
   modalBackdrop: {
@@ -380,7 +387,7 @@ const styles = StyleSheet.create({
   },
   pickerCard: {
     backgroundColor: GroveColors.white,
-    borderRadius: 20,
+    borderRadius: GroveBorderRadius.card,
     padding: 24,
     width: "100%",
     maxWidth: 320,
@@ -388,7 +395,8 @@ const styles = StyleSheet.create({
   pickerTitle: {
     marginBottom: 20,
     textAlign: "center",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
+    fontWeight: "600",
   },
   pickerRow: {
     flexDirection: "row",
@@ -405,13 +413,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   pickerValue: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: "600",
   },
   pickerDoneBtn: {
     backgroundColor: GroveColors.primaryGreen,
     paddingVertical: 14,
-    borderRadius: GroveBorderRadius.button,
+    borderRadius: GroveBorderRadius.pill,
     alignItems: "center",
     marginTop: 8,
   },
@@ -423,33 +431,39 @@ const styles = StyleSheet.create({
   habitsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 24,
-    gap: 36,
+    marginTop: 8,
+    gap: 12,
   },
   habitCard: {
-    width: "45%",
+    width: "47%",
     minWidth: 140,
-    marginBottom: 40,
-  },
-  habitSectionBorder: {
-    borderTopWidth: 1,
-    borderTopColor: GroveColors.inactive,
-    marginBottom: 14,
+    backgroundColor: GroveColors.softSurface,
+    borderRadius: GroveBorderRadius.card,
+    padding: 14,
+    marginBottom: 4,
   },
   habitHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  habitIconWell: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: GroveColors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
   habitIcon: {
     width: 24,
     height: 24,
   },
   habitName: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 15,
     flex: 1,
   },
   bottomSpacer: {

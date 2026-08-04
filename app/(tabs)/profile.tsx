@@ -330,13 +330,13 @@ export default function ProfileScreen() {
                 <IconSymbol
                   name="leaf.fill"
                   size={48}
-                  color={GroveColors.primaryGreen}
+                  color={GroveColors.accentLime}
                 />
               }
             />
             {uploadingAvatar ? (
               <View style={styles.avatarLoading}>
-                <ActivityIndicator color={GroveColors.primaryGreen} />
+                <ActivityIndicator color={GroveColors.accentLime} />
               </View>
             ) : null}
           </TouchableOpacity>
@@ -355,7 +355,7 @@ export default function ProfileScreen() {
               autoCapitalize="words"
               autoCorrect
             />
-            <IconSymbol name="leaf.fill" size={18} color={GroveColors.primaryGreen} />
+            <IconSymbol name="leaf.fill" size={18} color={GroveColors.accentLime} />
           </View>
           <TouchableOpacity
             style={[
@@ -377,7 +377,7 @@ export default function ProfileScreen() {
             <AppText variant="small" style={styles.badgeText}>
               {GROWTH_STAGE}
             </AppText>
-            <IconSymbol name="leaf.fill" size={12} color={GroveColors.primaryGreen} />
+            <IconSymbol name="leaf.fill" size={12} color={GroveColors.accentLime} />
           </View>
         </View>
 
@@ -388,7 +388,7 @@ export default function ProfileScreen() {
           </AppText>
           <View style={styles.growthCard}>
             <View style={styles.growthRow}>
-              <MaterialIcons name="local-fire-department" size={20} color="#C96A1D" />
+              <IconSymbol name="flame.fill" size={20} color={GroveColors.streakFlame} />
               <AppText variant="paragraph" style={styles.growthLabel}>
                 Longest streak:
               </AppText>
@@ -399,7 +399,7 @@ export default function ProfileScreen() {
               </AppText>
             </View>
             <View style={styles.growthRow}>
-              <MaterialIcons name="eco" size={20} color={GroveColors.primaryGreen} />
+              <IconSymbol name="leaf.fill" size={20} color={GroveColors.accentLime} />
               <AppText variant="paragraph" style={styles.growthLabel}>
                 Habits completed:
               </AppText>
@@ -408,7 +408,7 @@ export default function ProfileScreen() {
               </AppText>
             </View>
             <View style={styles.growthRow}>
-              <MaterialIcons name="calendar-today" size={20} color={GroveColors.primaryText} />
+              <IconSymbol name="calendar" size={20} color={GroveColors.deepText} />
               <AppText variant="paragraph" style={styles.growthLabel}>
                 Active days:
               </AppText>
@@ -423,7 +423,7 @@ export default function ProfileScreen() {
         {isGuest ? (
           <View style={styles.section}>
             <View style={styles.saveProgressCard}>
-              <MaterialIcons name="cloud-off" size={28} color={GroveColors.primaryGreen} />
+              <MaterialIcons name="cloud-off" size={28} color={GroveColors.accentLime} />
               <AppText variant="paragraph" style={styles.saveProgressTitle}>
                 Your progress is saved on this device
               </AppText>
@@ -479,7 +479,7 @@ export default function ProfileScreen() {
                 <MaterialIcons
                   name="logout"
                   size={22}
-                  color={GroveColors.primaryText}
+                  color={GroveColors.deepText}
                 />
                 <AppText variant="paragraph" style={styles.settingsLabel}>
                   Exit guest mode
@@ -487,7 +487,7 @@ export default function ProfileScreen() {
                 <MaterialIcons
                   name="chevron-right"
                   size={22}
-                  color={GroveColors.secondaryText}
+                  color={GroveColors.mutedGray}
                 />
               </TouchableOpacity>
             ) : (
@@ -501,7 +501,7 @@ export default function ProfileScreen() {
                 <MaterialIcons
                   name="logout"
                   size={22}
-                  color={GroveColors.primaryText}
+                  color={GroveColors.deepText}
                 />
                 <AppText variant="paragraph" style={styles.settingsLabel}>
                   Sign out
@@ -509,7 +509,7 @@ export default function ProfileScreen() {
                 <MaterialIcons
                   name="chevron-right"
                   size={22}
-                  color={GroveColors.secondaryText}
+                  color={GroveColors.mutedGray}
                 />
               </TouchableOpacity>
             )}
@@ -580,7 +580,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   scroll: {
     flex: 1,
@@ -593,8 +593,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    color: GroveColors.primaryText,
-    fontWeight: '700',
+    color: GroveColors.deepText,
+    fontWeight: '600',
   },
   userBlock: {
     alignItems: 'center',
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -641,16 +641,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
     minWidth: 0,
-    fontSize: 22,
-    fontWeight: '700',
-    color: GroveColors.primaryText,
+    fontSize: 24,
+    fontWeight: '600',
+    color: GroveColors.deepText,
     textAlign: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: GroveBorderRadius.card,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.inactive,
+    borderColor: GroveColors.divider,
   },
   saveNameButton: {
     alignSelf: 'center',
@@ -678,28 +678,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.white,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: GroveBorderRadius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   badgeText: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: '600',
   },
   section: {
     marginBottom: GroveSpacing.sectionGap,
   },
   sectionTitle: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: '600',
     marginBottom: 12,
   },
   growthCard: {
-    backgroundColor: GroveColors.cardBackground,
-    borderRadius: GroveBorderRadius.card,
+    backgroundColor: GroveColors.softSurface,
+    borderRadius: GroveBorderRadius.homeCard,
     padding: GroveSpacing.cardPaddingHorizontal,
-    paddingVertical: 18,
+    paddingVertical: 20,
     gap: 14,
   },
   growthRow: {
@@ -712,11 +714,11 @@ const styles = StyleSheet.create({
     color: GroveColors.secondaryText,
   },
   growthValue: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: '600',
   },
   settingsCard: {
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     overflow: 'hidden',
   },
@@ -727,33 +729,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.inactive,
+    borderBottomColor: GroveColors.divider,
   },
   settingsRowLast: {
     borderBottomWidth: 0,
   },
   settingsLabel: {
     flex: 1,
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
+    fontWeight: '500',
   },
   bottomSpacer: {
     height: 110,
   },
   saveProgressCard: {
-    backgroundColor: GroveColors.cardBackground,
-    borderRadius: GroveBorderRadius.card,
+    backgroundColor: GroveColors.softSurface,
+    borderRadius: GroveBorderRadius.homeCard,
     padding: GroveSpacing.cardPaddingHorizontal,
     paddingVertical: 20,
     alignItems: 'center',
     gap: 10,
-    borderWidth: 1,
-    borderColor: GroveColors.outline,
   },
   saveProgressTitle: {
-    color: GroveColors.primaryText,
-    fontWeight: '700',
+    color: GroveColors.deepText,
+    fontWeight: '600',
     textAlign: 'center',
-    fontSize: 15,
+    fontSize: 16,
   },
   saveProgressBody: {
     color: GroveColors.secondaryText,
@@ -774,7 +775,7 @@ const styles = StyleSheet.create({
   },
   saveProgressBtnText: {
     color: GroveColors.white,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   signInLink: {
     paddingVertical: 4,
@@ -796,7 +797,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   avatarUrlModalTitle: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: '600',
   },
   avatarUrlModalHint: {
@@ -810,7 +811,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
+    backgroundColor: GroveColors.softSurface,
   },
   avatarUrlModalActions: {
     flexDirection: 'row',

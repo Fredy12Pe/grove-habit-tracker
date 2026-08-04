@@ -31,7 +31,7 @@ export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
               Feeling Stressed?
             </AppText>
             <AppText variant="small" style={styles.body}>
-              Let's take a few calm breaths with Sprout.
+              {"Let's take a few calm\nbreaths with Sprout."}
             </AppText>
           </View>
         </View>
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   card: {
-    backgroundColor: GroveColors.accentLimeSoft,
+    backgroundColor: "#BADF3D",
     borderRadius: GroveBorderRadius.homeCard,
     paddingHorizontal: 0,
     paddingVertical: 0,
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   mascotImage: {
     width: 119,
     height: 165,
-    marginTop: 39,
+    marginTop: 24,
   },
   textBlock: {
     flex: 1,

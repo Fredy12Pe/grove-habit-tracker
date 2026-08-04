@@ -101,7 +101,7 @@ export function YearHeatmap({ year, getActivity, color }: YearHeatmapProps) {
             const row = Math.floor(i / gridCols);
             const col = i % gridCols;
             const activity = cellByKey[`${row}-${col}`] ?? 0;
-            const bg = activity <= 0 ? '#F2F1E4' : interpolateColor(color, 0.3 + 0.7 * activity);
+            const bg = activity <= 0 ? '#E0E0E0' : interpolateColor(color, 0.35 + 0.65 * activity);
             return (
               <View
                 key={i}

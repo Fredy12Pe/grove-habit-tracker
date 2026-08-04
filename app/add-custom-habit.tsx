@@ -13,6 +13,8 @@ import {
   View,
 } from "react-native";
 import { Redirect, useRouter } from "expo-router";
+import { HabitColorPickerModal } from "@/components/habits/HabitColorPickerModal";
+import { HABIT_CARD_THEMES } from "@/components/habits/HabitRow";
 import { AppText } from "@/components/ui/AppText";
 import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -51,7 +53,10 @@ function AddCustomHabitScreenContent() {
   const [customIconId, setCustomIconId] = useState(HABIT_CATALOG[0]?.id ?? "pray");
   const [category, setCategory] = useState<HabitCustomCategory>("Faith");
   const [tracking, setTracking] = useState<HabitCustomTracking>("toggle");
+  const [colorIndex, setColorIndex] = useState(0);
+  const [customColor, setCustomColor] = useState<string | null>(null);
   const [trackingPickerVisible, setTrackingPickerVisible] = useState(false);
+  const [colorPickerVisible, setColorPickerVisible] = useState(false);
 
   const MAX_ACTIVE_HABITS = 8;
   const atLimit = habitCount >= MAX_ACTIVE_HABITS;
@@ -77,6 +82,8 @@ function AddCustomHabitScreenContent() {
       customIconCatalogId: customIconId,
       customTracking: tracking,
       customCategory: category,
+      customColorIndex: customColor ? undefined : colorIndex,
+      customColor: customColor ?? undefined,
     });
     clearReopenAddHabitSheetFromSheet();
     router.back();
@@ -84,6 +91,8 @@ function AddCustomHabitScreenContent() {
     addHabit,
     atLimit,
     category,
+    colorIndex,
+    customColor,
     customIconId,
     name,
     router,
@@ -103,7 +112,7 @@ function AddCustomHabitScreenContent() {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.7}
           >
-            <IconSymbol name="chevron.left" size={20} color={GroveColors.primaryText} />
+            <IconSymbol name="chevron.left" size={20} color={GroveColors.deepText} />
           </TouchableOpacity>
           <AppText variant="h2" style={styles.headerTitle}>
             Custom habit
@@ -193,6 +202,73 @@ function AddCustomHabitScreenContent() {
             </AppText>
             <IconSymbol name="chevron.right" size={16} color={GroveColors.secondaryText} />
           </TouchableOpacity>
+
+          <AppText variant="small" style={styles.fieldLabel}>
+            Color
+          </AppText>
+          <View style={styles.colorRow}>
+            {HABIT_CARD_THEMES.map((theme, index) => {
+              const selected = !customColor && colorIndex === index;
+              return (
+                <TouchableOpacity
+                  key={theme.accent}
+                  style={[
+                    styles.colorSwatch,
+                    { backgroundColor: theme.accent },
+                    selected && styles.colorSwatchSelected,
+                  ]}
+                  onPress={() => {
+                    setCustomColor(null);
+                    setColorIndex(index);
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Color ${index + 1}`}
+                >
+                  {selected ? (
+                    <IconSymbol
+                      name="checkmark"
+                      size={16}
+                      color={GroveColors.white}
+                      weight="bold"
+                    />
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={[
+                styles.colorSwatch,
+                styles.colorSwatchAdd,
+                customColor
+                  ? { backgroundColor: customColor }
+                  : styles.colorSwatchAddEmpty,
+                !!customColor && styles.colorSwatchSelected,
+              ]}
+              onPress={() => setColorPickerVisible(true)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ selected: !!customColor }}
+              accessibilityLabel="Custom color"
+            >
+              {customColor ? (
+                <IconSymbol
+                  name="checkmark"
+                  size={16}
+                  color={GroveColors.white}
+                  weight="bold"
+                />
+              ) : (
+                <IconSymbol
+                  name="plus"
+                  size={18}
+                  color={GroveColors.deepText}
+                  weight="bold"
+                />
+              )}
+            </TouchableOpacity>
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
@@ -208,6 +284,16 @@ function AddCustomHabitScreenContent() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <HabitColorPickerModal
+        visible={colorPickerVisible}
+        initialColor={customColor ?? HABIT_CARD_THEMES[colorIndex]?.accent ?? "#7CFF6B"}
+        onClose={() => setColorPickerVisible(false)}
+        onSelect={(hex) => {
+          setCustomColor(hex);
+          setColorPickerVisible(false);
+        }}
+      />
 
       {trackingPickerVisible ? (
         <Modal
@@ -263,11 +349,11 @@ function AddCustomHabitScreenContent() {
 }
 
 export default function AddCustomHabitScreen() {
-  const { initialized, session } = useAuth();
+  const { initialized, session, isGuest } = useAuth();
   if (!initialized) {
     return null;
   }
-  if (!session) {
+  if (!session && !isGuest) {
     return <Redirect href="/(auth)/login" />;
   }
   return <AddCustomHabitScreenContent />;
@@ -276,7 +362,7 @@ export default function AddCustomHabitScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   flex: {
     flex: 1,
@@ -287,7 +373,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.inactive,
+    borderBottomColor: GroveColors.divider,
   },
   headerBtn: {
     padding: 4,
@@ -297,7 +383,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 18,
     fontWeight: "600",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
   },
   headerSpacer: {
     width: 28,
@@ -330,9 +416,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.inactive,
+    borderColor: GroveColors.divider,
   },
   categoryChipSelected: {
     backgroundColor: GroveColors.primaryGreen,
@@ -341,7 +427,7 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: 14,
     fontWeight: "500",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
   },
   categoryChipTextSelected: {
     color: GroveColors.white,
@@ -353,8 +439,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: GroveColors.primaryText,
-    backgroundColor: GroveColors.white,
+    color: GroveColors.deepText,
+    backgroundColor: GroveColors.softSurface,
     marginBottom: 8,
   },
   iconScroll: {
@@ -366,7 +452,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -383,17 +469,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.inactive,
-    marginBottom: 16,
+    borderColor: GroveColors.divider,
+    marginBottom: 8,
   },
   trackingRowText: {
     fontWeight: "500",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
+  },
+  colorRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 16,
+  },
+  colorSwatch: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "transparent",
+  },
+  colorSwatchSelected: {
+    borderColor: GroveColors.deepText,
+  },
+  colorSwatchAdd: {
+    borderStyle: "solid",
+  },
+  colorSwatchAddEmpty: {
+    backgroundColor: GroveColors.softSurface,
+    borderColor: GroveColors.inactive,
+    borderStyle: "dashed",
   },
   footer: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
@@ -429,7 +541,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   pickerCard: {
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.card,
     overflow: "hidden",
   },
@@ -440,13 +552,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.inactive,
+    borderBottomColor: GroveColors.divider,
   },
   pickerRowLast: {
     borderBottomWidth: 0,
   },
   pickerRowText: {
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: "500",
   },
 });
