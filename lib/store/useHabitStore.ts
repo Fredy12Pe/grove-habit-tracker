@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { Platform } from 'react-native';
 import type { Habit, PlantGrowthState } from '@/lib/types';
 import { calendarDateKey } from '@/lib/calendarDate';
-import { CATALOG_ID_SET, HABIT_CATALOG, CATALOG_NAME_MAP } from '@/lib/habitCatalog';
+import { CATALOG_ID_SET, CATALOG_NAME_MAP } from '@/lib/habitCatalog';
 
 /** ISO date string (YYYY-MM-DD) per habit for progress heatmaps */
 export type CompletionDatesByHabit = Record<string, string[]>;
@@ -37,6 +37,8 @@ interface HabitStore {
   toggleCompletionForDate: (id: string, dateKey: string) => void;
   setGrowthState: (habitId: string, state: PlantGrowthState) => void;
   removeHabit: (id: string) => void;
+  /** Persist a new visual order for active habits (drag-and-drop). */
+  reorderHabits: (orderedIds: string[]) => void;
   syncHabits: (selectedIds: string[]) => void;
   recordCompletion: (habitId: string, date: string) => void;
   ensureDayReset: () => void;
@@ -267,19 +269,49 @@ export const useHabitStore = create<HabitStore>()(
   removeHabit: (id) =>
     set((state) => ({ habits: state.habits.filter((h) => h.id !== id) })),
 
+  reorderHabits: (orderedIds) =>
+    set((state) => {
+      if (orderedIds.length === 0) return state;
+      const byId = new Map(state.habits.map((h) => [h.id, h]));
+      const next: Habit[] = [];
+      const seen = new Set<string>();
+      for (const id of orderedIds) {
+        const h = byId.get(id);
+        if (!h || seen.has(id)) continue;
+        next.push(h);
+        seen.add(id);
+      }
+      for (const h of state.habits) {
+        if (!seen.has(h.id)) next.push(h);
+      }
+      if (
+        next.length === state.habits.length &&
+        next.every((h, i) => h.id === state.habits[i]?.id)
+      ) {
+        return state;
+      }
+      return { habits: next };
+    }),
+
   syncHabits: (selectedIds) =>
     set((state) => {
       const existing = new Map(state.habits.map((h) => [h.id, h]));
       const selectedSet = new Set(selectedIds);
-      const catalogOrdered = HABIT_CATALOG.filter((c) => selectedSet.has(c.id)).map(
-        (c) => existing.get(c.id) ?? makeHabit(c.id),
-      );
-      const customSelected = state.habits.filter(
-        (h) => !CATALOG_ID_SET.has(h.id) && selectedSet.has(h.id),
-      );
-      const remainingSlots = Math.max(0, MAX_ACTIVE_HABITS - catalogOrdered.length);
+      // Keep current order for habits that remain selected.
+      const kept = state.habits.filter((h) => selectedSet.has(h.id));
+      const keptIds = new Set(kept.map((h) => h.id));
+      const added: Habit[] = [];
+      for (const id of selectedIds) {
+        if (keptIds.has(id)) continue;
+        const existingHabit = existing.get(id);
+        if (existingHabit) {
+          added.push(existingHabit);
+        } else if (CATALOG_ID_SET.has(id)) {
+          added.push(makeHabit(id));
+        }
+      }
       return {
-        habits: [...catalogOrdered, ...customSelected.slice(0, remainingSlots)],
+        habits: [...kept, ...added].slice(0, MAX_ACTIVE_HABITS),
       };
     }),
 

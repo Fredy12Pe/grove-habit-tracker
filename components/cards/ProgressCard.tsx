@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.homeCard,
     paddingTop: 36,
-    paddingBottom: 10,
+    paddingBottom: 36,
     // Match garden / breathe text inset (30)
     paddingHorizontal: 30,
     minHeight: 384,

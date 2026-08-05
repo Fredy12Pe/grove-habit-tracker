@@ -30,6 +30,7 @@ const MAPPING = {
   'person.fill': 'person',
   'gearshape': 'settings',
   'ellipsis': 'more-vert',
+  'line.3.horizontal': 'drag-handle',
   'pause.fill': 'pause',
   'play.fill': 'play-arrow',
   'eye.fill': 'visibility',

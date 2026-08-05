@@ -62,6 +62,14 @@ export function triggerHabitTimerStartedHaptic(): void {
   });
 }
 
+/** Medium impact when the user begins dragging a habit card to reorder. */
+export function triggerHabitReorderStartHaptic(): void {
+  if (Platform.OS === "web") return;
+  runNativeHaptic(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  });
+}
+
 /**
  * Longer alarm-style buzz when a habit timer reaches zero (native only).
  * Use instead of a single success ping for timer completion.

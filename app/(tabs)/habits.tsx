@@ -17,18 +17,19 @@ import {
 } from "@/lib/calendarDate";
 import { CATALOG_ICON_MAP, HABIT_CATALOG } from "@/lib/habitCatalog";
 import {
-    triggerHabitTimerFinishedHaptic,
-    triggerHabitToggleHaptic,
+  triggerHabitReorderStartHaptic,
+  triggerHabitTimerFinishedHaptic,
+  triggerHabitToggleHaptic,
 } from "@/lib/habitHaptics";
 import {
-    getProgressSummary,
-    isHabitComplete,
-    type HabitWithActions,
-    type TimerProgress,
+  getProgressSummary,
+  isHabitComplete,
+  type HabitWithActions,
+  type TimerProgress,
 } from "@/lib/habitsWithActions";
 import {
-    buildHabitWithActionsFromStore,
-    buildHabitsWithActionsListFromStore,
+  buildHabitWithActionsFromStore,
+  buildHabitsWithActionsListFromStore,
 } from "@/lib/habitWithActionsFromStore";
 import { useHabitStore } from "@/lib/store";
 import { takeReopenAddHabitSheetFromSheet } from "@/lib/reopenAddHabitSheetFromSheet";
@@ -38,18 +39,17 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from "react-native-draggable-flatlist";
 
-const SCREEN_W = Dimensions.get("window").width;
-const GRID_GAP = 12;
-const GRID_CARD_W =
-  (SCREEN_W - GroveSpacing.screenPaddingHorizontal * 2 - GRID_GAP) / 2;
+const LIST_GAP = 12;
 
 export default function HabitsScreen() {
   const router = useRouter();
@@ -57,6 +57,7 @@ export default function HabitsScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -73,6 +74,7 @@ export default function HabitsScreen() {
     (s) => s.toggleCompletionForDate,
   );
   const syncHabits = useHabitStore((s) => s.syncHabits);
+  const reorderHabits = useHabitStore((s) => s.reorderHabits);
   const ensureDayReset = useHabitStore((s) => s.ensureDayReset);
 
   const selectedKey = calendarDateKey(selectedDate);
@@ -234,145 +236,191 @@ export default function HabitsScreen() {
 
   const completedCount = habitRows.filter((h) => h.completed).length;
 
-  const renderHabitRow = (habit: HabitData, fullWidth: boolean) => {
-    const hwa = habitsWithActions.find((h) => h.id === habit.id);
-    const storeHabit = storeHabits.find((h) => h.id === habit.id);
-    const listIndex = Math.max(
-      0,
-      storeHabits.findIndex((h) => h.id === habit.id),
-    );
-    const colorIndex =
-      typeof storeHabit?.customColorIndex === "number"
-        ? storeHabit.customColorIndex
-        : listIndex;
-    const customAccent = storeHabit?.customColor;
-    const accentColor = customAccent
-      ? habitCardThemeFromAccent(customAccent).accentDeep
-      : habitCardAccentAt(colorIndex);
-    return (
-      <View
-        key={habit.id}
-        style={[styles.gridItem, fullWidth && styles.gridItemFull]}
-      >
-      <HabitRow
-        habit={habit}
-        colorIndex={colorIndex}
-        customAccent={customAccent}
-        onToggle={(habitId) => {
-          if (calendarDateKey(selectedDate) > calendarDateKey()) return;
-          if (isViewingToday) {
-            const wasComplete =
-              useHabitStore.getState().habits.find((h) => h.id === habitId)
-                ?.completedToday ?? false;
-            toggleHabit(habitId);
-            syncWidgets();
-            queueMicrotask(() => {
-              const habits = useHabitStore.getState().habits;
-              if (habits.length === 0) return;
-              const allDone = habits.every((h) => h.completedToday);
-              if (wasComplete) {
-                triggerHabitToggleHaptic(false);
-              } else if (allDone) {
-                setShowCompletionOverlay(true);
-              } else {
-                triggerHabitToggleHaptic(true);
+  const onDragBegin = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
+  const onDragEnd = useCallback(
+    ({ data }: { data: HabitData[] }) => {
+      reorderHabits(data.map((h) => h.id));
+      // Defer so the list re-enables its scroll gesture after release.
+      requestAnimationFrame(() => setIsDragging(false));
+    },
+    [reorderHabits],
+  );
+
+  const renderItem = useCallback(
+    ({ item: habit, drag, isActive }: RenderItemParams<HabitData>) => {
+      const hwa = habitsWithActions.find((h) => h.id === habit.id);
+      const storeHabit = storeHabits.find((h) => h.id === habit.id);
+      const listIndex = Math.max(
+        0,
+        storeHabits.findIndex((h) => h.id === habit.id),
+      );
+      const colorIndex =
+        typeof storeHabit?.customColorIndex === "number"
+          ? storeHabit.customColorIndex
+          : listIndex;
+      const customAccent = storeHabit?.customColor;
+      const accentColor = customAccent
+        ? habitCardThemeFromAccent(customAccent).accentDeep
+        : habitCardAccentAt(colorIndex);
+
+      return (
+        <ScaleDecorator activeScale={1.03}>
+          <HabitRow
+            habit={habit}
+            colorIndex={colorIndex}
+            customAccent={customAccent}
+            dragging={isActive}
+            style={styles.listItem}
+            onDrag={() => {
+              setExpandedId(null);
+              triggerHabitReorderStartHaptic();
+              drag();
+            }}
+            onToggle={(habitId) => {
+              if (calendarDateKey(selectedDate) > calendarDateKey()) return;
+              if (isViewingToday) {
+                const wasComplete =
+                  useHabitStore.getState().habits.find((h) => h.id === habitId)
+                    ?.completedToday ?? false;
+                toggleHabit(habitId);
+                syncWidgets();
+                queueMicrotask(() => {
+                  const habits = useHabitStore.getState().habits;
+                  if (habits.length === 0) return;
+                  const allDone = habits.every((h) => h.completedToday);
+                  if (wasComplete) {
+                    triggerHabitToggleHaptic(false);
+                  } else if (allDone) {
+                    setShowCompletionOverlay(true);
+                  } else {
+                    triggerHabitToggleHaptic(true);
+                  }
+                });
+                return;
               }
-            });
-            return;
-          }
-          const wasComplete =
-            completionDates[habitId]?.includes(selectedKey) ?? false;
-          toggleCompletionForDate(habitId, selectedKey);
-          syncWidgets();
-          queueMicrotask(() => {
-            if (wasComplete) triggerHabitToggleHaptic(false);
-            else triggerHabitToggleHaptic(true);
-          });
-        }}
-        onPressSettings={(habitId) => router.push(`/habit-settings/${habitId}`)}
-        expanded={expandedId === habit.id}
-        onExpandToggle={() =>
-          setExpandedId(expandedId === habit.id ? null : habit.id)
-        }
-        expandedContent={
-          expandedId === habit.id && hwa ? (
-            isViewingToday ? (
-              <HabitFormInline
-                habit={hwa}
-                onUpdate={updateHabit}
-                accentColor={accentColor}
-              />
-            ) : (
-              <AppText
-                variant="small"
-                style={{
-                  color: GroveColors.secondaryText,
-                  paddingBottom: 8,
-                }}
-              >
-                Switch to today to track or edit this habit.
-              </AppText>
-            )
-          ) : undefined
-        }
-      />
+              const wasComplete =
+                completionDates[habitId]?.includes(selectedKey) ?? false;
+              toggleCompletionForDate(habitId, selectedKey);
+              syncWidgets();
+              queueMicrotask(() => {
+                if (wasComplete) triggerHabitToggleHaptic(false);
+                else triggerHabitToggleHaptic(true);
+              });
+            }}
+            onPressSettings={(habitId) =>
+              router.push(`/habit-settings/${habitId}`)
+            }
+            expanded={expandedId === habit.id}
+            onExpandToggle={() =>
+              setExpandedId(expandedId === habit.id ? null : habit.id)
+            }
+            expandedContent={
+              expandedId === habit.id && hwa ? (
+                isViewingToday ? (
+                  <HabitFormInline
+                    habit={hwa}
+                    onUpdate={updateHabit}
+                    accentColor={accentColor}
+                  />
+                ) : (
+                  <AppText
+                    variant="small"
+                    style={{
+                      color: GroveColors.secondaryText,
+                      paddingBottom: 8,
+                    }}
+                  >
+                    Switch to today to track or edit this habit.
+                  </AppText>
+                )
+              ) : undefined
+            }
+          />
+        </ScaleDecorator>
+      );
+    },
+    [
+      habitsWithActions,
+      storeHabits,
+      selectedDate,
+      isViewingToday,
+      toggleHabit,
+      completionDates,
+      selectedKey,
+      toggleCompletionForDate,
+      router,
+      expandedId,
+      updateHabit,
+    ],
+  );
+
+  const listHeader = (
+    <>
+      <View style={styles.section}>
+        <WeekCalendar
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
       </View>
-    );
-  };
+
+      <View style={styles.section}>
+        <TodayProgressBanner
+          completedCount={completedCount}
+          totalCount={habitRows.length}
+          title={
+            isViewingToday
+              ? undefined
+              : `${selectedDate.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })} Progress`
+          }
+        />
+      </View>
+    </>
+  );
+
+  const listFooter = (
+    <View style={styles.addSection}>
+      <TouchableOpacity
+        style={styles.addButton}
+        activeOpacity={0.8}
+        onPress={() => setSheetVisible(true)}
+        accessibilityLabel="Add habits"
+      >
+        <AppText style={styles.addIcon}>+</AppText>
+      </TouchableOpacity>
+      <View style={styles.bottomSpacer} />
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.scroll}
+      <DraggableFlatList
+        data={habitRows}
+        keyExtractor={(item) => item.id}
+        onDragBegin={onDragBegin}
+        onDragEnd={onDragEnd}
+        onRelease={() => {
+          // Safety net if drag ends without a completed drop animation.
+          requestAnimationFrame(() => setIsDragging(false));
+        }}
+        renderItem={renderItem}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {/* Week calendar */}
-        <View style={styles.section}>
-          <WeekCalendar
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-          />
-        </View>
-
-        {/* Today's progress banner */}
-        <View style={styles.section}>
-          <TodayProgressBanner
-            completedCount={completedCount}
-            totalCount={habitRows.length}
-            title={
-              isViewingToday
-                ? undefined
-                : `${selectedDate.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })} Progress`
-            }
-          />
-        </View>
-
-        <View style={styles.grid}>
-          {habitRows.map((habit) =>
-            renderHabitRow(habit, expandedId === habit.id),
-          )}
-        </View>
-
-        {/* Add habit button — sheet includes custom habit row (onboarding style) */}
-        <View style={styles.addSection}>
-          <TouchableOpacity
-            style={styles.addButton}
-            activeOpacity={0.8}
-            onPress={() => setSheetVisible(true)}
-            accessibilityLabel="Add habits"
-          >
-            <AppText style={styles.addIcon}>+</AppText>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+        // High threshold so normal pans scroll; reorder only via handle + drag().
+        activationDistance={isDragging ? 1 : 999}
+        scrollEnabled={!isDragging}
+        dragItemOverflow
+        containerStyle={styles.list}
+      />
 
       {sheetVisible ? (
         <AddHabitSheet
@@ -395,7 +443,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: GroveColors.white,
   },
-  scroll: {
+  list: {
     flex: 1,
   },
   content: {
@@ -405,20 +453,13 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: GRID_GAP,
-    marginBottom: 20,
-  },
-  gridItem: {
-    width: GRID_CARD_W,
-  },
-  gridItemFull: {
+  listItem: {
     width: "100%",
+    marginBottom: LIST_GAP,
   },
   addSection: {
     alignItems: "center",
+    marginTop: 8,
     marginBottom: 24,
   },
   addButton: {

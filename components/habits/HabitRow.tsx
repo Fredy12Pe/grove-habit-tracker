@@ -9,7 +9,10 @@ import {
   TouchableOpacity,
   View,
   type ImageSourcePropType,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
+import { Pressable as GHPressable } from "react-native-gesture-handler";
 
 export interface HabitData {
   id: string;
@@ -137,7 +140,9 @@ export function habitCardThemeFromAccent(accent: string): HabitCardTheme {
   const accentDeep = mixRgb(accentRgb, { r: 0, g: 0, b: 0 }, 0.22);
   return {
     bg: rgbToHex(bg.r, bg.g, bg.b),
-    accent: accent.startsWith("#") ? accent.toUpperCase() : `#${accent.toUpperCase()}`,
+    accent: accent.startsWith("#")
+      ? accent.toUpperCase()
+      : `#${accent.toUpperCase()}`,
     accentDeep: rgbToHex(accentDeep.r, accentDeep.g, accentDeep.b),
     iconWell: rgbToHex(iconWell.r, iconWell.g, iconWell.b),
   };
@@ -165,6 +170,11 @@ interface HabitRowProps {
   expanded?: boolean;
   /** Called when row or chevron is pressed to toggle expand (use for controlled mode). */
   onExpandToggle?: () => void;
+  /** Long-press the top-right handle to start reordering. */
+  onDrag?: () => void;
+  /** Visual lift while this card is being dragged. */
+  dragging?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function HabitRow({
@@ -177,6 +187,9 @@ export function HabitRow({
   expandedContent,
   expanded: expandedProp,
   onExpandToggle,
+  onDrag,
+  dragging = false,
+  style,
 }: HabitRowProps) {
   const [internalExpanded, setInternalExpanded] = useState(false);
 
@@ -202,21 +215,21 @@ export function HabitRow({
     (habit.completed ? "Done" : `Streak ${habit.streak}`);
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: theme.bg }]}>
+    <View
+      style={[
+        styles.wrapper,
+        { backgroundColor: theme.bg },
+        dragging && styles.wrapperDragging,
+        style,
+      ]}
+    >
       <TouchableOpacity
         style={[styles.cardFace, expanded && styles.cardFaceExpanded]}
         onPress={toggleExpand}
         activeOpacity={0.85}
+        disabled={dragging}
       >
-        <View style={styles.topRow}>
-          <View style={[styles.iconWrap, { backgroundColor: theme.iconWell }]}>
-            <Image
-              source={habit.icon}
-              style={styles.icon}
-              resizeMode="contain"
-            />
-          </View>
-
+        <View style={styles.contentCol}>
           <TouchableOpacity
             style={[
               styles.checkBtn,
@@ -247,33 +260,59 @@ export function HabitRow({
               />
             ) : null}
           </TouchableOpacity>
+
+          <View style={styles.textBlock}>
+            <AppText variant="h2" style={styles.name} numberOfLines={2}>
+              {habit.name}
+            </AppText>
+            <AppText variant="small" style={styles.progress} numberOfLines={1}>
+              {progressLabel}
+            </AppText>
+          </View>
+
+          <View style={styles.weekRow}>
+            {Array.from({ length: 7 }).map((_, i) => {
+              const filled = week[i] === true;
+              return (
+                <View
+                  key={i}
+                  style={[
+                    styles.weekDot,
+                    { backgroundColor: theme.accent },
+                    !filled && styles.weekDotEmpty,
+                  ]}
+                />
+              );
+            })}
+          </View>
         </View>
 
-        <View style={styles.textBlock}>
-          <AppText variant="h2" style={styles.name} numberOfLines={2}>
-            {habit.name}
-          </AppText>
-          <AppText variant="small" style={styles.progress} numberOfLines={1}>
-            {progressLabel}
-          </AppText>
-        </View>
-
-        <View style={styles.weekRow}>
-          {Array.from({ length: 7 }).map((_, i) => {
-            const filled = week[i] === true;
-            return (
-              <View
-                key={i}
-                style={[
-                  styles.weekDot,
-                  { backgroundColor: theme.accent },
-                  !filled && styles.weekDotEmpty,
-                ]}
-              />
-            );
-          })}
+        <View style={styles.heroIconWrap} pointerEvents="none">
+          <Image
+            source={habit.icon}
+            style={styles.heroIcon}
+            resizeMode="contain"
+          />
         </View>
       </TouchableOpacity>
+
+      {onDrag ? (
+        <GHPressable
+          style={styles.dragHandle}
+          onLongPress={onDrag}
+          delayLongPress={120}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Reorder habit"
+          accessibilityHint="Long press and drag to change position"
+        >
+          <IconSymbol
+            name="line.3.horizontal"
+            size={18}
+            color={GroveColors.secondaryText}
+            style={styles.dragHandleIcon}
+          />
+        </GHPressable>
+      ) : null}
 
       {expanded && (
         <View style={styles.expandedArea}>
@@ -312,37 +351,65 @@ export function HabitRow({
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderRadius: 20,
+    borderRadius: 24,
     marginBottom: 0,
-    overflow: "hidden",
-    flex: 1,
+    overflow: "visible",
+  },
+  wrapperDragging: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 8,
   },
   cardFace: {
-    paddingTop: 14,
-    paddingHorizontal: 14,
-    paddingBottom: 16,
-    minHeight: 168,
-    justifyContent: "space-between",
+    flexDirection: "row",
+    alignItems: "stretch",
+    minHeight: 148,
+    overflow: "hidden",
+    borderRadius: 24,
+    position: "relative",
   },
   cardFaceExpanded: {
-    minHeight: 148,
+    minHeight: 132,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  contentCol: {
+    flex: 1,
+    maxWidth: "58%",
+    paddingTop: 16,
+    paddingLeft: 16,
+    paddingBottom: 16,
+    paddingRight: 8,
     justifyContent: "space-between",
+    zIndex: 1,
   },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  heroIconWrap: {
+    position: "absolute",
+    right: -6,
+    top: 4,
+    bottom: -8,
+    width: "48%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heroIcon: {
+    width: "100%",
+    height: "100%",
+  },
+  dragHandle: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 3,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
   },
-  icon: {
-    width: 34,
-    height: 34,
+  dragHandleIcon: {
+    opacity: 0.4,
   },
   checkBtn: {
     width: 40,
@@ -354,15 +421,16 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   textBlock: {
-    marginTop: 18,
     gap: 4,
     paddingRight: 4,
+    marginTop: 12,
+    marginBottom: 12,
   },
   name: {
     color: GroveColors.deepText,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    lineHeight: 22,
+    lineHeight: 24,
   },
   progress: {
     color: GroveColors.secondaryText,
@@ -373,7 +441,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    marginTop: 16,
   },
   weekDot: {
     width: 8,
@@ -388,6 +455,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 4,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: "hidden",
   },
   expandedHeaderRow: {
     flexDirection: "row",
