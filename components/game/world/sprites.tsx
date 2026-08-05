@@ -5,7 +5,7 @@
  * re-render only that sprite — not the whole world tree.
  */
 
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useEffect, useRef, useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -184,24 +184,27 @@ export const CowSprite = memo(function CowSprite({
 }) {
   const eatFrame = useFrameLoop(eatingFrames.length, intervalMs, active && !petting);
   const [heartFrame, setHeartFrame] = useState(0);
+  const onPetEndRef = useRef(onPetEnd);
+  onPetEndRef.current = onPetEnd;
 
   useEffect(() => {
     if (!petting) {
       setHeartFrame(0);
       return;
     }
+    let frame = 0;
+    setHeartFrame(0);
+    const last = Math.max(0, heartFrames.length - 1);
     const id = setInterval(() => {
-      setHeartFrame((prev) => {
-        if (prev >= heartFrames.length - 1) {
-          clearInterval(id);
-          onPetEnd?.();
-          return 0;
-        }
-        return prev + 1;
-      });
+      if (frame >= last) {
+        clearInterval(id);
+        onPetEndRef.current?.();
+        return;
+      }
+      frame += 1;
+      setHeartFrame(frame);
     }, heartIntervalMs);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [petting, heartFrames.length, heartIntervalMs]);
 
   return (
@@ -290,24 +293,27 @@ export const FallingTreeSprite = memo(function FallingTreeSprite({
   onFallEnd?: () => void;
 }) {
   const [frame, setFrame] = useState(0);
+  const onFallEndRef = useRef(onFallEnd);
+  onFallEndRef.current = onFallEnd;
 
   useEffect(() => {
     if (!falling) {
       setFrame(fallen ? frames.length - 1 : 0);
       return;
     }
+    let current = 0;
+    setFrame(0);
+    const last = Math.max(0, frames.length - 1);
     const id = setInterval(() => {
-      setFrame((prev) => {
-        if (prev >= frames.length - 1) {
-          clearInterval(id);
-          onFallEnd?.();
-          return frames.length - 1;
-        }
-        return prev + 1;
-      });
+      if (current >= last) {
+        clearInterval(id);
+        onFallEndRef.current?.();
+        return;
+      }
+      current += 1;
+      setFrame(current);
     }, frameMs);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [falling, fallen, frames.length, frameMs]);
 
   return (
@@ -341,6 +347,8 @@ export const ShakeTreeSprite = memo(function ShakeTreeSprite({
   onShakeEnd?: () => void;
 }) {
   const [frame, setFrame] = useState(0);
+  const onShakeEndRef = useRef(onShakeEnd);
+  onShakeEndRef.current = onShakeEnd;
 
   useEffect(() => {
     setFrame(0);
@@ -348,19 +356,19 @@ export const ShakeTreeSprite = memo(function ShakeTreeSprite({
 
   useEffect(() => {
     if (!shaking) return;
+    let current = 0;
     setFrame(0);
+    const last = Math.max(0, frames.length - 1);
     const id = setInterval(() => {
-      setFrame((prev) => {
-        if (prev >= frames.length - 1) {
-          clearInterval(id);
-          onShakeEnd?.();
-          return frames.length - 1;
-        }
-        return prev + 1;
-      });
+      if (current >= last) {
+        clearInterval(id);
+        onShakeEndRef.current?.();
+        return;
+      }
+      current += 1;
+      setFrame(current);
     }, frameMs);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shaking, frames.length, frameMs]);
 
   return (

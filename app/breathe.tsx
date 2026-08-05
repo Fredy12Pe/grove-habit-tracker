@@ -268,7 +268,7 @@ function BreatheScreenContent() {
                   <IconSymbol
                     name="chevron.left"
                     size={20}
-                    color={GroveColors.primaryText}
+                    color={GroveColors.deepText}
                   />
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
@@ -480,10 +480,6 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0, 0, 0, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -492,7 +488,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     textAlign: "center",
     marginTop: 6,
     marginBottom: 6,
@@ -551,7 +547,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "500",
-    color: GroveColors.primaryText,
+    color: GroveColors.secondaryText,
     textAlign: "center",
   },
   primaryBtn: {

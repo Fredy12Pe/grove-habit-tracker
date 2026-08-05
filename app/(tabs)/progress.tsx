@@ -153,11 +153,8 @@ export default function ProgressScreen() {
                   {records.daysInMonth}
                 </AppText>
               </View>
-              <AppText variant="small" style={styles.recordUnit}>
-                {records.daysInMonth === 1 ? "Day" : "Days"}
-              </AppText>
               <AppText variant="small" style={styles.recordLabel}>
-                Days in {MONTH_NAMES[month]}
+                Days
               </AppText>
             </View>
             <View style={styles.recordCard}>
@@ -171,11 +168,8 @@ export default function ProgressScreen() {
                   {records.completionsInMonth}
                 </AppText>
               </View>
-              <AppText variant="small" style={styles.recordUnit}>
-                {records.completionsInMonth === 1 ? "Completion" : "Completions"}
-              </AppText>
               <AppText variant="small" style={styles.recordLabel}>
-                Completions in {MONTH_NAMES[month]}
+                Completions
               </AppText>
             </View>
             <View style={styles.recordCard}>
@@ -189,11 +183,8 @@ export default function ProgressScreen() {
                   {records.currentStreak}
                 </AppText>
               </View>
-              <AppText variant="small" style={styles.recordUnit}>
-                {records.currentStreak === 1 ? "Day" : "Days"}
-              </AppText>
               <AppText variant="small" style={styles.recordLabel}>
-                Current Streak
+                Streak
               </AppText>
             </View>
           </View>
@@ -370,13 +361,9 @@ const styles = StyleSheet.create({
     color: GroveColors.deepText,
     fontWeight: "600",
   },
-  recordUnit: {
-    color: GroveColors.secondaryText,
-    marginTop: 2,
-  },
   recordLabel: {
     color: GroveColors.mutedGray,
-    marginTop: 2,
+    marginTop: 4,
   },
   modalBackdrop: {
     flex: 1,
@@ -431,16 +418,16 @@ const styles = StyleSheet.create({
   habitsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "space-between",
     marginTop: 8,
-    gap: 12,
+    rowGap: 12,
   },
   habitCard: {
-    width: "47%",
-    minWidth: 140,
+    width: "48%",
     backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
-    padding: 14,
-    marginBottom: 4,
+    padding: 12,
+    overflow: "hidden",
   },
   habitHeader: {
     flexDirection: "row",
@@ -449,22 +436,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   habitIconWell: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: 10,
     backgroundColor: GroveColors.white,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   habitIcon: {
-    width: 24,
-    height: 24,
+    width: 20,
+    height: 20,
   },
   habitName: {
     color: GroveColors.deepText,
     fontWeight: "600",
-    fontSize: 15,
+    fontSize: 14,
     flex: 1,
+    flexShrink: 1,
   },
   bottomSpacer: {
     height: 110,

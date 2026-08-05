@@ -160,11 +160,11 @@ function GratitudeScreenContent() {
 }
 
 export default function GratitudeScreen() {
-  const { initialized, session, needsOnboarding } = useAuth();
+  const { initialized, session, isGuest, needsOnboarding } = useAuth();
   if (!initialized) {
     return null;
   }
-  if (!session) {
+  if (!session && !isGuest) {
     return <Redirect href="/(auth)/login" />;
   }
   if (needsOnboarding) {

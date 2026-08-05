@@ -99,8 +99,8 @@ export function getIslandWorldLayout(windowHeight: number) {
   const CHICKEN_IDLE_BEFORE_PECK_MS = 3200;
   const CHICKEN_DISPLAY_W = Math.round(ISLAND_W * 0.032);
   const CHICKEN_DISPLAY_H = Math.round(ISLAND_H * 0.05);
-  /** East on the flat ground: right of the hills / cow terrace, left of shake tree (~0.96). */
-  const CHICKEN_WORLD_X = ISLAND_LEFT + ISLAND_W * 0.92;
+  /** East on the flat ground: right of activities, left of shake tree (~0.96). */
+  const CHICKEN_WORLD_X = ISLAND_LEFT + ISLAND_W * 0.98;
   const CHICKEN_WORLD_Y = ISLAND_TOP + ISLAND_H * 0.415;
   const CHICKEN_DEPTH_Y = CHICKEN_WORLD_Y;
   const CHICKEN_TRUNK_HALF_W = Math.max(6, Math.round(CHICKEN_DISPLAY_W * 0.2));
@@ -119,25 +119,20 @@ export function getIslandWorldLayout(windowHeight: number) {
   const ACTIVITIES_ICON_W = Math.max(32, Math.round(ISLAND_W * 0.032));
   const ACTIVITIES_ICON_H = Math.round(ACTIVITIES_ICON_W * (141 / 151));
   const ACTIVITIES_ICON_GAP = Math.max(9, Math.round(ISLAND_W * 0.0155));
-  const ACTIVITIES_ROW_W =
-    3 * ACTIVITIES_ICON_W + 2 * ACTIVITIES_ICON_GAP;
+  const ACTIVITIES_ROW_W = 3 * ACTIVITIES_ICON_W + 2 * ACTIVITIES_ICON_GAP;
   /** Narrower than the icon row; cap keeps the banner visually light. */
   const ACTIVITIES_HEADING_W = Math.min(
     Math.round(ACTIVITIES_ROW_W * 0.85),
     Math.round(ISLAND_W * 0.108),
   );
-  const ACTIVITIES_HEADING_H = Math.round(
-    ACTIVITIES_HEADING_W * (111 / 354),
-  );
+  const ACTIVITIES_HEADING_H = Math.round(ACTIVITIES_HEADING_W * (111 / 354));
   const ACTIVITIES_HEADING_ICON_GAP = Math.max(
     10,
     Math.round(ISLAND_H * 0.019),
   );
   const ACTIVITIES_ICONS_TOP = ACTIVITIES_GROUND_Y - ACTIVITIES_ICON_H;
   const ACTIVITIES_HEADING_TOP =
-    ACTIVITIES_ICONS_TOP -
-    ACTIVITIES_HEADING_ICON_GAP -
-    ACTIVITIES_HEADING_H;
+    ACTIVITIES_ICONS_TOP - ACTIVITIES_HEADING_ICON_GAP - ACTIVITIES_HEADING_H;
   const ACTIVITIES_HEADING_LEFT =
     ACTIVITIES_CENTER_X - Math.round(ACTIVITIES_HEADING_W / 2);
   const ACTIVITIES_ICONS_ROW_LEFT =
@@ -146,8 +141,7 @@ export function getIslandWorldLayout(windowHeight: number) {
   const ACTIVITIES_PUZZLES_LEFT =
     ACTIVITIES_ICONS_ROW_LEFT + ACTIVITIES_ICON_W + ACTIVITIES_ICON_GAP;
   const ACTIVITIES_GRATITUDE_LEFT =
-    ACTIVITIES_ICONS_ROW_LEFT +
-    2 * (ACTIVITIES_ICON_W + ACTIVITIES_ICON_GAP);
+    ACTIVITIES_ICONS_ROW_LEFT + 2 * (ACTIVITIES_ICON_W + ACTIVITIES_ICON_GAP);
   const ACTIVITIES_CLUSTER_HALF_W =
     Math.max(
       Math.ceil(ACTIVITIES_HEADING_W / 2),

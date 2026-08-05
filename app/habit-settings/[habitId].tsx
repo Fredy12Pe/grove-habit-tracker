@@ -14,6 +14,8 @@ import {
   View,
 } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { HabitColorPickerModal } from "@/components/habits/HabitColorPickerModal";
+import { HABIT_CARD_THEMES } from "@/components/habits/HabitRow";
 import { AppText } from "@/components/ui/AppText";
 import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -54,9 +56,15 @@ function HabitSettingsScreenContent() {
   const { habitId } = useLocalSearchParams<{ habitId: string }>();
   const id = habitId ?? "";
 
-  const habit = useHabitStore((s) => s.habits.find((h) => h.id === id));
+  const habits = useHabitStore((s) => s.habits);
+  const habit = habits.find((h) => h.id === id);
   const updateHabit = useHabitStore((s) => s.updateHabit);
   const removeHabit = useHabitStore((s) => s.removeHabit);
+
+  const listIndex = Math.max(
+    0,
+    habits.findIndex((h) => h.id === id),
+  );
 
   const initialIconId = useMemo(() => {
     if (!habit) return HABIT_CATALOG[0]?.id ?? "pray";
@@ -74,7 +82,16 @@ function HabitSettingsScreenContent() {
   const [name, setName] = useState(habit?.name ?? "");
   const [iconId, setIconId] = useState(initialIconId);
   const [tracking, setTracking] = useState<HabitCustomTracking>(initialTracking);
+  const [colorIndex, setColorIndex] = useState(
+    typeof habit?.customColorIndex === "number"
+      ? habit.customColorIndex
+      : listIndex % HABIT_CARD_THEMES.length,
+  );
+  const [customColor, setCustomColor] = useState<string | null>(
+    habit?.customColor ?? null,
+  );
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [colorPickerVisible, setColorPickerVisible] = useState(false);
 
   const canSave = name.trim().length > 0 && !!habit;
 
@@ -84,9 +101,20 @@ function HabitSettingsScreenContent() {
       name: name.trim(),
       customIconCatalogId: iconId,
       customTracking: tracking,
+      customColorIndex: customColor ? undefined : colorIndex,
+      customColor: customColor ?? undefined,
     });
     router.back();
-  }, [habit, iconId, name, router, tracking, updateHabit]);
+  }, [
+    colorIndex,
+    customColor,
+    habit,
+    iconId,
+    name,
+    router,
+    tracking,
+    updateHabit,
+  ]);
 
   const handleDelete = useCallback(() => {
     if (!habit) return;
@@ -202,6 +230,73 @@ function HabitSettingsScreenContent() {
                 />
               </TouchableOpacity>
 
+              <AppText variant="small" style={styles.fieldLabel}>
+                Color
+              </AppText>
+              <View style={styles.colorRow}>
+                {HABIT_CARD_THEMES.map((theme, index) => {
+                  const selected = !customColor && colorIndex === index;
+                  return (
+                    <TouchableOpacity
+                      key={theme.accent}
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.accent },
+                        selected && styles.colorSwatchSelected,
+                      ]}
+                      onPress={() => {
+                        setCustomColor(null);
+                        setColorIndex(index);
+                      }}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Color ${index + 1}`}
+                    >
+                      {selected ? (
+                        <IconSymbol
+                          name="checkmark"
+                          size={16}
+                          color={GroveColors.white}
+                          weight="bold"
+                        />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[
+                    styles.colorSwatch,
+                    styles.colorSwatchAdd,
+                    customColor
+                      ? { backgroundColor: customColor }
+                      : styles.colorSwatchAddEmpty,
+                    !!customColor && styles.colorSwatchSelected,
+                  ]}
+                  onPress={() => setColorPickerVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !!customColor }}
+                  accessibilityLabel="Custom color"
+                >
+                  {customColor ? (
+                    <IconSymbol
+                      name="checkmark"
+                      size={16}
+                      color={GroveColors.white}
+                      weight="bold"
+                    />
+                  ) : (
+                    <IconSymbol
+                      name="plus"
+                      size={18}
+                      color={GroveColors.deepText}
+                      weight="bold"
+                    />
+                  )}
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.dangerZone}>
                 <Pressable
                   onPress={handleDelete}
@@ -235,6 +330,18 @@ function HabitSettingsScreenContent() {
           </>
         )}
       </KeyboardAvoidingView>
+
+      <HabitColorPickerModal
+        visible={colorPickerVisible}
+        initialColor={
+          customColor ?? HABIT_CARD_THEMES[colorIndex]?.accent ?? "#7CFF6B"
+        }
+        onClose={() => setColorPickerVisible(false)}
+        onSelect={(hex) => {
+          setCustomColor(hex);
+          setColorPickerVisible(false);
+        }}
+      />
 
       {pickerVisible ? (
         <Modal
@@ -290,11 +397,11 @@ function HabitSettingsScreenContent() {
 }
 
 export default function HabitSettingsScreen() {
-  const { initialized, session, needsOnboarding } = useAuth();
+  const { initialized, session, isGuest, needsOnboarding } = useAuth();
   if (!initialized) {
     return null;
   }
-  if (!session) {
+  if (!session && !isGuest) {
     return <Redirect href="/(auth)/login" />;
   }
   if (needsOnboarding) {
@@ -368,9 +475,35 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: GroveColors.divider,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   trackingRowText: { fontWeight: "500", color: GroveColors.deepText },
+  colorRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 16,
+  },
+  colorSwatch: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "transparent",
+  },
+  colorSwatchSelected: {
+    borderColor: GroveColors.deepText,
+  },
+  colorSwatchAdd: {
+    borderStyle: "solid",
+  },
+  colorSwatchAddEmpty: {
+    backgroundColor: GroveColors.softSurface,
+    borderColor: GroveColors.inactive,
+    borderStyle: "dashed",
+  },
   dangerZone: {
     marginTop: 10,
     marginBottom: 12,

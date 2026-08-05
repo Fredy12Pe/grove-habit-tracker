@@ -226,7 +226,9 @@ export default function HabitsScreen() {
       completed: completedForDay,
       progressSummary:
         isViewingToday && hwa ? getProgressSummary(hwa) : undefined,
-      weekCompletion: weekKeys.map((key) => dates.includes(key)),
+      weekCompletion: weekKeys.map(
+        (key) => key <= selectedKey && dates.includes(key),
+      ),
     };
   });
 

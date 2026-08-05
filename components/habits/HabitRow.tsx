@@ -24,66 +24,66 @@ export interface HabitData {
 }
 
 export type HabitCardTheme = {
-  /** Dark tinted card fill */
+  /** Soft nature-tinted card fill */
   bg: string;
-  /** Bright saturated CTA */
+  /** Accent for checkbox / week dots */
   accent: string;
-  /** Deep shade — expanded form controls */
+  /** Deeper shade — expanded form controls */
   accentDeep: string;
-  /** Icon well */
+  /** Soft tinted icon well */
   iconWell: string;
 };
 
-/** Index-cycled Habitz-style themes — dark wash + bright accent. */
+/** Index-cycled themes — Grove lime / sage / earth washes. */
 export const HABIT_CARD_THEMES: readonly HabitCardTheme[] = [
   {
-    bg: "#1E3A2F",
-    accent: "#7CFF6B",
-    accentDeep: "#4DB83D",
-    iconWell: "#162B23",
-  }, // green
+    bg: "#F3F8E4",
+    accent: "#A7DE33",
+    accentDeep: "#8AA335",
+    iconWell: "#E4F0B8",
+  }, // lime
   {
-    bg: "#1A2744",
-    accent: "#5B9DFF",
-    accentDeep: "#3D7FE0",
-    iconWell: "#121C33",
-  }, // blue
+    bg: "#EEF4EC",
+    accent: "#7BA86A",
+    accentDeep: "#5E8A50",
+    iconWell: "#D5E6CF",
+  }, // sage
   {
-    bg: "#2A1F3D",
-    accent: "#B794F6",
-    accentDeep: "#8B6AD4",
-    iconWell: "#1F1730",
-  }, // purple
-  {
-    bg: "#3D2A1A",
-    accent: "#FF9F43",
-    accentDeep: "#E8892E",
-    iconWell: "#2E1F12",
-  }, // orange
-  {
-    bg: "#1A3030",
-    accent: "#4ECDC4",
-    accentDeep: "#2BB3AA",
-    iconWell: "#122424",
-  }, // teal
-  {
-    bg: "#3D1F2A",
-    accent: "#FF6B9D",
-    accentDeep: "#E04D7F",
-    iconWell: "#2E1520",
-  }, // pink
-  {
-    bg: "#2A301A",
-    accent: "#C6E048",
-    accentDeep: "#A8C230",
-    iconWell: "#1F2412",
+    bg: "#F2F4E6",
+    accent: "#A8C44A",
+    accentDeep: "#8AA335",
+    iconWell: "#DDE8B8",
   }, // olive
   {
-    bg: "#1A2438",
-    accent: "#6BB3FF",
-    accentDeep: "#4A95E0",
-    iconWell: "#121A2B",
-  }, // steel
+    bg: "#F5F1E6",
+    accent: "#C4A06A",
+    accentDeep: "#A38452",
+    iconWell: "#E8DCC4",
+  }, // sand / clay
+  {
+    bg: "#EEF3F0",
+    accent: "#5FA88A",
+    accentDeep: "#458A6E",
+    iconWell: "#D0E4D8",
+  }, // moss
+  {
+    bg: "#F0F3F2",
+    accent: "#6B8F8A",
+    accentDeep: "#52706C",
+    iconWell: "#D4E0DC",
+  }, // stone teal
+  {
+    bg: "#F4F6EA",
+    accent: "#BADF3D",
+    accentDeep: "#8AA335",
+    iconWell: "#E6F0C0",
+  }, // soft lime
+  {
+    bg: "#EEF1F3",
+    accent: "#7A92A0",
+    accentDeep: "#5E7684",
+    iconWell: "#D4DCE2",
+  }, // mist
 ] as const;
 
 export function habitCardThemeAt(index: number): HabitCardTheme {
@@ -130,9 +130,11 @@ function mixRgb(
 /** Build a card theme from a single accent hex (custom color picker). */
 export function habitCardThemeFromAccent(accent: string): HabitCardTheme {
   const accentRgb = hexToRgb(accent);
-  const bg = mixRgb(accentRgb, { r: 18, g: 22, b: 28 }, 0.78);
-  const iconWell = mixRgb(accentRgb, { r: 12, g: 14, b: 18 }, 0.85);
-  const accentDeep = mixRgb(accentRgb, { r: 0, g: 0, b: 0 }, 0.28);
+  /** Warm cream base — matches Grove background / card surfaces. */
+  const cream = { r: 249, g: 250, b: 241 };
+  const bg = mixRgb(accentRgb, cream, 0.9);
+  const iconWell = mixRgb(accentRgb, cream, 0.74);
+  const accentDeep = mixRgb(accentRgb, { r: 0, g: 0, b: 0 }, 0.22);
   return {
     bg: rgbToHex(bg.r, bg.g, bg.b),
     accent: accent.startsWith("#") ? accent.toUpperCase() : `#${accent.toUpperCase()}`,
@@ -220,13 +222,16 @@ export function HabitRow({
               styles.checkBtn,
               habit.completed
                 ? { backgroundColor: theme.accent, borderColor: theme.accent }
-                : styles.checkBtnOutline,
+                : {
+                    backgroundColor: GroveColors.white,
+                    borderColor: theme.accent,
+                  },
             ]}
             onPress={(e) => {
               e.stopPropagation();
               onToggle(habit.id);
             }}
-            activeOpacity={0.8}
+            activeOpacity={0.75}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: habit.completed }}
             accessibilityLabel={
@@ -261,9 +266,8 @@ export function HabitRow({
                 key={i}
                 style={[
                   styles.weekDot,
-                  filled
-                    ? { backgroundColor: theme.accent }
-                    : styles.weekDotEmpty,
+                  { backgroundColor: theme.accent },
+                  !filled && styles.weekDotEmpty,
                 ]}
               />
             );
@@ -347,10 +351,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2.5,
-  },
-  checkBtnOutline: {
     backgroundColor: "transparent",
-    borderColor: "rgba(255,255,255,0.45)",
   },
   textBlock: {
     marginTop: 18,
@@ -358,13 +359,13 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   name: {
-    color: GroveColors.white,
+    color: GroveColors.deepText,
     fontSize: 18,
     fontWeight: "700",
     lineHeight: 22,
   },
   progress: {
-    color: "rgba(255,255,255,0.55)",
+    color: GroveColors.secondaryText,
     fontSize: 13,
     fontWeight: "500",
   },
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   weekDotEmpty: {
-    backgroundColor: "rgba(255,255,255,0.18)",
+    opacity: 0.28,
   },
   expandedArea: {
     backgroundColor: GroveColors.softSurface,

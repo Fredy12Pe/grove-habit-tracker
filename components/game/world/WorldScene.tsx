@@ -633,7 +633,7 @@ export function WorldScene({
         cachePolicy="memory-disk"
       />
 
-      {/* House frame; furniture drawn above frame (z16) when inside */}
+      {/* House frame; below character (15/17) when inside so walls don't clip Sprout */}
       <View
         style={{
           position: "absolute",
@@ -641,8 +641,8 @@ export function WorldScene({
           top: L.HOUSE_TOP,
           width: L.HOUSE_W,
           height: L.HOUSE_H,
-          zIndex: insideHouse ? 15 : 1,
-          elevation: insideHouse ? 15 : 1,
+          zIndex: insideHouse ? 14 : 1,
+          elevation: insideHouse ? 14 : 1,
         }}
       >
         <Image
@@ -674,7 +674,7 @@ export function WorldScene({
         </View>
       )}
 
-      {/* Interior furniture — z16 when inside (above frame 15, above char 14) */}
+      {/* Interior furniture — z16 when inside (above frame 14 / char-behind 15) */}
       {(
         [
           [L.HOUSE_IMAGE, L.HIMG_X, L.HIMG_Y, L.HIMG_W, L.HIMG_H],

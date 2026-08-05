@@ -434,7 +434,9 @@ export default function GameScreen() {
       : "Activities";
 
   const charBehindIndoorFurniture = behindSet.has("indoorFurniture");
-  const characterZ = insideHouse ? (charBehindIndoorFurniture ? 14 : 17) : 25;
+  // Indoors: stay above the house frame (14) so wall planks never clip Sprout.
+  // Behind furniture → 15 (< furniture 16); in front → 17.
+  const characterZ = insideHouse ? (charBehindIndoorFurniture ? 15 : 17) : 25;
 
   // Soft white veil behind the status bar so time/battery stay readable.
   const statusBarFadeHeight = insets.top + 20;
@@ -527,25 +529,34 @@ export default function GameScreen() {
           showActivityZones
           showWalkAreaDebug={GAME_INTERACTION_DEBUG}
         >
-          {/* Character — inside: z14 behind furniture / z17 in front; outside: z25 */}
+          {/* Character — inside: z15 behind furniture / z17 in front; outside: z25 */}
           <Animated.View
             style={[
               styles.character,
               {
                 zIndex: characterZ,
                 elevation: Platform.OS === "android" ? characterZ : 0,
-                transform: [
-                  ...charAnim.getTranslateTransform(),
-                  { scale: insideHouse ? CHAR_SCALE_INDOOR : CHAR_SCALE },
-                ],
+                // Keep translate + scale on separate nodes so Animated never
+                // recomposes scale with position (avoids size shifting by area).
+                transform: charAnim.getTranslateTransform(),
               },
             ]}
           >
-            <CharacterSprite
-              animKey={animKey}
-              active={isFocused}
-              onFrame={handleCharFrame}
-            />
+            <View
+              style={{
+                width: CHAR_SIZE,
+                height: CHAR_SIZE,
+                transform: [
+                  { scale: insideHouse ? CHAR_SCALE_INDOOR : CHAR_SCALE },
+                ],
+              }}
+            >
+              <CharacterSprite
+                animKey={animKey}
+                active={isFocused}
+                onFrame={handleCharFrame}
+              />
+            </View>
           </Animated.View>
 
           {GAME_INTERACTION_DEBUG && <DebugZones insideHouse={insideHouse} />}
