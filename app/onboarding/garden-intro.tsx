@@ -93,7 +93,7 @@ export default function GardenIntroOnboardingScreen() {
             <IconSymbol
               name="chevron.left"
               size={18}
-              color={GroveColors.primaryText}
+              color={GroveColors.secondaryText}
             />
             <AppText variant="paragraph" style={styles.backLabel}>
               Back
@@ -106,7 +106,7 @@ export default function GardenIntroOnboardingScreen() {
             Your garden is ready to grow
           </AppText>
           <AppText variant="paragraphRegular" style={styles.support}>
-            Small daily habits grow something beautiful.
+            Check your garden to see your habits blossom day by day.
           </AppText>
         </View>
 
@@ -156,7 +156,7 @@ export default function GardenIntroOnboardingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   root: {
     flex: 1,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backLabel: {
-    color: GroveColors.primaryText,
+    color: GroveColors.secondaryText,
     fontSize: 15,
     fontWeight: "500",
   },
@@ -182,12 +182,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    color: GroveColors.primaryText,
-    fontWeight: "700",
     textAlign: "center",
   },
   support: {
-    color: GroveColors.secondaryText,
     textAlign: "center",
   },
   visualWrap: {
@@ -198,7 +195,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
     overflow: "hidden",
-    borderRadius: GroveBorderRadius.card,
+    borderRadius: GroveBorderRadius.homeCard,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 320,
@@ -215,7 +212,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -243,7 +240,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     color: GroveColors.white,
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });
 

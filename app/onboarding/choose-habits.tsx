@@ -140,7 +140,7 @@ export default function ChooseHabitsOnboardingScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <AppText variant="h1" style={styles.title}>
+            <AppText variant="h1">
               What do you want to grow?
             </AppText>
             <AppText variant="paragraphRegular" style={styles.support}>
@@ -219,7 +219,7 @@ export default function ChooseHabitsOnboardingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   root: {
     flex: 1,
@@ -234,10 +234,6 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 20,
     gap: 8,
-  },
-  title: {
-    color: GroveColors.primaryText,
-    fontWeight: "700",
   },
   support: {
     color: GroveColors.secondaryText,
@@ -254,7 +250,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 13,
-    color: GroveColors.secondaryText,
+    color: GroveColors.mutedGray,
     marginBottom: 10,
     fontWeight: "500",
   },
@@ -267,7 +263,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: GroveColors.divider,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   footerRow: {
     flexDirection: "row",
@@ -293,7 +289,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     color: GroveColors.white,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   helper: {
     color: GroveColors.secondaryText,

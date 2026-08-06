@@ -31,7 +31,7 @@ export default function OnboardingWidgetsScreen() {
           <IconSymbol
             name="chevron.left"
             size={18}
-            color={GroveColors.primaryText}
+            color={GroveColors.secondaryText}
           />
           <AppText variant="paragraph" style={styles.backLabel}>
             Back
@@ -89,7 +89,7 @@ export default function OnboardingWidgetsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   headerNav: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backLabel: {
-    color: GroveColors.primaryText,
+    color: GroveColors.secondaryText,
     fontSize: 15,
     fontWeight: "500",
   },
@@ -116,14 +116,11 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   title: {
-    color: GroveColors.primaryText,
-    fontWeight: "700",
     textAlign: "center",
     alignSelf: "stretch",
     marginBottom: 14,
   },
   subtitle: {
-    color: GroveColors.secondaryText,
     textAlign: "center",
     alignSelf: "stretch",
     lineHeight: 24,
@@ -164,6 +161,6 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     color: GroveColors.white,
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });

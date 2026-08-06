@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontWeight: "600",
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontSize: 15,
   },
   subtle: {

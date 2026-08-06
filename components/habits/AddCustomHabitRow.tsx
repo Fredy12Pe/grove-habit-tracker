@@ -28,7 +28,7 @@ export function AddCustomHabitRow({ onPress, style }: AddCustomHabitRowProps) {
         <IconSymbol
           name="plus"
           size={16}
-          color={GroveColors.primaryText}
+          color={GroveColors.deepText}
           weight="bold"
         />
       </View>

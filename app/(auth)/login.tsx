@@ -8,7 +8,7 @@ import { signInWithGoogle } from "@/lib/auth-google";
 import { GroveSpacing } from "@/styles/theme";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { continueAsGuest, waitForGuestMigrationIfAny } = useAuth();
+  const { continueAsGuest, waitForGuestMigrationIfAny, isGuest } = useAuth();
   const params = useLocalSearchParams<{
     auto?: string | string[];
     mode?: "signin" | "signup" | string;
@@ -35,6 +35,30 @@ export default function LoginScreen() {
   const rawMode = params.mode;
   const mode = rawMode === "signup" ? "signup" : "signin";
   const verb = mode === "signup" ? "Sign up" : "Sign in";
+  /** Guests open this from Profile — show close. First-time users use guest CTA instead. */
+  const showClose = isGuest;
+
+  const onClose = useCallback(() => {
+    // Guests open this from Profile — prefer a normal back so we don't
+    // dismissAll() past the tabs stack into index → onboarding.
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    if (isGuest) {
+      router.replace("/(tabs)/profile");
+      return;
+    }
+    router.replace("/");
+  }, [router, isGuest]);
+
+  const switchMode = useCallback(
+    (next: "signin" | "signup") => {
+      // Initial login only — do not push another login screen onto the stack.
+      router.setParams({ mode: next });
+    },
+    [router],
+  );
 
   const onContinueAsGuest = useCallback(async () => {
     setGuestBusy(true);
@@ -112,25 +136,21 @@ export default function LoginScreen() {
       <AuthWelcomeRiveBackground style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-        <Pressable
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace("/");
-            }
-          }}
-          hitSlop={12}
-          style={styles.closeBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        >
-          <MaterialIcons
-            name="close"
-            size={22}
-            color={authWelcomeTheme.buttonText}
-          />
-        </Pressable>
+        {showClose ? (
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={styles.closeBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <MaterialIcons
+              name="close"
+              size={22}
+              color={authWelcomeTheme.buttonText}
+            />
+          </Pressable>
+        ) : null}
 
         <View style={styles.column}>
           <AuthWelcomeHeader />
@@ -189,35 +209,43 @@ export default function LoginScreen() {
               }
             />
 
-            <View style={styles.divider} />
+            {/* Mode switch + guest CTA: first launch / after exiting guest.
+                Hidden when a guest opens this from Profile (separate CTAs). */}
+            {!isGuest ? (
+              <>
+                <View style={styles.divider} />
 
-            {mode === "signup" ? (
-              <Link href="/(auth)/login?mode=signin" asChild>
-                <Pressable style={styles.switchHit}>
-                  <AppText variant="paragraph" style={styles.switchText}>
-                    Sign in
+                {mode === "signup" ? (
+                  <Pressable
+                    style={styles.switchHit}
+                    onPress={() => switchMode("signin")}
+                  >
+                    <AppText variant="paragraph" style={styles.switchText}>
+                      Sign in
+                    </AppText>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.switchHit}
+                    onPress={() => switchMode("signup")}
+                  >
+                    <AppText variant="paragraph" style={styles.switchText}>
+                      Sign Up
+                    </AppText>
+                  </Pressable>
+                )}
+
+                <Pressable
+                  style={styles.guestHit}
+                  onPress={() => void onContinueAsGuest()}
+                  disabled={guestBusy}
+                >
+                  <AppText variant="small" style={styles.guestText}>
+                    {guestBusy ? "Starting…" : "Continue without an account"}
                   </AppText>
                 </Pressable>
-              </Link>
-            ) : (
-              <Link href="/(auth)/login?mode=signup" asChild>
-                <Pressable style={styles.switchHit}>
-                  <AppText variant="paragraph" style={styles.switchText}>
-                    Sign Up
-                  </AppText>
-                </Pressable>
-              </Link>
-            )}
-
-            <Pressable
-              style={styles.guestHit}
-              onPress={() => void onContinueAsGuest()}
-              disabled={guestBusy}
-            >
-              <AppText variant="small" style={styles.guestText}>
-                {guestBusy ? "Starting…" : "Continue without an account"}
-              </AppText>
-            </Pressable>
+              </>
+            ) : null}
           </View>
         </View>
       </SafeAreaView>

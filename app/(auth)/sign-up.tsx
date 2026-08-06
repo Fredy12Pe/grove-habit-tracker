@@ -8,7 +8,7 @@ import {
   signInHintToNavigation,
 } from "@/lib/auth-signin-hint";
 import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
-import { Link, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -24,7 +24,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { signUp, signIn, supabaseConfigured, waitForGuestMigrationIfAny } = useAuth();
+  const {
+    signUp,
+    signIn,
+    supabaseConfigured,
+    waitForGuestMigrationIfAny,
+    isGuest,
+  } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -96,9 +102,11 @@ export default function SignUpScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login?mode=signup");
     }
   }, [router]);
+
+  const canSubmit = email.trim().length > 0 && password.length >= 6;
 
   return (
     <View style={styles.root}>
@@ -191,10 +199,10 @@ export default function SignUpScreen() {
               <Pressable
                 style={[
                   styles.primaryBtn,
-                  submitting && styles.primaryBtnDisabled,
+                  (!canSubmit || submitting) && styles.primaryBtnDisabled,
                 ]}
                 onPress={onSubmit}
-                disabled={submitting}
+                disabled={!canSubmit || submitting}
               >
                 {submitting ? (
                   <ActivityIndicator color={authWelcomeTheme.buttonText} />
@@ -205,20 +213,26 @@ export default function SignUpScreen() {
                 )}
               </Pressable>
 
-              <View style={styles.divider} />
+              {!isGuest ? (
+                <>
+                  <View style={styles.divider} />
 
-              <View style={styles.footer}>
-                <AppText variant="paragraph" style={styles.footerText}>
-                  Already have an account?{" "}
-                </AppText>
-                <Link href="/(auth)/login" asChild>
-                  <Pressable>
-                    <AppText variant="paragraph" style={styles.footerLink}>
-                      Sign in
+                  <View style={styles.footer}>
+                    <AppText variant="paragraph" style={styles.footerText}>
+                      Already have an account?{" "}
                     </AppText>
-                  </Pressable>
-                </Link>
-              </View>
+                    <Pressable
+                      onPress={() => router.replace("/(auth)/login-email")}
+                      accessibilityRole="button"
+                      accessibilityLabel="Sign in"
+                    >
+                      <AppText variant="paragraph" style={styles.footerLink}>
+                        Sign in
+                      </AppText>
+                    </Pressable>
+                  </View>
+                </>
+              ) : null}
             </View>
           </View>
         </KeyboardAvoidingView>

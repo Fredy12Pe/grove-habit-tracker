@@ -3,7 +3,7 @@ import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/contexts/auth-context";
 import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,7 +19,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function LoginEmailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ prefillEmail?: string | string[] }>();
-  const { signIn, supabaseConfigured, waitForGuestMigrationIfAny } = useAuth();
+  const { signIn, supabaseConfigured, waitForGuestMigrationIfAny, isGuest } =
+    useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -61,9 +62,11 @@ export default function LoginEmailScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login?mode=signin");
     }
   }, [router]);
+
+  const canSubmit = email.trim().length > 0 && password.length > 0;
 
   return (
     <View style={styles.root}>
@@ -156,10 +159,10 @@ export default function LoginEmailScreen() {
               <Pressable
                 style={[
                   styles.primaryBtn,
-                  submitting && styles.primaryBtnDisabled,
+                  (!canSubmit || submitting) && styles.primaryBtnDisabled,
                 ]}
                 onPress={onSubmit}
-                disabled={submitting}
+                disabled={!canSubmit || submitting}
               >
                 {submitting ? (
                   <ActivityIndicator color={authWelcomeTheme.buttonText} />
@@ -170,20 +173,26 @@ export default function LoginEmailScreen() {
                 )}
               </Pressable>
 
-              <View style={styles.divider} />
+              {!isGuest ? (
+                <>
+                  <View style={styles.divider} />
 
-              <View style={styles.footer}>
-                <AppText variant="paragraph" style={styles.footerText}>
-                  No account?{" "}
-                </AppText>
-                <Link href="/(auth)/sign-up" asChild>
-                  <Pressable>
-                    <AppText variant="paragraph" style={styles.footerLink}>
-                      Create one
+                  <View style={styles.footer}>
+                    <AppText variant="paragraph" style={styles.footerText}>
+                      No account?{" "}
                     </AppText>
-                  </Pressable>
-                </Link>
-              </View>
+                    <Pressable
+                      onPress={() => router.replace("/(auth)/sign-up")}
+                      accessibilityRole="button"
+                      accessibilityLabel="Create an account"
+                    >
+                      <AppText variant="paragraph" style={styles.footerLink}>
+                        Create one
+                      </AppText>
+                    </Pressable>
+                  </View>
+                </>
+              ) : null}
             </View>
           </View>
         </KeyboardAvoidingView>

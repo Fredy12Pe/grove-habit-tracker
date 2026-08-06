@@ -8,7 +8,12 @@ import { getSupabase } from "@/lib/supabase";
 import { isSupabaseConfigured } from "@/lib/supabase-env";
 import { useAvatarPreviewStore } from "@/lib/store/useAvatarPreviewStore";
 import { getDisplayName } from "@/lib/user-display";
-import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
+import {
+  GroveBorderRadius,
+  GroveColors,
+  GroveFontFamily,
+  GroveSpacing,
+} from "@/styles/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { useRecoverOrphanedSession } from "@/hooks/useRecoverOrphanedSession";
 import { Image } from "expo-image";
@@ -184,7 +189,7 @@ export default function OnboardingProfileSetupScreen() {
           <IconSymbol
             name="chevron.left"
             size={18}
-            color={GroveColors.primaryText}
+            color={GroveColors.secondaryText}
           />
           <AppText variant="paragraph" style={styles.backLabel}>
             Back
@@ -285,7 +290,7 @@ export default function OnboardingProfileSetupScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: GroveColors.background,
+    backgroundColor: GroveColors.white,
   },
   headerNav: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
@@ -298,7 +303,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backLabel: {
-    color: GroveColors.primaryText,
+    color: GroveColors.secondaryText,
     fontSize: 15,
     fontWeight: "500",
   },
@@ -310,20 +315,17 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   title: {
-    color: "#4A6B2A",
-    fontWeight: "700",
     textAlign: "center",
     marginBottom: 10,
   },
   subtitle: {
-    color: "#5C7D3C",
     textAlign: "center",
     marginBottom: 28,
     lineHeight: 22,
   },
   fieldLabel: {
-    color: "#4A6B2A",
-    fontWeight: "700",
+    color: GroveColors.deepText,
+    fontWeight: "600",
     fontSize: 15,
     marginBottom: 8,
     textTransform: "lowercase",
@@ -334,12 +336,13 @@ const styles = StyleSheet.create({
   nameInput: {
     borderWidth: 1.5,
     borderColor: GroveColors.outline,
-    backgroundColor: GroveColors.white,
+    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.button,
     paddingVertical: 14,
     paddingHorizontal: 16,
+    fontFamily: GroveFontFamily,
     fontSize: 16,
-    color: GroveColors.primaryText,
+    color: GroveColors.deepText,
     fontWeight: "500",
   },
   photoBox: {
@@ -349,7 +352,7 @@ const styles = StyleSheet.create({
     borderRadius: GroveBorderRadius.card,
     borderWidth: 1.5,
     borderColor: GroveColors.outline,
-    backgroundColor: GroveColors.cardBackground,
+    backgroundColor: GroveColors.softSurface,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
@@ -364,7 +367,7 @@ const styles = StyleSheet.create({
   },
   photoLoading: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(249, 250, 241, 0.75)",
+    backgroundColor: "rgba(255, 255, 255, 0.72)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -388,7 +391,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     color: GroveColors.white,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   helper: {
     color: GroveColors.secondaryText,
