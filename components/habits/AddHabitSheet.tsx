@@ -14,7 +14,8 @@ import {
 import { useRouter } from 'expo-router';
 import { AppText } from '@/components/ui/AppText';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { GroveBorderRadius, GroveColors, GroveSpacing } from '@/styles/theme';
+import { useGroveColors } from '@/hooks/useGroveColors';
+import { GroveBorderRadius, GroveSpacing } from '@/styles/theme';
 import {
   CATALOG_ICON_MAP,
   CATALOG_ID_SET,
@@ -45,6 +46,7 @@ interface AddHabitSheetProps {
  * Avoids leaving a mounted Modal with `visible={false}`, which can block touches on some platforms.
  */
 export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitSheetProps) {
+  const colors = useGroveColors();
   const router = useRouter();
   const storeHabits = useHabitStore((s) => s.habits);
   const [selected, setSelected] = useState<Set<string>>(
@@ -118,14 +120,14 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
+        <View style={[styles.sheet, { backgroundColor: colors.white }]}>
+          <View style={[styles.handle, { backgroundColor: colors.inactive }]} />
 
           <View style={styles.titleRow}>
-            <AppText variant="h2" style={styles.title}>
+            <AppText variant="h2" style={[styles.title, { color: colors.deepText }]}>
               Add Habits
             </AppText>
-            <AppText variant="small" style={styles.counter}>
+            <AppText variant="small" style={[styles.counter, { color: colors.secondaryText }]}>
               {Math.min(MAX_ACTIVE_HABITS, selected.size)}/{MAX_ACTIVE_HABITS}
             </AppText>
             <View style={styles.titleActions}>
@@ -134,7 +136,7 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <IconSymbol name="xmark" size={18} color={GroveColors.secondaryText} />
+                <IconSymbol name="xmark" size={18} color={colors.secondaryText} />
               </TouchableOpacity>
             </View>
           </View>
@@ -146,40 +148,52 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
             keyboardShouldPersistTaps="handled"
           >
             <AddCustomHabitRow
-              style={styles.addCustomHabitInSheet}
+              style={{ ...styles.addCustomHabitInSheet, backgroundColor: colors.softSurface }}
               onPress={openAddCustom}
             />
             {sections.map((section) => (
               <View key={section.title} style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <AppText variant="paragraph" style={styles.sectionTitle}>
+                  <AppText variant="paragraph" style={[styles.sectionTitle, { color: colors.deepText }]}>
                     {section.title}
                   </AppText>
-                  <IconSymbol name="chevron.right" size={14} color={GroveColors.secondaryText} />
+                  <IconSymbol name="chevron.right" size={14} color={colors.secondaryText} />
                 </View>
 
-                <View style={styles.habitList}>
+                <View style={[styles.habitList, { backgroundColor: colors.softSurface }]}>
                   {section.habits.map((habit) => {
                     const isChecked = selected.has(habit.id);
                     return (
                       <TouchableOpacity
                         key={habit.id}
-                        style={styles.habitRow}
+                        style={[styles.habitRow, { borderBottomColor: colors.divider }]}
                         onPress={() => toggle(habit.id)}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.iconWrap}>
+                        <View style={[styles.iconWrap, { backgroundColor: colors.white }]}>
                           <Image source={habit.icon} style={styles.icon} resizeMode="contain" />
                         </View>
-                        <AppText variant="paragraph" style={styles.habitName}>
+                        <AppText variant="paragraph" style={[styles.habitName, { color: colors.deepText }]}>
                           {habit.name}
                         </AppText>
-                        <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                        <View
+                          style={[
+                            styles.checkbox,
+                            {
+                              borderColor: colors.inactive,
+                              backgroundColor: colors.white,
+                            },
+                            isChecked && {
+                              backgroundColor: colors.primaryGreen,
+                              borderColor: colors.primaryGreen,
+                            },
+                          ]}
+                        >
                           {isChecked && (
                             <IconSymbol
                               name="checkmark"
                               size={12}
-                              color={GroveColors.white}
+                              color={colors.onAccent}
                               weight="bold"
                             />
                           )}
@@ -193,8 +207,12 @@ export function AddHabitSheet({ activeHabitIds, onClose, onUpdate }: AddHabitShe
           </ScrollView>
 
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.updateBtn} onPress={handleUpdate} activeOpacity={0.85}>
-              <AppText variant="paragraph" style={styles.updateBtnText}>
+            <TouchableOpacity
+              style={[styles.updateBtn, { backgroundColor: colors.primaryGreen }]}
+              onPress={handleUpdate}
+              activeOpacity={0.85}
+            >
+              <AppText variant="paragraph" style={[styles.updateBtnText, { color: colors.onAccent }]}>
                 Update
               </AppText>
             </TouchableOpacity>
@@ -217,7 +235,6 @@ const styles = StyleSheet.create({
   },
   sheet: {
     height: SHEET_HEIGHT,
-    backgroundColor: GroveColors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 32,
@@ -228,7 +245,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: GroveColors.inactive,
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 4,
@@ -245,10 +261,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: GroveColors.deepText,
   },
   counter: {
-    color: GroveColors.secondaryText,
     marginRight: 6,
   },
   titleActions: {
@@ -258,7 +272,6 @@ const styles = StyleSheet.create({
   },
   addCustomHabitInSheet: {
     marginBottom: 16,
-    backgroundColor: GroveColors.softSurface,
   },
   scroll: {
     flex: 1,
@@ -279,10 +292,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: GroveColors.deepText,
   },
   habitList: {
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     overflow: 'hidden',
   },
@@ -293,13 +304,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.divider,
   },
   iconWrap: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: GroveColors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -310,7 +319,6 @@ const styles = StyleSheet.create({
   habitName: {
     flex: 1,
     fontSize: 14,
-    color: GroveColors.deepText,
     fontWeight: '500',
   },
   checkbox: {
@@ -318,27 +326,19 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: GroveColors.inactive,
-    backgroundColor: GroveColors.white,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: GroveColors.primaryGreen,
-    borderColor: GroveColors.primaryGreen,
   },
   footer: {
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
     paddingTop: 12,
   },
   updateBtn: {
-    backgroundColor: GroveColors.primaryGreen,
     borderRadius: 999,
     paddingVertical: 16,
     alignItems: 'center',
   },
   updateBtnText: {
-    color: GroveColors.white,
     fontSize: 16,
     fontWeight: '600',
   },

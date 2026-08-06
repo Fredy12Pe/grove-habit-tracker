@@ -5,35 +5,101 @@
 
 import { Platform } from "react-native";
 
-export const GroveColors = {
+export type ColorSchemeName = "light" | "dark";
+
+/** Shared shape for light and dark Grove palettes. */
+export type GroveColorPalette = {
+  primaryGreen: string;
+  accentLime: string;
+  accentLimeSoft: string;
+  limeMuted: string;
+  background: string;
+  cardBackground: string;
+  softSurface: string;
+  /** Screen / elevated “paper” surface (white in light mode) */
+  white: string;
+  primaryText: string;
+  deepText: string;
+  secondaryText: string;
+  inactive: string;
+  mutedGray: string;
+  streakFlame: string;
+  outline: string;
+  divider: string;
+  error: string;
+  /** Hairline borders on pills / cards */
+  borderSubtle: string;
+  /** Status-bar fade veil (matches screen surface) */
+  statusBarFade: string;
+  /** Floating tab bar fill */
+  tabBar: string;
+  /** Text / icons on lime or green accent fills (always light) */
+  onAccent: string;
+};
+
+export const GrovePaletteLight: GroveColorPalette = {
   primaryGreen: "#A7DE33",
-  /** Figma home lime accents */
   accentLime: "#C5EA47",
   accentLimeSoft: "#BADF3D",
-  /** Muted green for lime-card secondary copy */
   limeMuted: "#8AA335",
   background: "#F9FAF1",
   cardBackground: "#F2F1E4",
-  /** Soft surface used on home progress card / tab bar */
   softSurface: "#F8F9F9",
   white: "#FFFFFF",
   primaryText: "#7C7B67",
-  /** Deep charcoal for home headers / names */
   deepText: "#213242",
   secondaryText: "#807E71",
-  /** Light gray for inactive progress, outlines */
   inactive: "#E0E0E0",
-  /** Figma inactive habit / muted label */
   mutedGray: "#B7BDC1",
-  /** Streak flame */
   streakFlame: "#FF8C00",
-  /** Form fields, onboarding wells — matches primaryText tint */
   outline: "rgba(124, 123, 103, 0.22)",
-  /** Section dividers (e.g. sticky footers) */
   divider: "rgba(124, 123, 103, 0.12)",
-  /** Inline errors */
   error: "#B3261E",
+  borderSubtle: "rgba(0, 0, 0, 0.1)",
+  statusBarFade: "#FFFFFF",
+  tabBar: "#E8EAEB",
+  onAccent: "#FFFFFF",
+};
+
+/** Forest-night surfaces with Grove lime accents. */
+export const GrovePaletteDark: GroveColorPalette = {
+  primaryGreen: "#A7DE33",
+  accentLime: "#C5EA47",
+  accentLimeSoft: "#BADF3D",
+  limeMuted: "#5E7028",
+  background: "#141A17",
+  cardBackground: "#1E2823",
+  softSurface: "#24302B",
+  white: "#1A221E",
+  primaryText: "#A8A996",
+  deepText: "#F0F2E8",
+  secondaryText: "#9A9B8A",
+  inactive: "#3A4540",
+  mutedGray: "#6B736C",
+  streakFlame: "#FF9F2E",
+  outline: "rgba(240, 242, 232, 0.14)",
+  divider: "rgba(240, 242, 232, 0.1)",
+  error: "#E57373",
+  borderSubtle: "rgba(255, 255, 255, 0.12)",
+  statusBarFade: "#1A221E",
+  tabBar: "#222C28",
+  onAccent: "#FFFFFF",
+};
+
+export const GrovePalettes = {
+  light: GrovePaletteLight,
+  dark: GrovePaletteDark,
 } as const;
+
+/**
+ * Default light tokens — prefer `useGroveColors()` for theme-aware UI.
+ * Kept for call sites that only render in light / static contexts.
+ */
+export const GroveColors = GrovePaletteLight;
+
+export function getGroveColors(scheme: ColorSchemeName): GroveColorPalette {
+  return GrovePalettes[scheme];
+}
 
 export const GroveSpacing = {
   screenPaddingHorizontal: 20,
@@ -64,7 +130,7 @@ export const GroveFontFamily = Platform.select({
 
 /**
  * Figma type scale — SF Pro Rounded at Semibold (600) unless noted.
- * Sizes from Grove Home Screen: 24 name, 20 titles, 18 habits, 14 labels.
+ * Color is applied by AppText from the active palette.
  */
 export const GroveTypography = {
   /** Display / profile name — 24 Semibold */
@@ -72,7 +138,6 @@ export const GroveTypography = {
     fontFamily: GroveFontFamily,
     fontSize: 24,
     fontWeight: "600" as const,
-    color: GroveColors.deepText,
     lineHeight: 30,
   },
   /** Section titles — 20 Semibold */
@@ -80,7 +145,6 @@ export const GroveTypography = {
     fontFamily: GroveFontFamily,
     fontSize: 20,
     fontWeight: "600" as const,
-    color: GroveColors.deepText,
     lineHeight: 26,
   },
   /** Card headings — 18 Semibold */
@@ -88,7 +152,6 @@ export const GroveTypography = {
     fontFamily: GroveFontFamily,
     fontSize: 18,
     fontWeight: "600" as const,
-    color: GroveColors.deepText,
     lineHeight: 24,
   },
   /** Body / habit rows — 16 Medium */
@@ -96,7 +159,6 @@ export const GroveTypography = {
     fontFamily: GroveFontFamily,
     fontSize: 16,
     fontWeight: "500" as const,
-    color: GroveColors.secondaryText,
     lineHeight: 22,
   },
   /** Supporting copy — 14 Regular */
@@ -104,7 +166,6 @@ export const GroveTypography = {
     fontFamily: GroveFontFamily,
     fontSize: 14,
     fontWeight: "400" as const,
-    color: GroveColors.secondaryText,
     lineHeight: 20,
   },
   /** Labels / streak / tab — 14 Semibold */
@@ -112,7 +173,19 @@ export const GroveTypography = {
     fontFamily: GroveFontFamily,
     fontSize: 14,
     fontWeight: "600" as const,
-    color: GroveColors.secondaryText,
     lineHeight: 18,
   },
 } as const;
+
+/** Default text color key per typography variant. */
+export const GroveTypographyColorKey = {
+  display: "deepText",
+  h1: "deepText",
+  h2: "deepText",
+  paragraph: "secondaryText",
+  paragraphRegular: "secondaryText",
+  small: "secondaryText",
+} as const satisfies Record<
+  keyof typeof GroveTypography,
+  keyof GroveColorPalette
+>;

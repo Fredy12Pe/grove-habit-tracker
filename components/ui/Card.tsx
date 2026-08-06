@@ -1,14 +1,23 @@
 import React from 'react';
 import { StyleSheet, View, type ViewProps } from 'react-native';
-import { GroveBorderRadius, GroveColors, GroveSpacing } from '@/styles/theme';
+import { useGroveColors } from '@/hooks/useGroveColors';
+import { GroveBorderRadius, GroveSpacing } from '@/styles/theme';
 
 interface CardProps extends ViewProps {
   children: React.ReactNode;
 }
 
 export function Card({ children, style, ...rest }: CardProps) {
+  const colors = useGroveColors();
   return (
-    <View style={[styles.card, style]} {...rest}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.cardBackground },
+        style,
+      ]}
+      {...rest}
+    >
       {children}
     </View>
   );
@@ -16,7 +25,6 @@ export function Card({ children, style, ...rest }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: GroveColors.cardBackground,
     borderRadius: GroveBorderRadius.card,
     paddingHorizontal: GroveSpacing.cardPaddingHorizontal,
     paddingVertical: GroveSpacing.cardPaddingVertical,

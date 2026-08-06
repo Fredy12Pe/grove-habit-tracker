@@ -4,13 +4,15 @@ import { AppText } from "@/components/ui/AppText";
 import { Card } from "@/components/ui/Card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProfileAvatar } from "@/components/ui/ProfileAvatar";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useResolvedAvatarUri } from "@/hooks/useResolvedAvatarUri";
+import { useGroveColors } from "@/hooks/useGroveColors";
 import { useAuth } from "@/contexts/auth-context";
 import { calendarDateKey } from "@/lib/calendarDate";
 import { useHabitStore } from "@/lib/store";
 import { getCurrentStreak } from "@/lib/stats";
 import { getDisplayName } from "@/lib/user-display";
-import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
+import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import {
@@ -33,6 +35,7 @@ function streakLabel(days: number): string {
 export default function GardenScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useGroveColors();
   const { user, session, isGuest, guestDisplayName, guestAvatarUri } = useAuth();
   const displayName = isGuest ? guestDisplayName ?? "Gardener" : getDisplayName(user);
   const resolvedAvatarUri = useResolvedAvatarUri(user) ?? (isGuest ? guestAvatarUri : null);
@@ -56,7 +59,7 @@ export default function GardenScreen() {
   const statusBarFadeHeight = insets.top + 20;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.white }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -69,7 +72,7 @@ export default function GardenScreen() {
         <View style={styles.header}>
           <View style={styles.profileRow}>
             <TouchableOpacity
-              style={styles.avatarWrap}
+              style={[styles.avatarWrap, { backgroundColor: colors.softSurface }]}
               onPress={() =>
                 router.push({
                   pathname: "/(tabs)/profile",
@@ -88,7 +91,7 @@ export default function GardenScreen() {
                   <IconSymbol
                     name="leaf.fill"
                     size={22}
-                    color={GroveColors.accentLime}
+                    color={colors.accentLime}
                   />
                 }
               />
@@ -98,22 +101,33 @@ export default function GardenScreen() {
             </AppText>
           </View>
           <View style={styles.headerRight}>
-            <View style={styles.streakPill}>
+            <View
+              style={[
+                styles.streakPill,
+                {
+                  backgroundColor: colors.white,
+                  borderColor: colors.borderSubtle,
+                },
+              ]}
+            >
               <IconSymbol
                 name="flame.fill"
                 size={14}
-                color={GroveColors.streakFlame}
+                color={colors.streakFlame}
               />
-              <AppText variant="small" style={styles.streakText}>
+              <AppText variant="small" style={{ color: colors.deepText }}>
                 {streakLabel(currentStreak)}
               </AppText>
             </View>
+            <ThemeToggle />
           </View>
         </View>
 
         {/* Garden game preview — tap to open full game; preview fills card only */}
         <View style={styles.gardenCardWrap}>
-          <Card style={styles.gardenCard}>
+          <Card
+            style={[styles.gardenCard, { backgroundColor: colors.accentLime }]}
+          >
             <GamePreview />
           </Card>
         </View>
@@ -144,8 +158,8 @@ export default function GardenScreen() {
         <Svg width={SCREEN_W} height={statusBarFadeHeight}>
           <Defs>
             <LinearGradient id="homeStatusBarFade" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={1} />
-              <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0" stopColor={colors.statusBarFade} stopOpacity={1} />
+              <Stop offset="1" stopColor={colors.statusBarFade} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           <Rect
@@ -162,7 +176,6 @@ export default function GardenScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: GroveColors.white,
   },
   statusBarFade: {
     position: "absolute",
@@ -194,7 +207,6 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     overflow: "hidden",
-    backgroundColor: GroveColors.softSurface,
   },
   avatarImage: {
     width: "100%",
@@ -206,7 +218,7 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 10,
   },
   streakPill: {
     flexDirection: "row",
@@ -215,12 +227,7 @@ const styles = StyleSheet.create({
     height: 42,
     paddingHorizontal: 16,
     borderRadius: 40,
-    backgroundColor: GroveColors.white,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.1)",
-  },
-  streakText: {
-    color: GroveColors.deepText,
   },
   gardenCardWrap: {
     width: "100%",
@@ -234,7 +241,6 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     overflow: "hidden",
     borderRadius: GroveBorderRadius.homeCard,
-    backgroundColor: GroveColors.accentLime,
   },
   section: {
     marginBottom: GroveSpacing.sectionGap,

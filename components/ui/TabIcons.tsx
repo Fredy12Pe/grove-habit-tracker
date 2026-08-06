@@ -2,7 +2,6 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Path, type SvgProps } from "react-native-svg";
 
-import { GroveColors } from "@/styles/theme";
 
 type TabIconProps = {
   focused: boolean;
@@ -55,7 +54,7 @@ export function TabHabitsIcon({ focused, color, size = 24, ...props }: TabIconPr
         />
         <Path
           d="M8 12L11 15L17 9"
-          stroke={focused ? GroveColors.white : color}
+          stroke={focused ? "#FFFFFF" : color}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"

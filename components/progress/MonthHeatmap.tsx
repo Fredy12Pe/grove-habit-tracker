@@ -1,4 +1,4 @@
-import { GroveColors } from "@/styles/theme";
+import { useGroveColors } from "@/hooks/useGroveColors";
 import React, { useState } from "react";
 import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 
@@ -6,9 +6,8 @@ const CELL_GAP = 3;
 const COLS = 7;
 const MAX_CELL_SIZE = 22;
 const MIN_CELL_SIZE = 14;
-const EMPTY_CELL = GroveColors.inactive;
 /** Low-opacity day numbers so the fill color stays primary. */
-const DAY_NUMBER_COLOR = "rgba(45, 55, 72, 0.16)";
+const DAY_NUMBER_OPACITY = 0.16;
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const raw = hex.replace("#", "").trim();
@@ -23,12 +22,21 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
 }
 
-function interpolateColor(hex: string, intensity: number): string {
+function hexToRgba(hex: string, alpha: number): string {
   const { r, g, b } = hexToRgb(hex);
-  const white = 0xff;
-  const r2 = Math.round(white + (r - white) * intensity);
-  const g2 = Math.round(white + (g - white) * intensity);
-  const b2 = Math.round(white + (b - white) * intensity);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function interpolateColor(
+  hex: string,
+  intensity: number,
+  surface: string,
+): string {
+  const { r, g, b } = hexToRgb(hex);
+  const s = hexToRgb(surface);
+  const r2 = Math.round(s.r + (r - s.r) * intensity);
+  const g2 = Math.round(s.g + (g - s.g) * intensity);
+  const b2 = Math.round(s.b + (b - s.b) * intensity);
   return `rgb(${r2},${g2},${b2})`;
 }
 
@@ -46,12 +54,14 @@ export function MonthHeatmap({
   getActivity,
   color,
 }: MonthHeatmapProps) {
+  const colors = useGroveColors();
   const [cellSize, setCellSize] = useState(MAX_CELL_SIZE);
   const lastDay = new Date(year, month + 1, 0).getDate();
   // Sunday-start calendar: pad leading empty cells so day 1 lands on the right weekday.
   const startOffset = new Date(year, month, 1).getDay();
   const days = Array.from({ length: lastDay }, (_, i) => i + 1);
   const fontSize = Math.max(8, Math.round(cellSize * 0.45));
+  const dayNumberColor = hexToRgba(colors.deepText, DAY_NUMBER_OPACITY);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
@@ -74,8 +84,8 @@ export function MonthHeatmap({
           const activity = getActivity(day, date);
           const bg =
             activity <= 0
-              ? EMPTY_CELL
-              : interpolateColor(color, 0.35 + 0.65 * activity);
+              ? colors.inactive
+              : interpolateColor(color, 0.35 + 0.65 * activity, colors.white);
           return (
             <View
               key={day}
@@ -88,7 +98,11 @@ export function MonthHeatmap({
                 },
               ]}
             >
-              <Text style={[styles.dayNumber, { fontSize }]}>{day}</Text>
+              <Text
+                style={[styles.dayNumber, { fontSize, color: dayNumberColor }]}
+              >
+                {day}
+              </Text>
             </View>
           );
         })}
@@ -112,7 +126,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dayNumber: {
-    color: DAY_NUMBER_COLOR,
     fontWeight: "500",
     includeFontPadding: false,
     textAlign: "center",

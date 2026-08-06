@@ -2,6 +2,7 @@ import { HABIT_CARD_THEMES } from "@/components/habits/HabitRow";
 import { MonthHeatmap } from "@/components/progress/MonthHeatmap";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useGroveColors } from "@/hooks/useGroveColors";
 import { CATALOG_ICON_MAP, HABIT_CATALOG } from "@/lib/habitCatalog";
 import { calendarDateKey } from "@/lib/calendarDate";
 import { useHabitStore } from "@/lib/store";
@@ -10,7 +11,7 @@ import {
   getCompletionsInMonth,
   getCurrentStreak,
 } from "@/lib/stats";
-import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
+import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -54,6 +55,7 @@ function habitHeatColor(
 }
 
 export default function ProgressScreen() {
+  const colors = useGroveColors();
   const [selectedMonth, setSelectedMonth] = useState(() =>
     startOfMonth(new Date()),
   );
@@ -117,7 +119,10 @@ export default function ProgressScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.white }]}
+      edges={["top"]}
+    >
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -125,15 +130,24 @@ export default function ProgressScreen() {
       >
         {/* Header: title + current month (tappable) */}
         <View style={styles.header}>
-          <AppText variant="h1" style={styles.title}>
+          <AppText variant="h1" style={[styles.title, { color: colors.deepText }]}>
             Progress
           </AppText>
           <TouchableOpacity
-            style={styles.monthPill}
+            style={[
+              styles.monthPill,
+              {
+                backgroundColor: colors.white,
+                borderColor: colors.borderSubtle,
+              },
+            ]}
             onPress={() => setPickerVisible(true)}
             activeOpacity={0.7}
           >
-            <AppText variant="paragraph" style={styles.monthPillText}>
+            <AppText
+              variant="paragraph"
+              style={[styles.monthPillText, { color: colors.deepText }]}
+            >
               {monthLabel}
             </AppText>
           </TouchableOpacity>
@@ -142,48 +156,81 @@ export default function ProgressScreen() {
         {/* Records: stat cards */}
         <View style={styles.recordsSection}>
           <View style={styles.recordsRow}>
-            <View style={styles.recordCard}>
+            <View
+              style={[
+                styles.recordCard,
+                { backgroundColor: colors.softSurface },
+              ]}
+            >
               <View style={styles.recordIconNumberRow}>
                 <IconSymbol
                   name="calendar"
                   size={18}
-                  color={GroveColors.deepText}
+                  color={colors.deepText}
                 />
-                <AppText variant="h2" style={styles.recordNumber}>
+                <AppText
+                  variant="h2"
+                  style={[styles.recordNumber, { color: colors.deepText }]}
+                >
                   {records.daysInMonth}
                 </AppText>
               </View>
-              <AppText variant="small" style={styles.recordLabel}>
+              <AppText
+                variant="small"
+                style={[styles.recordLabel, { color: colors.mutedGray }]}
+              >
                 Days
               </AppText>
             </View>
-            <View style={styles.recordCard}>
+            <View
+              style={[
+                styles.recordCard,
+                { backgroundColor: colors.softSurface },
+              ]}
+            >
               <View style={styles.recordIconNumberRow}>
                 <IconSymbol
                   name="checkmark.circle.fill"
                   size={18}
-                  color={GroveColors.accentLime}
+                  color={colors.accentLime}
                 />
-                <AppText variant="h2" style={styles.recordNumber}>
+                <AppText
+                  variant="h2"
+                  style={[styles.recordNumber, { color: colors.deepText }]}
+                >
                   {records.completionsInMonth}
                 </AppText>
               </View>
-              <AppText variant="small" style={styles.recordLabel}>
+              <AppText
+                variant="small"
+                style={[styles.recordLabel, { color: colors.mutedGray }]}
+              >
                 Completions
               </AppText>
             </View>
-            <View style={styles.recordCard}>
+            <View
+              style={[
+                styles.recordCard,
+                { backgroundColor: colors.softSurface },
+              ]}
+            >
               <View style={styles.recordIconNumberRow}>
                 <IconSymbol
                   name="flame.fill"
                   size={18}
-                  color={GroveColors.streakFlame}
+                  color={colors.streakFlame}
                 />
-                <AppText variant="h2" style={styles.recordNumber}>
+                <AppText
+                  variant="h2"
+                  style={[styles.recordNumber, { color: colors.deepText }]}
+                >
                   {records.currentStreak}
                 </AppText>
               </View>
-              <AppText variant="small" style={styles.recordLabel}>
+              <AppText
+                variant="small"
+                style={[styles.recordLabel, { color: colors.mutedGray }]}
+              >
                 Streak
               </AppText>
             </View>
@@ -198,10 +245,21 @@ export default function ProgressScreen() {
               CATALOG_ICON_MAP[habit.customIconCatalogId ?? habit.id] ??
               HABIT_CATALOG[0]?.icon;
             return (
-              <View key={habit.id} style={styles.habitCard}>
+              <View
+                key={habit.id}
+                style={[
+                  styles.habitCard,
+                  { backgroundColor: colors.softSurface },
+                ]}
+              >
                 <View style={styles.habitHeader}>
                   {icon != null && (
-                    <View style={styles.habitIconWell}>
+                    <View
+                      style={[
+                        styles.habitIconWell,
+                        { backgroundColor: colors.white },
+                      ]}
+                    >
                       <Image
                         source={icon}
                         style={styles.habitIcon}
@@ -211,7 +269,7 @@ export default function ProgressScreen() {
                   )}
                   <AppText
                     variant="paragraph"
-                    style={styles.habitName}
+                    style={[styles.habitName, { color: colors.deepText }]}
                     numberOfLines={1}
                   >
                     {habit.name}
@@ -242,10 +300,13 @@ export default function ProgressScreen() {
           onPress={() => setPickerVisible(false)}
         >
           <View
-            style={styles.pickerCard}
+            style={[styles.pickerCard, { backgroundColor: colors.white }]}
             onStartShouldSetResponder={() => true}
           >
-            <AppText variant="h2" style={styles.pickerTitle}>
+            <AppText
+              variant="h2"
+              style={[styles.pickerTitle, { color: colors.deepText }]}
+            >
               Choose month
             </AppText>
             <View style={styles.pickerRow}>
@@ -254,9 +315,16 @@ export default function ProgressScreen() {
                 style={styles.pickerBtn}
                 hitSlop={12}
               >
-                <AppText style={styles.pickerBtnText}>‹ Year</AppText>
+                <AppText
+                  style={[styles.pickerBtnText, { color: colors.primaryGreen }]}
+                >
+                  ‹ Year
+                </AppText>
               </TouchableOpacity>
-              <AppText variant="paragraph" style={styles.pickerValue}>
+              <AppText
+                variant="paragraph"
+                style={[styles.pickerValue, { color: colors.deepText }]}
+              >
                 {year}
               </AppText>
               <TouchableOpacity
@@ -264,7 +332,11 @@ export default function ProgressScreen() {
                 style={styles.pickerBtn}
                 hitSlop={12}
               >
-                <AppText style={styles.pickerBtnText}>Year ›</AppText>
+                <AppText
+                  style={[styles.pickerBtnText, { color: colors.primaryGreen }]}
+                >
+                  Year ›
+                </AppText>
               </TouchableOpacity>
             </View>
             <View style={styles.pickerRow}>
@@ -273,9 +345,16 @@ export default function ProgressScreen() {
                 style={styles.pickerBtn}
                 hitSlop={12}
               >
-                <AppText style={styles.pickerBtnText}>‹ Month</AppText>
+                <AppText
+                  style={[styles.pickerBtnText, { color: colors.primaryGreen }]}
+                >
+                  ‹ Month
+                </AppText>
               </TouchableOpacity>
-              <AppText variant="paragraph" style={styles.pickerValue}>
+              <AppText
+                variant="paragraph"
+                style={[styles.pickerValue, { color: colors.deepText }]}
+              >
                 {MONTH_NAMES[month]}
               </AppText>
               <TouchableOpacity
@@ -283,15 +362,26 @@ export default function ProgressScreen() {
                 style={styles.pickerBtn}
                 hitSlop={12}
               >
-                <AppText style={styles.pickerBtnText}>Month ›</AppText>
+                <AppText
+                  style={[styles.pickerBtnText, { color: colors.primaryGreen }]}
+                >
+                  Month ›
+                </AppText>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              style={styles.pickerDoneBtn}
+              style={[
+                styles.pickerDoneBtn,
+                { backgroundColor: colors.primaryGreen },
+              ]}
               onPress={() => setPickerVisible(false)}
               activeOpacity={0.8}
             >
-              <AppText style={styles.pickerDoneText}>Done</AppText>
+              <AppText
+                style={[styles.pickerDoneText, { color: colors.onAccent }]}
+              >
+                Done
+              </AppText>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -303,7 +393,6 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.white,
   },
   scroll: {
     flex: 1,
@@ -319,21 +408,17 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    color: GroveColors.deepText,
     fontWeight: "600",
   },
   monthPill: {
-    backgroundColor: GroveColors.white,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: GroveBorderRadius.pill,
     minWidth: 120,
     alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.1)",
   },
   monthPillText: {
-    color: GroveColors.deepText,
     fontWeight: "600",
   },
   recordsSection: {
@@ -346,7 +431,6 @@ const styles = StyleSheet.create({
   },
   recordCard: {
     flex: 1,
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     paddingVertical: 22,
     paddingHorizontal: 14,
@@ -358,11 +442,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recordNumber: {
-    color: GroveColors.deepText,
     fontWeight: "600",
   },
   recordLabel: {
-    color: GroveColors.mutedGray,
     marginTop: 4,
   },
   modalBackdrop: {
@@ -373,7 +455,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   pickerCard: {
-    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.card,
     padding: 24,
     width: "100%",
@@ -382,7 +463,6 @@ const styles = StyleSheet.create({
   pickerTitle: {
     marginBottom: 20,
     textAlign: "center",
-    color: GroveColors.deepText,
     fontWeight: "600",
   },
   pickerRow: {
@@ -396,22 +476,18 @@ const styles = StyleSheet.create({
   },
   pickerBtnText: {
     fontSize: 16,
-    color: GroveColors.primaryGreen,
     fontWeight: "600",
   },
   pickerValue: {
-    color: GroveColors.deepText,
     fontWeight: "600",
   },
   pickerDoneBtn: {
-    backgroundColor: GroveColors.primaryGreen,
     paddingVertical: 14,
     borderRadius: GroveBorderRadius.pill,
     alignItems: "center",
     marginTop: 8,
   },
   pickerDoneText: {
-    color: GroveColors.white,
     fontWeight: "600",
     fontSize: 16,
   },
@@ -424,7 +500,6 @@ const styles = StyleSheet.create({
   },
   habitCard: {
     width: "48%",
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     padding: 12,
     overflow: "hidden",
@@ -439,7 +514,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 10,
-    backgroundColor: GroveColors.white,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -449,7 +523,6 @@ const styles = StyleSheet.create({
     height: 20,
   },
   habitName: {
-    color: GroveColors.deepText,
     fontWeight: "600",
     fontSize: 14,
     flex: 1,

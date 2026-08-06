@@ -19,12 +19,13 @@ import {
   type TimerSetup,
   type ToggleProgress,
 } from "@/lib/habitsWithActions";
+import { useGroveColors } from "@/hooks/useGroveColors";
 import {
   GroveBorderRadius,
-  GroveColors,
   GroveFontFamily,
+  type GroveColorPalette,
 } from "@/styles/theme";
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 interface HabitFormInlineProps {
@@ -39,6 +40,8 @@ export function HabitFormInline({
   onUpdate,
   accentColor,
 }: HabitFormInlineProps) {
+  const colors = useGroveColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const accentFill = {
     backgroundColor: accentColor,
     borderColor: accentColor,
@@ -517,7 +520,7 @@ export function HabitFormInline({
                   key={i}
                   style={[styles.input, accentOutline]}
                   placeholder={`Gratitude ${i + 1}`}
-                  placeholderTextColor={GroveColors.secondaryText}
+                  placeholderTextColor={colors.secondaryText}
                   value={items[i] ?? ""}
                   onChangeText={(val) => updateItem(i, val)}
                 />
@@ -539,7 +542,7 @@ export function HabitFormInline({
             <TextInput
               style={[styles.input, styles.inputMultiline, accentOutline]}
               placeholder="What's on your mind?"
-              placeholderTextColor={GroveColors.secondaryText}
+              placeholderTextColor={colors.secondaryText}
               value={p.text}
               onChangeText={(text) => updateProgress({ ...p, text })}
               multiline
@@ -642,7 +645,8 @@ export function HabitFormInline({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: GroveColorPalette) {
+  return StyleSheet.create({
   wrap: {
     paddingTop: 4,
   },
@@ -652,17 +656,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: GroveColors.deepText,
+    color: colors.deepText,
     marginBottom: 8,
   },
   hint: {
     fontSize: 13,
-    color: GroveColors.secondaryText,
+    color: colors.secondaryText,
     lineHeight: 18,
   },
   customLabel: {
     fontSize: 12,
-    color: GroveColors.secondaryText,
+    color: colors.secondaryText,
     marginTop: 12,
     marginBottom: 6,
   },
@@ -675,7 +679,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: GroveBorderRadius.pill,
-    backgroundColor: GroveColors.white,
+    backgroundColor: colors.white,
     borderWidth: 2,
   },
   pillText: {
@@ -683,7 +687,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   pillTextSelected: {
-    color: GroveColors.white,
+    color: colors.onAccent,
   },
   stepperRow: {
     flexDirection: "row",
@@ -694,7 +698,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: GroveBorderRadius.button,
-    backgroundColor: GroveColors.white,
+    backgroundColor: colors.white,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
@@ -706,7 +710,7 @@ const styles = StyleSheet.create({
   stepperValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: GroveColors.deepText,
+    color: colors.deepText,
     minWidth: 44,
     textAlign: "center",
   },
@@ -714,19 +718,19 @@ const styles = StyleSheet.create({
     fontFamily: GroveFontFamily,
     fontSize: 16,
     fontWeight: "700",
-    color: GroveColors.deepText,
+    color: colors.deepText,
     textAlign: "center",
     minWidth: 48,
     paddingVertical: 6,
     paddingHorizontal: 8,
     borderWidth: 2,
     borderRadius: 8,
-    backgroundColor: GroveColors.white,
+    backgroundColor: colors.white,
   },
   customDurationUnit: {
     fontSize: 14,
     fontWeight: "600",
-    color: GroveColors.secondaryText,
+    color: colors.secondaryText,
   },
   counterRow: {
     flexDirection: "row",
@@ -744,17 +748,17 @@ const styles = StyleSheet.create({
   counterBtnText: {
     fontSize: 22,
     fontWeight: "600",
-    color: GroveColors.white,
+    color: colors.onAccent,
   },
   counterValueWrap: { alignItems: "center" },
   counterValue: {
     fontSize: 24,
     fontWeight: "700",
-    color: GroveColors.deepText,
+    color: colors.deepText,
   },
   counterUnit: {
     fontSize: 13,
-    color: GroveColors.secondaryText,
+    color: colors.secondaryText,
   },
   primaryBtn: {
     paddingVertical: 14,
@@ -762,15 +766,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryBtnDone: {
-    backgroundColor: GroveColors.accentLime,
+    backgroundColor: colors.accentLime,
   },
   primaryBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: GroveColors.white,
+    color: colors.onAccent,
   },
   primaryBtnTextDone: {
-    color: GroveColors.deepText,
+    color: colors.deepText,
   },
   timerWrap: {
     alignItems: "center",
@@ -779,7 +783,7 @@ const styles = StyleSheet.create({
   timerText: {
     fontSize: 36,
     fontWeight: "700",
-    color: GroveColors.deepText,
+    color: colors.deepText,
     fontVariant: ["tabular-nums"],
   },
   timerControls: {
@@ -795,13 +799,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timerCtrlStop: {
-    backgroundColor: GroveColors.white,
+    backgroundColor: colors.white,
     borderWidth: 2,
   },
   timerCtrlTextPrimary: {
     fontSize: 14,
     fontWeight: "600",
-    color: GroveColors.white,
+    color: colors.onAccent,
   },
   timerCtrlTextMuted: {
     fontSize: 14,
@@ -809,12 +813,12 @@ const styles = StyleSheet.create({
   },
   input: {
     fontFamily: GroveFontFamily,
-    backgroundColor: GroveColors.white,
+    backgroundColor: colors.white,
     borderRadius: GroveBorderRadius.button,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: GroveColors.deepText,
+    color: colors.deepText,
     borderWidth: 2,
     marginBottom: 8,
   },
@@ -824,8 +828,10 @@ const styles = StyleSheet.create({
   },
   reward: {
     fontSize: 13,
-    color: GroveColors.deepText,
+    color: colors.deepText,
     marginTop: 8,
     fontWeight: "500",
   },
 });
+}
+

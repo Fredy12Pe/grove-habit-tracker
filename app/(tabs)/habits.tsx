@@ -10,6 +10,7 @@ import { HabitsCompletionOverlay } from "@/components/habits/HabitsCompletionOve
 import { TodayProgressBanner } from "@/components/habits/TodayProgressBanner";
 import { WeekCalendar } from "@/components/habits/WeekCalendar";
 import { AppText } from "@/components/ui/AppText";
+import { useGroveColors, useIsDarkMode } from "@/hooks/useGroveColors";
 import {
   addCalendarDays,
   calendarDateKey,
@@ -34,7 +35,7 @@ import {
 import { useHabitStore } from "@/lib/store";
 import { takeReopenAddHabitSheetFromSheet } from "@/lib/reopenAddHabitSheetFromSheet";
 import { syncWidgets } from "@/lib/widgets/syncWidgets";
-import { GroveColors, GroveSpacing } from "@/styles/theme";
+import { GroveSpacing } from "@/styles/theme";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -53,6 +54,8 @@ const LIST_GAP = 12;
 
 export default function HabitsScreen() {
   const router = useRouter();
+  const colors = useGroveColors();
+  const isDark = useIsDarkMode();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [sheetVisible, setSheetVisible] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -263,8 +266,8 @@ export default function HabitsScreen() {
           : listIndex;
       const customAccent = storeHabit?.customColor;
       const accentColor = customAccent
-        ? habitCardThemeFromAccent(customAccent).accentDeep
-        : habitCardAccentAt(colorIndex);
+        ? habitCardThemeFromAccent(customAccent, isDark).accentDeep
+        : habitCardAccentAt(colorIndex, isDark);
 
       return (
         <ScaleDecorator activeScale={1.03}>
@@ -329,7 +332,7 @@ export default function HabitsScreen() {
                   <AppText
                     variant="small"
                     style={{
-                      color: GroveColors.secondaryText,
+                      color: colors.secondaryText,
                       paddingBottom: 8,
                     }}
                   >
@@ -354,6 +357,8 @@ export default function HabitsScreen() {
       router,
       expandedId,
       updateHabit,
+      colors.secondaryText,
+      isDark,
     ],
   );
 
@@ -387,19 +392,19 @@ export default function HabitsScreen() {
   const listFooter = (
     <View style={styles.addSection}>
       <TouchableOpacity
-        style={styles.addButton}
+        style={[styles.addButton, { backgroundColor: colors.primaryGreen }]}
         activeOpacity={0.8}
         onPress={() => setSheetVisible(true)}
         accessibilityLabel="Add habits"
       >
-        <AppText style={styles.addIcon}>+</AppText>
+        <AppText style={[styles.addIcon, { color: colors.onAccent }]}>+</AppText>
       </TouchableOpacity>
       <View style={styles.bottomSpacer} />
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.white }]}>
       <DraggableFlatList
         data={habitRows}
         keyExtractor={(item) => item.id}
@@ -441,7 +446,6 @@ export default function HabitsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.white,
   },
   list: {
     flex: 1,
@@ -466,12 +470,10 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: GroveColors.primaryGreen,
     alignItems: "center",
     justifyContent: "center",
   },
   addIcon: {
-    color: GroveColors.white,
     fontSize: 36,
     lineHeight: 40,
     fontWeight: "300",

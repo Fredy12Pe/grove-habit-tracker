@@ -1,6 +1,7 @@
 import { AppText } from "@/components/ui/AppText";
 import { Card } from "@/components/ui/Card";
-import { GroveBorderRadius, GroveColors } from "@/styles/theme";
+import { useGroveColors } from "@/hooks/useGroveColors";
+import { GroveBorderRadius } from "@/styles/theme";
 import React from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 
@@ -9,6 +10,8 @@ interface SproutSupportCardProps {
 }
 
 export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
+  const colors = useGroveColors();
+
   return (
     <Pressable
       onPress={onPress}
@@ -17,7 +20,9 @@ export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
       accessibilityRole="button"
       accessibilityLabel="Breathe with Sprout"
     >
-      <Card style={styles.card}>
+      <Card
+        style={[styles.card, { backgroundColor: colors.accentLimeSoft }]}
+      >
         <View style={styles.content}>
           <View style={styles.mascotWrap}>
             <Image
@@ -27,10 +32,16 @@ export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
             />
           </View>
           <View style={styles.textBlock}>
-            <AppText variant="h1" style={styles.heading}>
+            <AppText
+              variant="h1"
+              style={[styles.heading, { color: colors.onAccent }]}
+            >
               Feeling Stressed?
             </AppText>
-            <AppText variant="small" style={styles.body}>
+            <AppText
+              variant="small"
+              style={[styles.body, { color: colors.limeMuted }]}
+            >
               {"Let's take a few calm\nbreaths with Sprout."}
             </AppText>
           </View>
@@ -48,7 +59,6 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   card: {
-    backgroundColor: "#BADF3D",
     borderRadius: GroveBorderRadius.homeCard,
     paddingHorizontal: 0,
     paddingVertical: 0,
@@ -88,12 +98,10 @@ const styles = StyleSheet.create({
     fontSize: 20.5,
     lineHeight: 27,
     fontWeight: "600",
-    color: GroveColors.white,
   },
   body: {
     fontSize: 14.5,
     lineHeight: 21,
     fontWeight: "600",
-    color: GroveColors.limeMuted,
   },
 });

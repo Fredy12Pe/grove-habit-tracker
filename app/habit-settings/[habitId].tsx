@@ -19,10 +19,11 @@ import { HABIT_CARD_THEMES } from "@/components/habits/HabitRow";
 import { AppText } from "@/components/ui/AppText";
 import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useGroveColors } from "@/hooks/useGroveColors";
 import { HABIT_CATALOG, getHabitActionType } from "@/lib/habitCatalog";
 import { useHabitStore } from "@/lib/store";
 import type { HabitCustomTracking } from "@/lib/types/habit";
-import { GroveBorderRadius, GroveColors, GroveSpacing } from "@/styles/theme";
+import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
 
 const TRACKING_OPTIONS: { value: HabitCustomTracking; label: string }[] = [
   { value: "toggle", label: "Checkbox" },
@@ -53,6 +54,7 @@ function inferTrackingFromCatalogId(habitId: string): HabitCustomTracking {
 
 function HabitSettingsScreenContent() {
   const router = useRouter();
+  const colors = useGroveColors();
   const { habitId } = useLocalSearchParams<{ habitId: string }>();
   const id = habitId ?? "";
 
@@ -136,12 +138,12 @@ function HabitSettingsScreenContent() {
   }, [habit, removeHabit, router]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.white }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.divider }]}>
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.headerBtn}
@@ -151,10 +153,13 @@ function HabitSettingsScreenContent() {
             <IconSymbol
               name="chevron.left"
               size={20}
-              color={GroveColors.deepText}
+              color={colors.deepText}
             />
           </TouchableOpacity>
-          <AppText variant="h2" style={styles.headerTitle}>
+          <AppText
+            variant="h2"
+            style={[styles.headerTitle, { color: colors.deepText }]}
+          >
             Habit settings
           </AppText>
           <View style={styles.headerSpacer} />
@@ -162,7 +167,10 @@ function HabitSettingsScreenContent() {
 
         {!habit ? (
           <View style={styles.missingWrap}>
-            <AppText variant="paragraph" style={styles.missingText}>
+            <AppText
+              variant="paragraph"
+              style={{ color: colors.secondaryText }}
+            >
               Habit not found.
             </AppText>
           </View>
@@ -174,18 +182,31 @@ function HabitSettingsScreenContent() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <AppText variant="small" style={styles.fieldLabel}>
+              <AppText
+                variant="small"
+                style={[styles.fieldLabel, { color: colors.secondaryText }]}
+              >
                 Name
               </AppText>
               <TextInput
-                style={styles.textInput}
+                style={[
+                  styles.textInput,
+                  {
+                    borderColor: colors.inactive,
+                    color: colors.deepText,
+                    backgroundColor: colors.softSurface,
+                  },
+                ]}
                 value={name}
                 onChangeText={setName}
                 placeholder="Habit name"
-                placeholderTextColor={GroveColors.secondaryText}
+                placeholderTextColor={colors.secondaryText}
               />
 
-              <AppText variant="small" style={styles.fieldLabel}>
+              <AppText
+                variant="small"
+                style={[styles.fieldLabel, { color: colors.secondaryText }]}
+              >
                 Icon
               </AppText>
               <ScrollView
@@ -198,7 +219,11 @@ function HabitSettingsScreenContent() {
                   return (
                     <TouchableOpacity
                       key={h.id}
-                      style={[styles.iconPick, picked && styles.iconPickSelected]}
+                      style={[
+                        styles.iconPick,
+                        { backgroundColor: colors.softSurface },
+                        picked && { borderColor: colors.primaryGreen },
+                      ]}
                       onPress={() => setIconId(h.id)}
                       activeOpacity={0.8}
                     >
@@ -212,25 +237,40 @@ function HabitSettingsScreenContent() {
                 })}
               </ScrollView>
 
-              <AppText variant="small" style={styles.fieldLabel}>
+              <AppText
+                variant="small"
+                style={[styles.fieldLabel, { color: colors.secondaryText }]}
+              >
                 Tracker type
               </AppText>
               <TouchableOpacity
-                style={styles.trackingRow}
+                style={[
+                  styles.trackingRow,
+                  {
+                    backgroundColor: colors.softSurface,
+                    borderColor: colors.divider,
+                  },
+                ]}
                 onPress={() => setPickerVisible(true)}
                 activeOpacity={0.75}
               >
-                <AppText variant="paragraph" style={styles.trackingRowText}>
+                <AppText
+                  variant="paragraph"
+                  style={[styles.trackingRowText, { color: colors.deepText }]}
+                >
                   {trackingLabel(tracking)}
                 </AppText>
                 <IconSymbol
                   name="chevron.right"
                   size={16}
-                  color={GroveColors.secondaryText}
+                  color={colors.secondaryText}
                 />
               </TouchableOpacity>
 
-              <AppText variant="small" style={styles.fieldLabel}>
+              <AppText
+                variant="small"
+                style={[styles.fieldLabel, { color: colors.secondaryText }]}
+              >
                 Color
               </AppText>
               <View style={styles.colorRow}>
@@ -242,7 +282,7 @@ function HabitSettingsScreenContent() {
                       style={[
                         styles.colorSwatch,
                         { backgroundColor: theme.accent },
-                        selected && styles.colorSwatchSelected,
+                        selected && { borderColor: colors.deepText },
                       ]}
                       onPress={() => {
                         setCustomColor(null);
@@ -257,7 +297,7 @@ function HabitSettingsScreenContent() {
                         <IconSymbol
                           name="checkmark"
                           size={16}
-                          color={GroveColors.white}
+                          color={colors.onAccent}
                           weight="bold"
                         />
                       ) : null}
@@ -270,8 +310,12 @@ function HabitSettingsScreenContent() {
                     styles.colorSwatchAdd,
                     customColor
                       ? { backgroundColor: customColor }
-                      : styles.colorSwatchAddEmpty,
-                    !!customColor && styles.colorSwatchSelected,
+                      : {
+                          backgroundColor: colors.softSurface,
+                          borderColor: colors.inactive,
+                          borderStyle: "dashed",
+                        },
+                    !!customColor && { borderColor: colors.deepText },
                   ]}
                   onPress={() => setColorPickerVisible(true)}
                   activeOpacity={0.8}
@@ -283,14 +327,14 @@ function HabitSettingsScreenContent() {
                     <IconSymbol
                       name="checkmark"
                       size={16}
-                      color={GroveColors.white}
+                      color={colors.onAccent}
                       weight="bold"
                     />
                   ) : (
                     <IconSymbol
                       name="plus"
                       size={18}
-                      color={GroveColors.deepText}
+                      color={colors.deepText}
                       weight="bold"
                     />
                   )}
@@ -302,10 +346,17 @@ function HabitSettingsScreenContent() {
                   onPress={handleDelete}
                   style={({ pressed }) => [
                     styles.deleteBtn,
+                    {
+                      backgroundColor: colors.white,
+                      borderColor: "rgba(179, 38, 30, 0.35)",
+                    },
                     pressed && styles.deleteBtnPressed,
                   ]}
                 >
-                  <AppText variant="paragraph" style={styles.deleteBtnText}>
+                  <AppText
+                    variant="paragraph"
+                    style={[styles.deleteBtnText, { color: colors.error }]}
+                  >
                     Delete habit
                   </AppText>
                 </Pressable>
@@ -318,11 +369,15 @@ function HabitSettingsScreenContent() {
                 disabled={!canSave}
                 style={({ pressed }) => [
                   styles.saveBtn,
+                  { backgroundColor: colors.primaryGreen },
                   !canSave && styles.saveBtnDisabled,
                   pressed && canSave && styles.saveBtnPressed,
                 ]}
               >
-                <AppText variant="paragraph" style={styles.saveBtnText}>
+                <AppText
+                  variant="paragraph"
+                  style={[styles.saveBtnText, { color: colors.onAccent }]}
+                >
                   Save changes
                 </AppText>
               </Pressable>
@@ -360,13 +415,17 @@ function HabitSettingsScreenContent() {
               onPress={() => setPickerVisible(false)}
             />
             <View style={styles.pickerBottom}>
-              <View style={styles.pickerCard}>
+              <View
+                style={[styles.pickerCard, { backgroundColor: colors.white }]}
+              >
                 {TRACKING_OPTIONS.map((opt, index) => (
                   <TouchableOpacity
                     key={opt.value}
                     style={[
                       styles.pickerRow,
-                      index === TRACKING_OPTIONS.length - 1 && styles.pickerRowLast,
+                      { borderBottomColor: colors.divider },
+                      index === TRACKING_OPTIONS.length - 1 &&
+                        styles.pickerRowLast,
                     ]}
                     onPress={() => {
                       setTracking(opt.value);
@@ -374,14 +433,20 @@ function HabitSettingsScreenContent() {
                     }}
                     activeOpacity={0.75}
                   >
-                    <AppText variant="paragraph" style={styles.pickerRowText}>
+                    <AppText
+                      variant="paragraph"
+                      style={[
+                        styles.pickerRowText,
+                        { color: colors.deepText },
+                      ]}
+                    >
                       {opt.label}
                     </AppText>
                     {tracking === opt.value ? (
                       <IconSymbol
                         name="checkmark"
                         size={16}
-                        color={GroveColors.primaryGreen}
+                        color={colors.primaryGreen}
                         weight="bold"
                       />
                     ) : null}
@@ -411,7 +476,7 @@ export default function HabitSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: GroveColors.white },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   header: {
     flexDirection: "row",
@@ -419,7 +484,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.divider,
   },
   headerBtn: { padding: 4 },
   headerTitle: {
@@ -427,7 +491,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 18,
     fontWeight: "600",
-    color: GroveColors.deepText,
   },
   headerSpacer: { width: 28 },
   scroll: { flex: 1 },
@@ -437,19 +500,15 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   fieldLabel: {
-    color: GroveColors.secondaryText,
     marginBottom: 8,
     marginTop: 4,
   },
   textInput: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.inactive,
     borderRadius: GroveBorderRadius.card,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: GroveColors.deepText,
-    backgroundColor: GroveColors.softSurface,
     marginBottom: 8,
   },
   iconScroll: { gap: 10, paddingVertical: 4, marginBottom: 8 },
@@ -457,27 +516,23 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: GroveColors.softSurface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: "transparent",
   },
-  iconPickSelected: { borderColor: GroveColors.primaryGreen },
   iconPickImg: { width: 40, height: 40 },
   trackingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.divider,
     marginBottom: 8,
   },
-  trackingRowText: { fontWeight: "500", color: GroveColors.deepText },
+  trackingRowText: { fontWeight: "500" },
   colorRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -493,34 +548,23 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "transparent",
   },
-  colorSwatchSelected: {
-    borderColor: GroveColors.deepText,
-  },
   colorSwatchAdd: {
     borderStyle: "solid",
-  },
-  colorSwatchAddEmpty: {
-    backgroundColor: GroveColors.softSurface,
-    borderColor: GroveColors.inactive,
-    borderStyle: "dashed",
   },
   dangerZone: {
     marginTop: 10,
     marginBottom: 12,
   },
   deleteBtn: {
-    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.card,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(179, 38, 30, 0.35)",
   },
   deleteBtnPressed: {
     opacity: 0.85,
   },
   deleteBtnText: {
-    color: "#B3261E",
     fontWeight: "600",
     textAlign: "center",
   },
@@ -530,7 +574,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   saveBtn: {
-    backgroundColor: GroveColors.primaryGreen,
     borderRadius: 999,
     paddingVertical: 16,
     alignItems: "center",
@@ -538,12 +581,10 @@ const styles = StyleSheet.create({
   saveBtnPressed: { opacity: 0.9 },
   saveBtnDisabled: { opacity: 0.45 },
   saveBtnText: {
-    color: GroveColors.white,
     fontSize: 16,
     fontWeight: "600",
   },
   missingWrap: { flex: 1, padding: 24 },
-  missingText: { color: GroveColors.secondaryText },
   pickerWrap: { flex: 1 },
   pickerBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -557,7 +598,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   pickerCard: {
-    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.card,
     overflow: "hidden",
   },
@@ -568,9 +608,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.divider,
   },
   pickerRowLast: { borderBottomWidth: 0 },
-  pickerRowText: { color: GroveColors.deepText, fontWeight: "500" },
+  pickerRowText: { fontWeight: "500" },
 });
-

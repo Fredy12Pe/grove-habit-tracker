@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useGroveColors } from "@/hooks/useGroveColors";
 import {
   CATALOG_NAME_MAP,
   getDurationOptions,
@@ -19,11 +20,7 @@ import {
 import type { HabitEntry } from "@/lib/store/useHabitStore";
 import { useHabitStore } from "@/lib/store";
 import { syncWidgets } from "@/lib/widgets/syncWidgets";
-import {
-  GroveBorderRadius,
-  GroveColors,
-  GroveSpacing,
-} from "@/styles/theme";
+import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SHEET_HEIGHT = Math.min(SCREEN_HEIGHT * 0.6, 420);
@@ -44,6 +41,7 @@ export function HabitActionSheet({
   onClose,
   markCompleteOnSave = true,
 }: HabitActionSheetProps) {
+  const colors = useGroveColors();
   const getHabitEntry = useHabitStore((s) => s.getHabitEntry);
   const setHabitEntry = useHabitStore((s) => s.setHabitEntry);
   const toggleHabit = useHabitStore((s) => s.toggleHabit);
@@ -120,10 +118,13 @@ export function HabitActionSheet({
           onPress={onClose}
         />
 
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
+        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+          <View style={[styles.handle, { backgroundColor: colors.inactive }]} />
           <View style={styles.titleRow}>
-            <AppText variant="h2" style={styles.title}>
+            <AppText
+              variant="h2"
+              style={[styles.title, { color: colors.primaryText }]}
+            >
               {habitName}
             </AppText>
             <TouchableOpacity
@@ -134,7 +135,7 @@ export function HabitActionSheet({
               <IconSymbol
                 name="xmark"
                 size={18}
-                color={GroveColors.secondaryText}
+                color={colors.secondaryText}
               />
             </TouchableOpacity>
           </View>
@@ -147,13 +148,23 @@ export function HabitActionSheet({
           >
             {actionType === "journal" && (
               <View style={styles.field}>
-                <AppText variant="small" style={styles.label}>
+                <AppText
+                  variant="small"
+                  style={[styles.label, { color: colors.secondaryText }]}
+                >
                   Today&apos;s entry
                 </AppText>
                 <TextInput
-                  style={styles.textArea}
+                  style={[
+                    styles.textArea,
+                    {
+                      backgroundColor: colors.white,
+                      color: colors.primaryText,
+                      borderColor: colors.inactive,
+                    },
+                  ]}
                   placeholder="What's on your mind?"
-                  placeholderTextColor={GroveColors.secondaryText}
+                  placeholderTextColor={colors.secondaryText}
                   value={journalText}
                   onChangeText={setJournalText}
                   multiline
@@ -165,13 +176,23 @@ export function HabitActionSheet({
 
             {actionType === "note" && (
               <View style={styles.field}>
-                <AppText variant="small" style={styles.label}>
+                <AppText
+                  variant="small"
+                  style={[styles.label, { color: colors.secondaryText }]}
+                >
                   Note (optional)
                 </AppText>
                 <TextInput
-                  style={styles.input}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.white,
+                      color: colors.primaryText,
+                      borderColor: colors.inactive,
+                    },
+                  ]}
                   placeholder="e.g. What you prayed about, a verse, something you're grateful for"
-                  placeholderTextColor={GroveColors.secondaryText}
+                  placeholderTextColor={colors.secondaryText}
                   value={note}
                   onChangeText={setNote}
                 />
@@ -180,7 +201,10 @@ export function HabitActionSheet({
 
             {actionType === "duration" && (
               <View style={styles.field}>
-                <AppText variant="small" style={styles.label}>
+                <AppText
+                  variant="small"
+                  style={[styles.label, { color: colors.secondaryText }]}
+                >
                   How long?
                 </AppText>
                 <View style={styles.chips}>
@@ -189,7 +213,14 @@ export function HabitActionSheet({
                       key={mins}
                       style={[
                         styles.chip,
-                        durationMinutes === mins && styles.chipSelected,
+                        {
+                          backgroundColor: colors.white,
+                          borderColor: colors.inactive,
+                        },
+                        durationMinutes === mins && {
+                          backgroundColor: colors.primaryGreen,
+                          borderColor: colors.primaryGreen,
+                        },
                       ]}
                       onPress={() =>
                         setDurationMinutes((m) => (m === mins ? null : mins))
@@ -200,7 +231,12 @@ export function HabitActionSheet({
                         variant="paragraph"
                         style={[
                           styles.chipText,
-                          durationMinutes === mins && styles.chipTextSelected,
+                          {
+                            color:
+                              durationMinutes === mins
+                                ? colors.onAccent
+                                : colors.primaryText,
+                          },
                         ]}
                       >
                         {mins} min
@@ -213,14 +249,27 @@ export function HabitActionSheet({
 
             {actionType === "count" && (
               <View style={styles.field}>
-                <AppText variant="small" style={styles.label}>
+                <AppText
+                  variant="small"
+                  style={[styles.label, { color: colors.secondaryText }]}
+                >
                   How many glasses today?
                 </AppText>
                 <View style={styles.chips}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                     <TouchableOpacity
                       key={n}
-                      style={[styles.chip, count === n && styles.chipSelected]}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: colors.white,
+                          borderColor: colors.inactive,
+                        },
+                        count === n && {
+                          backgroundColor: colors.primaryGreen,
+                          borderColor: colors.primaryGreen,
+                        },
+                      ]}
                       onPress={() => setCount(n)}
                       activeOpacity={0.7}
                     >
@@ -228,7 +277,12 @@ export function HabitActionSheet({
                         variant="paragraph"
                         style={[
                           styles.chipText,
-                          count === n && styles.chipTextSelected,
+                          {
+                            color:
+                              count === n
+                                ? colors.onAccent
+                                : colors.primaryText,
+                          },
                         ]}
                       >
                         {n}
@@ -241,7 +295,10 @@ export function HabitActionSheet({
 
             {actionType === "checkbox_only" && (
               <View style={styles.field}>
-                <AppText variant="paragraphRegular" style={styles.hint}>
+                <AppText
+                  variant="paragraphRegular"
+                  style={[styles.hint, { color: colors.secondaryText }]}
+                >
                   Mark this habit as done for today.
                 </AppText>
               </View>
@@ -252,7 +309,10 @@ export function HabitActionSheet({
             <TouchableOpacity
               style={[
                 styles.saveBtn,
-                actionType !== "checkbox_only" && !canSave && styles.saveBtnDisabled,
+                { backgroundColor: colors.primaryGreen },
+                actionType !== "checkbox_only" &&
+                  !canSave &&
+                  styles.saveBtnDisabled,
               ]}
               onPress={
                 actionType === "checkbox_only" ? handleMarkDone : handleSave
@@ -264,7 +324,10 @@ export function HabitActionSheet({
                 !canSave
               }
             >
-              <AppText variant="paragraph" style={styles.saveBtnText}>
+              <AppText
+                variant="paragraph"
+                style={[styles.saveBtnText, { color: colors.onAccent }]}
+              >
                 {actionType === "checkbox_only" ? "Mark as done" : "Save"}
               </AppText>
             </TouchableOpacity>
@@ -286,7 +349,6 @@ const styles = StyleSheet.create({
   },
   sheet: {
     height: SHEET_HEIGHT,
-    backgroundColor: GroveColors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 24,
@@ -295,7 +357,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: GroveColors.inactive,
     alignSelf: "center",
     marginTop: 12,
     marginBottom: 4,
@@ -310,7 +371,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "600",
-    color: GroveColors.primaryText,
   },
   scroll: {
     flex: 1,
@@ -324,29 +384,22 @@ const styles = StyleSheet.create({
   },
   label: {
     marginBottom: 8,
-    color: GroveColors.secondaryText,
     fontSize: 12,
     fontWeight: "500",
   },
   input: {
-    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.button,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: GroveColors.primaryText,
     borderWidth: 1,
-    borderColor: GroveColors.inactive,
   },
   textArea: {
-    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.button,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: GroveColors.primaryText,
     borderWidth: 1,
-    borderColor: GroveColors.inactive,
     minHeight: 120,
   },
   chips: {
@@ -358,24 +411,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: GroveBorderRadius.pill,
-    backgroundColor: GroveColors.white,
     borderWidth: 2,
-    borderColor: GroveColors.inactive,
-  },
-  chipSelected: {
-    backgroundColor: GroveColors.primaryGreen,
-    borderColor: GroveColors.primaryGreen,
   },
   chipText: {
     fontSize: 14,
-    color: GroveColors.primaryText,
     fontWeight: "500",
   },
-  chipTextSelected: {
-    color: GroveColors.white,
-  },
   hint: {
-    color: GroveColors.secondaryText,
     fontSize: 14,
   },
   footer: {
@@ -383,7 +425,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   saveBtn: {
-    backgroundColor: GroveColors.primaryGreen,
     borderRadius: 999,
     paddingVertical: 16,
     alignItems: "center",
@@ -392,7 +433,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveBtnText: {
-    color: GroveColors.white,
     fontSize: 16,
     fontWeight: "600",
   },

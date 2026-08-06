@@ -1,6 +1,7 @@
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { GroveBorderRadius, GroveColors } from "@/styles/theme";
+import { useGroveColors } from "@/hooks/useGroveColors";
+import { GroveBorderRadius } from "@/styles/theme";
 import React from "react";
 import {
   StyleSheet,
@@ -18,25 +19,39 @@ type AddCustomHabitRowProps = {
  * Same “Add a custom habit” callout as onboarding (`choose-habits`).
  */
 export function AddCustomHabitRow({ onPress, style }: AddCustomHabitRowProps) {
+  const colors = useGroveColors();
+
   return (
     <TouchableOpacity
-      style={[styles.addCustomRow, style]}
+      style={[
+        styles.addCustomRow,
+        { backgroundColor: colors.softSurface },
+        style,
+      ]}
       activeOpacity={0.8}
       onPress={onPress}
     >
-      <View style={styles.addCustomIcon}>
+      <View
+        style={[styles.addCustomIcon, { backgroundColor: colors.white }]}
+      >
         <IconSymbol
           name="plus"
           size={16}
-          color={GroveColors.deepText}
+          color={colors.deepText}
           weight="bold"
         />
       </View>
       <View style={styles.addCustomTextCol}>
-        <AppText variant="paragraph" style={styles.addCustomTitle}>
+        <AppText
+          variant="paragraph"
+          style={[styles.addCustomTitle, { color: colors.deepText }]}
+        >
           Add a custom habit
         </AppText>
-        <AppText variant="small" style={styles.addCustomSubtle}>
+        <AppText
+          variant="small"
+          style={[styles.addCustomSubtle, { color: colors.secondaryText }]}
+        >
           Something personal, simple, and yours
         </AppText>
       </View>
@@ -48,7 +63,6 @@ const styles = StyleSheet.create({
   addCustomRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -59,7 +73,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: GroveColors.white,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -69,11 +82,9 @@ const styles = StyleSheet.create({
   },
   addCustomTitle: {
     fontWeight: "600",
-    color: GroveColors.deepText,
     fontSize: 15,
   },
   addCustomSubtle: {
-    color: GroveColors.secondaryText,
     fontSize: 11,
   },
 });

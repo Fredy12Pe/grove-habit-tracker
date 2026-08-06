@@ -1,6 +1,7 @@
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { GroveColors, GroveSpacing } from "@/styles/theme";
+import { useGroveColors } from "@/hooks/useGroveColors";
+import { GroveSpacing } from "@/styles/theme";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
@@ -90,6 +91,7 @@ export function HabitColorPickerModal({
   onClose,
   onSelect,
 }: HabitColorPickerModalProps) {
+  const colors = useGroveColors();
   const [selected, setSelected] = useState(initialColor.toUpperCase());
 
   useEffect(() => {
@@ -111,12 +113,23 @@ export function HabitColorPickerModal({
     >
       <View style={styles.wrap}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.white }]}>
           <View style={styles.header}>
-            <AppText variant="h2" style={styles.title}>
+            <AppText
+              variant="h2"
+              style={[styles.title, { color: colors.deepText }]}
+            >
               Pick a color
             </AppText>
-            <View style={[styles.preview, { backgroundColor: selected }]} />
+            <View
+              style={[
+                styles.preview,
+                {
+                  backgroundColor: selected,
+                  borderColor: colors.white,
+                },
+              ]}
+            />
           </View>
 
           <View style={styles.grid}>
@@ -129,7 +142,10 @@ export function HabitColorPickerModal({
                   style={[
                     styles.cell,
                     { backgroundColor: hex },
-                    isSelected && styles.cellSelected,
+                    isSelected && {
+                      borderWidth: 2,
+                      borderColor: colors.deepText,
+                    },
                   ]}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isSelected }}
@@ -140,7 +156,7 @@ export function HabitColorPickerModal({
                       name="checkmark"
                       size={12}
                       color={
-                        LIGHT_HEX.has(hex) ? GroveColors.deepText : GroveColors.white
+                        LIGHT_HEX.has(hex) ? colors.deepText : colors.onAccent
                       }
                       weight="bold"
                     />
@@ -152,20 +168,26 @@ export function HabitColorPickerModal({
 
           <View style={styles.actions}>
             <TouchableOpacity
-              style={styles.cancelBtn}
+              style={[styles.cancelBtn, { backgroundColor: colors.softSurface }]}
               onPress={onClose}
               activeOpacity={0.8}
             >
-              <AppText variant="paragraph" style={styles.cancelText}>
+              <AppText
+                variant="paragraph"
+                style={[styles.cancelText, { color: colors.deepText }]}
+              >
                 Cancel
               </AppText>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.doneBtn}
+              style={[styles.doneBtn, { backgroundColor: colors.primaryGreen }]}
               onPress={() => onSelect(selected)}
               activeOpacity={0.85}
             >
-              <AppText variant="paragraph" style={styles.doneText}>
+              <AppText
+                variant="paragraph"
+                style={[styles.doneText, { color: colors.onAccent }]}
+              >
                 Use color
               </AppText>
             </TouchableOpacity>
@@ -186,7 +208,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   card: {
-    backgroundColor: GroveColors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
@@ -203,14 +224,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "600",
-    color: GroveColors.deepText,
   },
   preview: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 2,
-    borderColor: GroveColors.white,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -229,10 +248,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cellSelected: {
-    borderWidth: 2,
-    borderColor: GroveColors.deepText,
-  },
   actions: {
     flexDirection: "row",
     gap: 10,
@@ -242,10 +257,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 14,
     alignItems: "center",
-    backgroundColor: GroveColors.softSurface,
   },
   cancelText: {
-    color: GroveColors.deepText,
     fontWeight: "600",
   },
   doneBtn: {
@@ -253,10 +266,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 14,
     alignItems: "center",
-    backgroundColor: GroveColors.primaryGreen,
   },
   doneText: {
-    color: GroveColors.white,
     fontWeight: "600",
   },
 });

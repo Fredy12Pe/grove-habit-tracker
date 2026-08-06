@@ -18,8 +18,9 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/ui/AppText';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
-import { GroveColors, GroveSpacing, GroveBorderRadius } from '@/styles/theme';
+import { GroveSpacing, GroveBorderRadius } from '@/styles/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useGroveColors } from '@/hooks/useGroveColors';
 import { useHabitStore } from '@/lib/store';
 import {
   getBestStreak,
@@ -42,7 +43,24 @@ import { getAvatarUrl, getDisplayName } from '@/lib/user-display';
 
 const GROWTH_STAGE = 'Seedling';
 
+function hexToRgba(hex: string, alpha: number): string {
+  const raw = hex.replace('#', '').trim();
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw;
+  const n = parseInt(full, 16);
+  const r = (n >> 16) & 0xff;
+  const g = (n >> 8) & 0xff;
+  const b = n & 0xff;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export default function ProfileScreen() {
+  const colors = useGroveColors();
   const router = useRouter();
   const { pickPhoto: pickPhotoParam } = useLocalSearchParams<{
     pickPhoto?: string | string[];
@@ -299,7 +317,7 @@ export default function ProfileScreen() {
   }, [habits, completionDates, recordCompletion]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.white }]} edges={['top']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -307,7 +325,7 @@ export default function ProfileScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <AppText variant="h1" style={styles.title}>
+          <AppText variant="h1" style={[styles.title, { color: colors.deepText }]}>
             Profile
           </AppText>
         </View>
@@ -315,7 +333,7 @@ export default function ProfileScreen() {
         {/* User block: avatar, name, subtitle, badge */}
         <View style={styles.userBlock}>
           <TouchableOpacity
-            style={styles.avatar}
+            style={[styles.avatar, { backgroundColor: colors.softSurface }]}
             onPress={() => void onChangeProfilePhoto()}
             activeOpacity={0.85}
             disabled={uploadingAvatar}
@@ -330,89 +348,145 @@ export default function ProfileScreen() {
                 <IconSymbol
                   name="leaf.fill"
                   size={48}
-                  color={GroveColors.accentLime}
+                  color={colors.accentLime}
                 />
               }
             />
             {uploadingAvatar ? (
-              <View style={styles.avatarLoading}>
-                <ActivityIndicator color={GroveColors.accentLime} />
+              <View
+                style={[
+                  styles.avatarLoading,
+                  { backgroundColor: hexToRgba(colors.white, 0.65) },
+                ]}
+              >
+                <ActivityIndicator color={colors.accentLime} />
               </View>
             ) : null}
           </TouchableOpacity>
-          <AppText variant="small" style={styles.nameFieldLabel}>
+          <AppText
+            variant="small"
+            style={[styles.nameFieldLabel, { color: colors.secondaryText }]}
+          >
             Display name
           </AppText>
           <View style={styles.userNameRow}>
             <TextInput
-              style={styles.userNameInput}
+              style={[
+                styles.userNameInput,
+                {
+                  color: colors.deepText,
+                  backgroundColor: colors.softSurface,
+                  borderColor: colors.divider,
+                },
+              ]}
               value={nameDraft}
               onChangeText={setNameDraft}
               placeholder="Your name"
-              placeholderTextColor={GroveColors.secondaryText}
+              placeholderTextColor={colors.secondaryText}
               maxLength={48}
               editable={!savingName}
               autoCapitalize="words"
               autoCorrect
             />
-            <IconSymbol name="leaf.fill" size={18} color={GroveColors.accentLime} />
+            <IconSymbol name="leaf.fill" size={18} color={colors.accentLime} />
           </View>
           <TouchableOpacity
             style={[
               styles.saveNameButton,
+              { backgroundColor: colors.primaryGreen },
               (!nameDirty || savingName) && styles.saveNameButtonDisabled,
             ]}
             onPress={() => void onSaveDisplayName()}
             disabled={!nameDirty || savingName}
             activeOpacity={0.85}
           >
-            <AppText variant="small" style={styles.saveNameButtonText}>
+            <AppText
+              variant="small"
+              style={[styles.saveNameButtonText, { color: colors.onAccent }]}
+            >
               {savingName ? 'Saving…' : 'Save name'}
             </AppText>
           </TouchableOpacity>
-          <AppText variant="paragraph" style={styles.subtitle}>
+          <AppText
+            variant="paragraph"
+            style={[styles.subtitle, { color: colors.secondaryText }]}
+          >
             Growing steadily
           </AppText>
-          <View style={styles.badge}>
-            <AppText variant="small" style={styles.badgeText}>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: colors.white,
+                borderColor: colors.borderSubtle,
+              },
+            ]}
+          >
+            <AppText
+              variant="small"
+              style={[styles.badgeText, { color: colors.deepText }]}
+            >
               {GROWTH_STAGE}
             </AppText>
-            <IconSymbol name="leaf.fill" size={12} color={GroveColors.accentLime} />
+            <IconSymbol name="leaf.fill" size={12} color={colors.accentLime} />
           </View>
         </View>
 
         {/* Your Growth card */}
         <View style={styles.section}>
-          <AppText variant="h2" style={styles.sectionTitle}>
+          <AppText
+            variant="h2"
+            style={[styles.sectionTitle, { color: colors.deepText }]}
+          >
             Your Growth
           </AppText>
-          <View style={styles.growthCard}>
+          <View
+            style={[styles.growthCard, { backgroundColor: colors.softSurface }]}
+          >
             <View style={styles.growthRow}>
-              <IconSymbol name="flame.fill" size={20} color={GroveColors.streakFlame} />
-              <AppText variant="paragraph" style={styles.growthLabel}>
+              <IconSymbol name="flame.fill" size={20} color={colors.streakFlame} />
+              <AppText
+                variant="paragraph"
+                style={[styles.growthLabel, { color: colors.secondaryText }]}
+              >
                 Longest streak:
               </AppText>
-              <AppText variant="paragraph" style={styles.growthValue}>
+              <AppText
+                variant="paragraph"
+                style={[styles.growthValue, { color: colors.deepText }]}
+              >
                 {growthStats.longestStreak === 1
                   ? '1 day'
                   : `${growthStats.longestStreak} days`}
               </AppText>
             </View>
             <View style={styles.growthRow}>
-              <IconSymbol name="leaf.fill" size={20} color={GroveColors.accentLime} />
-              <AppText variant="paragraph" style={styles.growthLabel}>
+              <IconSymbol name="leaf.fill" size={20} color={colors.accentLime} />
+              <AppText
+                variant="paragraph"
+                style={[styles.growthLabel, { color: colors.secondaryText }]}
+              >
                 Habits completed:
               </AppText>
-              <AppText variant="paragraph" style={styles.growthValue}>
+              <AppText
+                variant="paragraph"
+                style={[styles.growthValue, { color: colors.deepText }]}
+              >
                 {growthStats.habitsCompleted}
               </AppText>
             </View>
             <View style={styles.growthRow}>
-              <IconSymbol name="calendar" size={20} color={GroveColors.deepText} />
-              <AppText variant="paragraph" style={styles.growthLabel}>
+              <IconSymbol name="calendar" size={20} color={colors.deepText} />
+              <AppText
+                variant="paragraph"
+                style={[styles.growthLabel, { color: colors.secondaryText }]}
+              >
                 Active days:
               </AppText>
-              <AppText variant="paragraph" style={styles.growthValue}>
+              <AppText
+                variant="paragraph"
+                style={[styles.growthValue, { color: colors.deepText }]}
+              >
                 {growthStats.activeDaysThisMonth} this month
               </AppText>
             </View>
@@ -422,22 +496,37 @@ export default function ProfileScreen() {
         {/* Save progress prompt for guests */}
         {isGuest ? (
           <View style={styles.section}>
-            <View style={styles.saveProgressCard}>
-              <MaterialIcons name="cloud-off" size={28} color={GroveColors.accentLime} />
-              <AppText variant="paragraph" style={styles.saveProgressTitle}>
+            <View
+              style={[
+                styles.saveProgressCard,
+                { backgroundColor: colors.softSurface },
+              ]}
+            >
+              <MaterialIcons name="cloud-off" size={28} color={colors.accentLime} />
+              <AppText
+                variant="paragraph"
+                style={[styles.saveProgressTitle, { color: colors.deepText }]}
+              >
                 Your progress is saved on this device
               </AppText>
-              <AppText variant="small" style={styles.saveProgressBody}>
+              <AppText
+                variant="small"
+                style={[styles.saveProgressBody, { color: colors.secondaryText }]}
+              >
                 Create a free account to back up your habits, access them on any device, and never lose your streak.
               </AppText>
               <Pressable
                 style={({ pressed }) => [
                   styles.saveProgressBtn,
+                  { backgroundColor: colors.primaryGreen },
                   pressed && styles.saveProgressBtnPressed,
                 ]}
                 onPress={() => router.push('/(auth)/login?mode=signup')}
               >
-                <AppText variant="paragraph" style={styles.saveProgressBtnText}>
+                <AppText
+                  variant="paragraph"
+                  style={[styles.saveProgressBtnText, { color: colors.onAccent }]}
+                >
                   Create account
                 </AppText>
               </Pressable>
@@ -446,7 +535,10 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/(auth)/login?mode=signin')}
                 activeOpacity={0.7}
               >
-                <AppText variant="small" style={styles.signInLinkText}>
+                <AppText
+                  variant="small"
+                  style={[styles.signInLinkText, { color: colors.primaryGreen }]}
+                >
                   Already have an account? Sign in
                 </AppText>
               </TouchableOpacity>
@@ -456,7 +548,9 @@ export default function ProfileScreen() {
 
         {/* Account */}
         <View style={styles.section}>
-          <View style={styles.settingsCard}>
+          <View
+            style={[styles.settingsCard, { backgroundColor: colors.softSurface }]}
+          >
             {isGuest ? (
               <TouchableOpacity
                 style={[styles.settingsRow, styles.settingsRowLast]}
@@ -479,15 +573,18 @@ export default function ProfileScreen() {
                 <MaterialIcons
                   name="logout"
                   size={22}
-                  color={GroveColors.deepText}
+                  color={colors.deepText}
                 />
-                <AppText variant="paragraph" style={styles.settingsLabel}>
+                <AppText
+                  variant="paragraph"
+                  style={[styles.settingsLabel, { color: colors.deepText }]}
+                >
                   Exit guest mode
                 </AppText>
                 <MaterialIcons
                   name="chevron-right"
                   size={22}
-                  color={GroveColors.mutedGray}
+                  color={colors.mutedGray}
                 />
               </TouchableOpacity>
             ) : (
@@ -501,15 +598,18 @@ export default function ProfileScreen() {
                 <MaterialIcons
                   name="logout"
                   size={22}
-                  color={GroveColors.deepText}
+                  color={colors.deepText}
                 />
-                <AppText variant="paragraph" style={styles.settingsLabel}>
+                <AppText
+                  variant="paragraph"
+                  style={[styles.settingsLabel, { color: colors.deepText }]}
+                >
                   Sign out
                 </AppText>
                 <MaterialIcons
                   name="chevron-right"
                   size={22}
-                  color={GroveColors.mutedGray}
+                  color={colors.mutedGray}
                 />
               </TouchableOpacity>
             )}
@@ -526,21 +626,36 @@ export default function ProfileScreen() {
         onRequestClose={() => setAvatarUrlModalVisible(false)}
       >
         <View style={styles.avatarUrlModalBackdrop}>
-          <View style={styles.avatarUrlModalCard}>
-            <AppText variant="h2" style={styles.avatarUrlModalTitle}>
+          <View
+            style={[styles.avatarUrlModalCard, { backgroundColor: colors.white }]}
+          >
+            <AppText
+              variant="h2"
+              style={[styles.avatarUrlModalTitle, { color: colors.deepText }]}
+            >
               Paste image link
             </AppText>
-            <AppText variant="small" style={styles.avatarUrlModalHint}>
+            <AppText
+              variant="small"
+              style={[styles.avatarUrlModalHint, { color: colors.secondaryText }]}
+            >
               Optional fallback: paste a direct https link to an image. Your
               profile and Garden tab use the same photo. On this device, tap your
               avatar to choose from the photo library first.
             </AppText>
             <TextInput
-              style={styles.avatarUrlInput}
+              style={[
+                styles.avatarUrlInput,
+                {
+                  borderColor: colors.inactive,
+                  color: colors.deepText,
+                  backgroundColor: colors.softSurface,
+                },
+              ]}
               value={avatarUrlDraft}
               onChangeText={setAvatarUrlDraft}
               placeholder="https://example.com/photo.jpg"
-              placeholderTextColor={GroveColors.secondaryText}
+              placeholderTextColor={colors.secondaryText}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
@@ -552,19 +667,31 @@ export default function ProfileScreen() {
                 onPress={() => setAvatarUrlModalVisible(false)}
                 disabled={uploadingAvatar}
               >
-                <AppText variant="paragraph" style={styles.avatarUrlModalButtonSecondaryText}>
+                <AppText
+                  variant="paragraph"
+                  style={{ color: colors.secondaryText }}
+                >
                   Cancel
                 </AppText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.avatarUrlModalButtonPrimary}
+                style={[
+                  styles.avatarUrlModalButtonPrimary,
+                  { backgroundColor: colors.primaryGreen },
+                ]}
                 onPress={() => void onSaveAvatarFromUrl()}
                 disabled={uploadingAvatar}
               >
                 {uploadingAvatar ? (
-                  <ActivityIndicator color={GroveColors.white} />
+                  <ActivityIndicator color={colors.onAccent} />
                 ) : (
-                  <AppText variant="paragraph" style={styles.avatarUrlModalButtonPrimaryText}>
+                  <AppText
+                    variant="paragraph"
+                    style={[
+                      styles.avatarUrlModalButtonPrimaryText,
+                      { color: colors.onAccent },
+                    ]}
+                  >
                     Save
                   </AppText>
                 )}
@@ -580,7 +707,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: GroveColors.white,
   },
   scroll: {
     flex: 1,
@@ -593,7 +719,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    color: GroveColors.deepText,
     fontWeight: '600',
   },
   userBlock: {
@@ -604,7 +729,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: GroveColors.softSurface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -616,7 +740,6 @@ const styles = StyleSheet.create({
   },
   avatarLoading: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -624,7 +747,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
     textAlign: 'center',
-    color: GroveColors.secondaryText,
     marginBottom: 6,
   },
   userNameRow: {
@@ -643,14 +765,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 24,
     fontWeight: '600',
-    color: GroveColors.deepText,
     textAlign: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: GroveBorderRadius.card,
-    backgroundColor: GroveColors.softSurface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.divider,
   },
   saveNameButton: {
     alignSelf: 'center',
@@ -659,7 +778,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: GroveBorderRadius.pill,
-    backgroundColor: GroveColors.primaryGreen,
     alignItems: 'center',
     marginBottom: 12,
   },
@@ -667,38 +785,31 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   saveNameButtonText: {
-    color: GroveColors.white,
     fontWeight: '600',
   },
   subtitle: {
-    color: GroveColors.secondaryText,
     marginBottom: 8,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: GroveColors.white,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: GroveBorderRadius.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   badgeText: {
-    color: GroveColors.deepText,
     fontWeight: '600',
   },
   section: {
     marginBottom: GroveSpacing.sectionGap,
   },
   sectionTitle: {
-    color: GroveColors.deepText,
     fontWeight: '600',
     marginBottom: 12,
   },
   growthCard: {
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.homeCard,
     padding: GroveSpacing.cardPaddingHorizontal,
     paddingVertical: 20,
@@ -711,14 +822,11 @@ const styles = StyleSheet.create({
   },
   growthLabel: {
     flex: 1,
-    color: GroveColors.secondaryText,
   },
   growthValue: {
-    color: GroveColors.deepText,
     fontWeight: '600',
   },
   settingsCard: {
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.card,
     overflow: 'hidden',
   },
@@ -729,21 +837,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.divider,
   },
   settingsRowLast: {
     borderBottomWidth: 0,
   },
   settingsLabel: {
     flex: 1,
-    color: GroveColors.deepText,
     fontWeight: '500',
   },
   bottomSpacer: {
     height: 110,
   },
   saveProgressCard: {
-    backgroundColor: GroveColors.softSurface,
     borderRadius: GroveBorderRadius.homeCard,
     padding: GroveSpacing.cardPaddingHorizontal,
     paddingVertical: 20,
@@ -751,18 +856,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   saveProgressTitle: {
-    color: GroveColors.deepText,
     fontWeight: '600',
     textAlign: 'center',
     fontSize: 16,
   },
   saveProgressBody: {
-    color: GroveColors.secondaryText,
     textAlign: 'center',
     lineHeight: 20,
   },
   saveProgressBtn: {
-    backgroundColor: GroveColors.primaryGreen,
     borderRadius: GroveBorderRadius.pill,
     paddingVertical: 12,
     paddingHorizontal: 28,
@@ -774,14 +876,12 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   saveProgressBtnText: {
-    color: GroveColors.white,
     fontWeight: '600',
   },
   signInLink: {
     paddingVertical: 4,
   },
   signInLinkText: {
-    color: GroveColors.primaryGreen,
     textDecorationLine: 'underline',
   },
   avatarUrlModalBackdrop: {
@@ -791,28 +891,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: GroveSpacing.screenPaddingHorizontal,
   },
   avatarUrlModalCard: {
-    backgroundColor: GroveColors.white,
     borderRadius: GroveBorderRadius.card,
     padding: 20,
     gap: 12,
   },
   avatarUrlModalTitle: {
-    color: GroveColors.deepText,
     fontWeight: '600',
   },
   avatarUrlModalHint: {
-    color: GroveColors.secondaryText,
     lineHeight: 20,
   },
   avatarUrlInput: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: GroveColors.inactive,
     borderRadius: GroveBorderRadius.card,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: GroveColors.deepText,
-    backgroundColor: GroveColors.softSurface,
   },
   avatarUrlModalActions: {
     flexDirection: 'row',
@@ -824,11 +918,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
-  avatarUrlModalButtonSecondaryText: {
-    color: GroveColors.secondaryText,
-  },
   avatarUrlModalButtonPrimary: {
-    backgroundColor: GroveColors.primaryGreen,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: GroveBorderRadius.pill,
@@ -837,7 +927,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarUrlModalButtonPrimaryText: {
-    color: GroveColors.white,
     fontWeight: '600',
   },
 });

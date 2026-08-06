@@ -1,5 +1,5 @@
 import { AppText } from "@/components/ui/AppText";
-import { GroveColors } from "@/styles/theme";
+import { useGroveColors, useIsDarkMode } from "@/hooks/useGroveColors";
 import React from "react";
 import { Image, StyleSheet, View } from "react-native";
 
@@ -18,32 +18,45 @@ export function TodayProgressBanner({
   totalCount,
   title = "Today's Progress",
 }: TodayProgressBannerProps) {
+  const colors = useGroveColors();
+  const isDark = useIsDarkMode();
   const remaining = totalCount - completedCount;
 
   return (
-    <View style={styles.banner}>
+    <View style={[styles.banner, { backgroundColor: colors.softSurface }]}>
       {/* Background decorative image */}
-      <Image source={bgImage} style={styles.bg} resizeMode="cover" />
+      <Image
+        source={bgImage}
+        style={[styles.bg, isDark && { opacity: 0.35 }]}
+        resizeMode="cover"
+      />
 
       {/* Content sits on top of background */}
       <View style={styles.content}>
-        <AppText variant="h2" style={styles.title}>
+        <AppText
+          variant="h2"
+          style={[styles.title, { color: colors.deepText }]}
+        >
           {title}
         </AppText>
-        <AppText variant="paragraphRegular" style={styles.summary}>
+        <AppText
+          variant="paragraphRegular"
+          style={[styles.summary, { color: colors.secondaryText }]}
+        >
           {completedCount} / {totalCount} habits completed
         </AppText>
 
-        {/* Progress segments */}
+        {/* Number segments */}
         <View style={styles.progressRow}>
           {Array.from({ length: totalCount }).map((_, i) => (
             <View
               key={i}
               style={[
                 styles.segment,
-                i < completedCount
-                  ? styles.segmentFilled
-                  : styles.segmentInactive,
+                {
+                  backgroundColor:
+                    i < completedCount ? colors.accentLime : colors.mutedGray,
+                },
               ]}
             />
           ))}
@@ -57,12 +70,27 @@ export function TodayProgressBanner({
           style={styles.sprout}
           resizeMode="contain"
         />
-        <View style={styles.messagePill}>
-          <AppText variant="small" style={styles.messageText}>
+        <View
+          style={[
+            styles.messagePill,
+            {
+              backgroundColor: isDark
+                ? "rgba(26, 34, 30, 0.72)"
+                : "rgba(255,255,255,0.65)",
+            },
+          ]}
+        >
+          <AppText
+            variant="small"
+            style={[styles.messageText, { color: colors.secondaryText }]}
+          >
             {remaining > 0
               ? `${remaining} more habit${remaining > 1 ? "s" : ""} and your `
               : "All done! Your "}
-            <AppText variant="small" style={styles.messageTextBold}>
+            <AppText
+              variant="small"
+              style={[styles.messageTextBold, { color: colors.deepText }]}
+            >
               {remaining > 0 ? "garden grows!" : "garden is thriving!"}
             </AppText>
           </AppText>
@@ -76,7 +104,6 @@ const styles = StyleSheet.create({
   banner: {
     borderRadius: 24,
     overflow: "hidden",
-    backgroundColor: GroveColors.softSurface,
   },
   bg: {
     position: "absolute",
@@ -91,12 +118,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: GroveColors.deepText,
     marginBottom: 4,
   },
   summary: {
     fontSize: 13,
-    color: GroveColors.secondaryText,
     marginBottom: 10,
   },
   progressRow: {
@@ -109,12 +134,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 6,
     borderRadius: 50,
-  },
-  segmentFilled: {
-    backgroundColor: GroveColors.accentLime,
-  },
-  segmentInactive: {
-    backgroundColor: GroveColors.mutedGray,
   },
   bottomRow: {
     flexDirection: "row",
@@ -129,7 +148,6 @@ const styles = StyleSheet.create({
   },
   messagePill: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.65)",
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -137,13 +155,11 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 12,
-    color: GroveColors.secondaryText,
     lineHeight: 16,
   },
   messageTextBold: {
     fontSize: 12,
     fontWeight: "700",
-    color: GroveColors.deepText,
     lineHeight: 16,
   },
 });

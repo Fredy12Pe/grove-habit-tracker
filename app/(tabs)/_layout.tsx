@@ -10,15 +10,23 @@ import {
   TabProgressIcon,
 } from "@/components/ui/TabIcons";
 import { useAuth } from "@/contexts/auth-context";
-import { GroveBorderRadius, GroveColors, GroveFontFamily } from "@/styles/theme";
+import { useGroveColors } from "@/hooks/useGroveColors";
+import { GroveBorderRadius, GroveFontFamily } from "@/styles/theme";
 
 /** Soft rounded top surface so corner cutouts aren't black chrome. */
 function TabBarBackground() {
-  return <View style={styles.tabBarBackground} pointerEvents="none" />;
+  const colors = useGroveColors();
+  return (
+    <View
+      style={[styles.tabBarBackground, { backgroundColor: colors.tabBar }]}
+      pointerEvents="none"
+    />
+  );
 }
 
 export default function TabLayout() {
   const { initialized, session, isGuest, needsOnboarding } = useAuth();
+  const colors = useGroveColors();
 
   if (!initialized) {
     return null;
@@ -34,8 +42,8 @@ export default function TabLayout() {
     <View style={styles.root}>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: GroveColors.accentLimeSoft,
-          tabBarInactiveTintColor: GroveColors.mutedGray,
+          tabBarActiveTintColor: colors.accentLimeSoft,
+          tabBarInactiveTintColor: colors.mutedGray,
           sceneStyle: { backgroundColor: "transparent" },
           tabBarStyle: {
             backgroundColor: "transparent",
@@ -125,7 +133,6 @@ const styles = StyleSheet.create({
   },
   tabBarBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#E8EAEB",
     borderTopLeftRadius: GroveBorderRadius.homeCard,
     borderTopRightRadius: GroveBorderRadius.homeCard,
     // Figma: iOS continuous corner smoothing ~60%

@@ -1,6 +1,6 @@
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { GroveColors } from "@/styles/theme";
+import { useGroveColors, useIsDarkMode } from "@/hooks/useGroveColors";
 import React, { useState, type ReactNode } from "react";
 import {
   Image,
@@ -89,8 +89,64 @@ export const HABIT_CARD_THEMES: readonly HabitCardTheme[] = [
   }, // mist
 ] as const;
 
-export function habitCardThemeAt(index: number): HabitCardTheme {
-  return HABIT_CARD_THEMES[index % HABIT_CARD_THEMES.length];
+/** Dark-mode card washes — deep forest tints, same accent hues. */
+export const HABIT_CARD_THEMES_DARK: readonly HabitCardTheme[] = [
+  {
+    bg: "#2A3320",
+    accent: "#A7DE33",
+    accentDeep: "#8AA335",
+    iconWell: "#354222",
+  },
+  {
+    bg: "#243028",
+    accent: "#7BA86A",
+    accentDeep: "#5E8A50",
+    iconWell: "#2E3C32",
+  },
+  {
+    bg: "#2A3020",
+    accent: "#A8C44A",
+    accentDeep: "#8AA335",
+    iconWell: "#363E24",
+  },
+  {
+    bg: "#2E2A22",
+    accent: "#C4A06A",
+    accentDeep: "#A38452",
+    iconWell: "#3A3428",
+  },
+  {
+    bg: "#22302C",
+    accent: "#5FA88A",
+    accentDeep: "#458A6E",
+    iconWell: "#2A3C36",
+  },
+  {
+    bg: "#242C2C",
+    accent: "#6B8F8A",
+    accentDeep: "#52706C",
+    iconWell: "#2E3838",
+  },
+  {
+    bg: "#2C3220",
+    accent: "#BADF3D",
+    accentDeep: "#8AA335",
+    iconWell: "#384024",
+  },
+  {
+    bg: "#262C30",
+    accent: "#7A92A0",
+    accentDeep: "#5E7684",
+    iconWell: "#303840",
+  },
+] as const;
+
+export function habitCardThemeAt(
+  index: number,
+  dark = false,
+): HabitCardTheme {
+  const themes = dark ? HABIT_CARD_THEMES_DARK : HABIT_CARD_THEMES;
+  return themes[index % themes.length];
 }
 
 function clampByte(n: number) {
@@ -131,12 +187,17 @@ function mixRgb(
 }
 
 /** Build a card theme from a single accent hex (custom color picker). */
-export function habitCardThemeFromAccent(accent: string): HabitCardTheme {
+export function habitCardThemeFromAccent(
+  accent: string,
+  dark = false,
+): HabitCardTheme {
   const accentRgb = hexToRgb(accent);
-  /** Warm cream base — matches Grove background / card surfaces. */
-  const cream = { r: 249, g: 250, b: 241 };
-  const bg = mixRgb(accentRgb, cream, 0.9);
-  const iconWell = mixRgb(accentRgb, cream, 0.74);
+  /** Mix toward cream (light) or forest night (dark). */
+  const base = dark
+    ? { r: 26, g: 34, b: 30 }
+    : { r: 249, g: 250, b: 241 };
+  const bg = mixRgb(accentRgb, base, dark ? 0.82 : 0.9);
+  const iconWell = mixRgb(accentRgb, base, dark ? 0.68 : 0.74);
   const accentDeep = mixRgb(accentRgb, { r: 0, g: 0, b: 0 }, 0.22);
   return {
     bg: rgbToHex(bg.r, bg.g, bg.b),
@@ -149,8 +210,8 @@ export function habitCardThemeFromAccent(accent: string): HabitCardTheme {
 }
 
 /** Deep accent for expanded form controls. */
-export function habitCardAccentAt(index: number): string {
-  return habitCardThemeAt(index).accentDeep;
+export function habitCardAccentAt(index: number, dark = false): string {
+  return habitCardThemeAt(index, dark).accentDeep;
 }
 
 interface HabitRowProps {
@@ -191,14 +252,16 @@ export function HabitRow({
   dragging = false,
   style,
 }: HabitRowProps) {
+  const colors = useGroveColors();
+  const isDark = useIsDarkMode();
   const [internalExpanded, setInternalExpanded] = useState(false);
 
   const isControlled =
     expandedProp !== undefined && onExpandToggle !== undefined;
   const expanded = isControlled ? expandedProp : internalExpanded;
   const theme = customAccent
-    ? habitCardThemeFromAccent(customAccent)
-    : habitCardThemeAt(colorIndex);
+    ? habitCardThemeFromAccent(customAccent, isDark)
+    : habitCardThemeAt(colorIndex, isDark);
   const week = habit.weekCompletion ?? [];
 
   const toggleExpand = () => {
@@ -236,7 +299,7 @@ export function HabitRow({
               habit.completed
                 ? { backgroundColor: theme.accent, borderColor: theme.accent }
                 : {
-                    backgroundColor: GroveColors.white,
+                    backgroundColor: colors.white,
                     borderColor: theme.accent,
                   },
             ]}
@@ -255,17 +318,25 @@ export function HabitRow({
               <IconSymbol
                 name="checkmark"
                 size={18}
-                color={GroveColors.white}
+                color={colors.onAccent}
                 weight="bold"
               />
             ) : null}
           </TouchableOpacity>
 
           <View style={styles.textBlock}>
-            <AppText variant="h2" style={styles.name} numberOfLines={2}>
+            <AppText
+              variant="h2"
+              style={[styles.name, { color: colors.deepText }]}
+              numberOfLines={2}
+            >
               {habit.name}
             </AppText>
-            <AppText variant="small" style={styles.progress} numberOfLines={1}>
+            <AppText
+              variant="small"
+              style={[styles.progress, { color: colors.secondaryText }]}
+              numberOfLines={1}
+            >
               {progressLabel}
             </AppText>
           </View>
@@ -308,14 +379,16 @@ export function HabitRow({
           <IconSymbol
             name="line.3.horizontal"
             size={18}
-            color={GroveColors.secondaryText}
+            color={colors.secondaryText}
             style={styles.dragHandleIcon}
           />
         </GHPressable>
       ) : null}
 
       {expanded && (
-        <View style={styles.expandedArea}>
+        <View
+          style={[styles.expandedArea, { backgroundColor: colors.softSurface }]}
+        >
           {onPressSettings ? (
             <View style={styles.expandedHeaderRow}>
               <View style={styles.expandedHeaderSpacer} />
@@ -328,7 +401,7 @@ export function HabitRow({
                 <IconSymbol
                   name="ellipsis"
                   size={18}
-                  color={GroveColors.secondaryText}
+                  color={colors.secondaryText}
                   style={
                     Platform.OS === "ios"
                       ? { transform: [{ rotate: "90deg" }] }
@@ -339,7 +412,10 @@ export function HabitRow({
             </View>
           ) : null}
           {expandedContent ?? (
-            <AppText variant="small" style={styles.expandedText}>
+            <AppText
+              variant="small"
+              style={[styles.expandedText, { color: colors.secondaryText }]}
+            >
               Keep going! Complete this habit to grow your garden.
             </AppText>
           )}
@@ -427,13 +503,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   name: {
-    color: GroveColors.deepText,
     fontSize: 20,
     fontWeight: "700",
     lineHeight: 24,
   },
   progress: {
-    color: GroveColors.secondaryText,
     fontSize: 13,
     fontWeight: "500",
   },
@@ -451,7 +525,6 @@ const styles = StyleSheet.create({
     opacity: 0.28,
   },
   expandedArea: {
-    backgroundColor: GroveColors.softSurface,
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 4,
@@ -477,7 +550,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   expandedText: {
-    color: GroveColors.secondaryText,
     fontSize: 12,
     lineHeight: 16,
   },

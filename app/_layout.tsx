@@ -16,7 +16,8 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { syncWidgets } from "@/lib/widgets/syncWidgets";
-import { GroveFontFamily } from "@/styles/theme";
+import { GroveFontFamily, getGroveColors } from "@/styles/theme";
+import * as SystemUI from "expo-system-ui";
 
 type TextWithDefaults = typeof Text & {
   defaultProps?: { style?: unknown; [key: string]: unknown };
@@ -51,6 +52,7 @@ const SPLASH_BACKGROUND = "#F3FBDE";
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
   const { initialized } = useAuth();
+  const groveColors = getGroveColors(colorScheme ?? "light");
 
   useEffect(() => {
     if (initialized) {
@@ -72,6 +74,10 @@ function RootLayoutContent() {
     });
     return () => sub.remove();
   }, []);
+
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(groveColors.white);
+  }, [groveColors.white]);
 
   if (!initialized) {
     return <View style={{ flex: 1, backgroundColor: SPLASH_BACKGROUND }} />;
@@ -163,7 +169,7 @@ function RootLayoutContent() {
           options={{ presentation: "modal", title: "Modal" }}
         />
       </Stack>
-      <StatusBar style="dark" />
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </ThemeProvider>
   );
 }

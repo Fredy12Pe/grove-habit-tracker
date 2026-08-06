@@ -1,21 +1,22 @@
 import { AppText } from "@/components/ui/AppText";
+import { useGroveColors } from "@/hooks/useGroveColors";
 import {
-    addCalendarDays,
-    calendarDateKey,
-    calendarTodayDate,
-    startOfWeekMonday,
+  addCalendarDays,
+  calendarDateKey,
+  calendarTodayDate,
+  startOfWeekMonday,
 } from "@/lib/calendarDate";
-import { GroveBorderRadius, GroveColors } from "@/styles/theme";
+import { GroveBorderRadius } from "@/styles/theme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Modal,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -41,6 +42,7 @@ export function WeekCalendar({
   selectedDate,
   onSelectDate,
 }: WeekCalendarProps) {
+  const colors = useGroveColors();
   const [pickerOpen, setPickerOpen] = useState(false);
   const today = calendarTodayDate();
   const todayKey = calendarDateKey(today);
@@ -55,7 +57,7 @@ export function WeekCalendar({
       <View style={styles.toolbar}>
         <View style={styles.toolbarSpacer} />
         <TouchableOpacity
-          style={styles.toolbarIconBtn}
+          style={[styles.toolbarIconBtn, { backgroundColor: colors.softSurface }]}
           onPress={() => setPickerOpen(true)}
           activeOpacity={0.7}
           hitSlop={10}
@@ -65,7 +67,7 @@ export function WeekCalendar({
           <MaterialIcons
             name="calendar-today"
             size={22}
-            color={GroveColors.primaryText}
+            color={colors.primaryText}
           />
         </TouchableOpacity>
       </View>
@@ -82,8 +84,9 @@ export function WeekCalendar({
               key={key}
               style={[
                 styles.dayCell,
-                isSelected && styles.dayCellSelected,
-                isFuture && styles.dayCellFuture,
+                { backgroundColor: colors.softSurface },
+                isSelected && { backgroundColor: colors.primaryGreen },
+                isFuture && { opacity: 0.55 },
               ]}
               onPress={() => !isFuture && onSelectDate(date)}
               disabled={isFuture}
@@ -93,8 +96,11 @@ export function WeekCalendar({
                 variant="small"
                 style={[
                   styles.dayLabel,
-                  isSelected && styles.dayLabelSelected,
-                  isFuture && styles.dayLabelFuture,
+                  {
+                    color: isSelected
+                      ? colors.onAccent
+                      : colors.secondaryText,
+                  },
                 ]}
               >
                 {WEEKDAY_LABELS[date.getDay()]}
@@ -103,9 +109,15 @@ export function WeekCalendar({
                 variant="paragraph"
                 style={[
                   styles.dayNumber,
-                  isSelected && styles.dayNumberSelected,
-                  isFuture && styles.dayNumberFuture,
-                  isToday && !isSelected && !isFuture && styles.dayNumberToday,
+                  {
+                    color: isSelected
+                      ? colors.onAccent
+                      : isFuture
+                        ? colors.secondaryText
+                        : isToday
+                          ? colors.primaryGreen
+                          : colors.primaryText,
+                  },
                 ]}
               >
                 {date.getDate()}
@@ -141,6 +153,7 @@ function CalendarPickerModal({
   onClose,
   onSelectDate,
 }: CalendarPickerModalProps) {
+  const colors = useGroveColors();
   const todayKey = calendarDateKey();
   const [viewYear, setViewYear] = useState(() => anchorSelected.getFullYear());
   const [viewMonth, setViewMonth] = useState(() => anchorSelected.getMonth());
@@ -188,13 +201,23 @@ function CalendarPickerModal({
       presentationStyle={Platform.OS === "ios" ? "pageSheet" : undefined}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={pickerStyles.safe}>
-        <View style={pickerStyles.header}>
-          <AppText variant="h2" style={pickerStyles.title}>
+      <SafeAreaView style={[pickerStyles.safe, { backgroundColor: colors.white }]}>
+        <View
+          style={[
+            pickerStyles.header,
+            { borderBottomColor: colors.inactive },
+          ]}
+        >
+          <AppText
+            variant="h2"
+            style={[pickerStyles.title, { color: colors.primaryText }]}
+          >
             Choose date
           </AppText>
           <Pressable onPress={onClose} hitSlop={12}>
-            <AppText style={pickerStyles.close}>Done</AppText>
+            <AppText style={[pickerStyles.close, { color: colors.primaryGreen }]}>
+              Done
+            </AppText>
           </Pressable>
         </View>
 
@@ -209,10 +232,14 @@ function CalendarPickerModal({
             <MaterialIcons
               name="chevron-left"
               size={28}
-              color={GroveColors.primaryText}
+              color={colors.primaryText}
             />
           </TouchableOpacity>
-          <AppText style={pickerStyles.monthTitle}>{monthTitle}</AppText>
+          <AppText
+            style={[pickerStyles.monthTitle, { color: colors.primaryText }]}
+          >
+            {monthTitle}
+          </AppText>
           <TouchableOpacity
             onPress={goNextMonth}
             disabled={!canGoNextMonth}
@@ -228,7 +255,7 @@ function CalendarPickerModal({
               name="chevron-right"
               size={28}
               color={
-                canGoNextMonth ? GroveColors.primaryText : GroveColors.inactive
+                canGoNextMonth ? colors.primaryText : colors.inactive
               }
             />
           </TouchableOpacity>
@@ -237,7 +264,14 @@ function CalendarPickerModal({
         <View style={pickerStyles.weekdayRow}>
           {WEEKDAY_LABELS.map((label) => (
             <View key={label} style={pickerStyles.weekdayCell}>
-              <AppText style={pickerStyles.weekdayText}>{label}</AppText>
+              <AppText
+                style={[
+                  pickerStyles.weekdayText,
+                  { color: colors.secondaryText },
+                ]}
+              >
+                {label}
+              </AppText>
             </View>
           ))}
         </View>
@@ -264,19 +298,26 @@ function CalendarPickerModal({
                 <View
                   style={[
                     pickerStyles.dayDisk,
-                    isSelected && pickerStyles.dayDiskSelected,
+                    isSelected && { backgroundColor: colors.primaryGreen },
                     isToday &&
                       !isSelected &&
-                      !isFuture &&
-                      pickerStyles.dayDiskToday,
-                    isFuture && pickerStyles.dayDiskFuture,
+                      !isFuture && {
+                        borderWidth: 2,
+                        borderColor: colors.primaryGreen,
+                      },
+                    isFuture && { opacity: 0.35 },
                   ]}
                 >
                   <AppText
                     style={[
                       pickerStyles.gridDayText,
-                      isSelected && pickerStyles.gridDayTextSelected,
-                      isFuture && pickerStyles.gridDayTextFuture,
+                      {
+                        color: isSelected
+                          ? colors.onAccent
+                          : isFuture
+                            ? colors.secondaryText
+                            : colors.primaryText,
+                      },
                     ]}
                   >
                     {day}
@@ -306,7 +347,6 @@ const styles = StyleSheet.create({
   toolbarIconBtn: {
     padding: 6,
     borderRadius: GroveBorderRadius.button,
-    backgroundColor: GroveColors.softSurface,
   },
   row: {
     flexDirection: "row",
@@ -318,48 +358,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     borderRadius: GroveBorderRadius.button,
-    backgroundColor: GroveColors.softSurface,
     gap: 4,
-  },
-  dayCellSelected: {
-    backgroundColor: GroveColors.primaryGreen,
-  },
-  dayCellFuture: {
-    backgroundColor: GroveColors.softSurface,
-    opacity: 0.55,
   },
   dayLabel: {
     fontSize: 11,
-    color: GroveColors.secondaryText,
     fontWeight: "500",
-  },
-  dayLabelSelected: {
-    color: GroveColors.white,
-  },
-  dayLabelFuture: {
-    color: GroveColors.secondaryText,
   },
   dayNumber: {
     fontSize: 15,
     fontWeight: "700",
-    color: GroveColors.primaryText,
     lineHeight: 20,
-  },
-  dayNumberSelected: {
-    color: GroveColors.white,
-  },
-  dayNumberToday: {
-    color: GroveColors.primaryGreen,
-  },
-  dayNumberFuture: {
-    color: GroveColors.secondaryText,
   },
 });
 
 const pickerStyles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: GroveColors.white,
   },
   header: {
     flexDirection: "row",
@@ -368,17 +382,14 @@ const pickerStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GroveColors.inactive,
   },
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: GroveColors.primaryText,
   },
   close: {
     fontSize: 16,
     fontWeight: "600",
-    color: GroveColors.primaryGreen,
   },
   monthNav: {
     flexDirection: "row",
@@ -398,7 +409,6 @@ const pickerStyles = StyleSheet.create({
   monthTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: GroveColors.primaryText,
   },
   weekdayRow: {
     flexDirection: "row",
@@ -413,7 +423,6 @@ const pickerStyles = StyleSheet.create({
   weekdayText: {
     fontSize: 11,
     fontWeight: "600",
-    color: GroveColors.secondaryText,
   },
   grid: {
     flexDirection: "row",
@@ -438,25 +447,8 @@ const pickerStyles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "transparent",
   },
-  dayDiskSelected: {
-    backgroundColor: GroveColors.primaryGreen,
-  },
-  dayDiskToday: {
-    borderWidth: 2,
-    borderColor: GroveColors.primaryGreen,
-  },
-  dayDiskFuture: {
-    opacity: 0.35,
-  },
   gridDayText: {
     fontSize: 16,
     fontWeight: "600",
-    color: GroveColors.primaryText,
-  },
-  gridDayTextSelected: {
-    color: GroveColors.white,
-  },
-  gridDayTextFuture: {
-    color: GroveColors.secondaryText,
   },
 });

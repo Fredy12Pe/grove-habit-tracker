@@ -1,6 +1,11 @@
 import React from "react";
 import { StyleSheet, Text, type TextProps } from "react-native";
-import { GroveFontFamily, GroveTypography } from "@/styles/theme";
+import { useGroveColors } from "@/hooks/useGroveColors";
+import {
+  GroveFontFamily,
+  GroveTypography,
+  GroveTypographyColorKey,
+} from "@/styles/theme";
 
 type Variant =
   | "display"
@@ -24,8 +29,10 @@ export function AppText({
   boldSprout,
   ...rest
 }: AppTextProps) {
+  const colors = useGroveColors();
   const textStyle = GroveTypography[variant];
-  const resolvedStyle = [styles.base, textStyle, style];
+  const color = colors[GroveTypographyColorKey[variant]];
+  const resolvedStyle = [styles.base, textStyle, { color }, style];
 
   if (boldSprout && typeof children === "string" && children.includes("Sprout")) {
     const parts = children.split(/(Sprout)/);
