@@ -217,6 +217,11 @@ const GardenPlot = memo(function GardenPlot({
             weekRange.end,
           );
           const frame = Math.min(count, FRAMES_PER_PLANT - 1);
+          // Growth-state feedback only applies to the live plot; past weeks stay historical.
+          const isCurrentPlot = plotIndex === currentWeekPlot;
+          const growthState = isCurrentPlot ? habit.growthState : undefined;
+          const plantOpacity = growthState === "wilt" ? 0.55 : 1;
+          const plantScale = growthState === "bloom" ? 1.08 : 1;
           return (
             <Image
               key={`${plotIndex}-${habit.id}`}
@@ -228,6 +233,8 @@ const GardenPlot = memo(function GardenPlot({
                 width: plantSize,
                 height: plantSize,
                 zIndex: 2,
+                opacity: plantOpacity,
+                transform: [{ scale: plantScale }],
               }}
               resizeMode="contain"
             />
@@ -679,7 +686,6 @@ export function WorldScene({
         [
           [L.HOUSE_IMAGE, L.HIMG_X, L.HIMG_Y, L.HIMG_W, L.HIMG_H],
           [L.HOUSE_DRAWER, L.HDRAWER_X, L.HDRAWER_Y, L.HDRAWER_W, L.HDRAWER_H],
-          [L.HOUSE_BED, L.HBED_X, L.HBED_Y, L.HBED_W, L.HBED_H],
           [L.HOUSE_DESK, L.HDESK_X, L.HDESK_Y, L.HDESK_W, L.HDESK_H],
         ] as const
       ).map(([source, x, y, w, h], i) => (

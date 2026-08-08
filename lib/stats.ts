@@ -112,6 +112,20 @@ export function getBestStreak(
   return best;
 }
 
+/** Fraction (0–1) of the current habit list completed on this calendar day — feeds the year heatmap's intensity. */
+export function getDayCompletionRatio(
+  completionDates: Record<string, string[]>,
+  habits: { id: string; completedToday: boolean }[],
+  dayKey: string,
+  today: string,
+): number {
+  if (habits.length === 0) return 0;
+  const completed = habits.filter((h) =>
+    isHabitCompleteOnDate(h, completionDates, dayKey, today),
+  ).length;
+  return completed / habits.length;
+}
+
 /** Unique days in the given month with at least one completion. */
 export function getActiveDaysInMonth(
   completionDates: Record<string, string[]>,

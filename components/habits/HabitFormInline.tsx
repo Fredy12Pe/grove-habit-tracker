@@ -6,6 +6,10 @@ import {
 import {
   formatTime,
   isHabitComplete,
+  pauseTimer,
+  resetTimer,
+  startOrResumeTimer,
+  timerSecondsRemaining,
   type CounterProgress,
   type CounterSetup,
   type HabitProgress,
@@ -73,6 +77,7 @@ export function HabitFormInline({
         updates.progress = {
           ...p,
           secondsRemaining: (setup as TimerSetup).durationMinutes * 60,
+          endsAtMs: undefined,
         };
       }
     }
@@ -80,6 +85,17 @@ export function HabitFormInline({
   };
 
   const renderSetup = () => {
+    // Keep duration controls out of the way while a session is in progress.
+    if (habit.type === "timer") {
+      const p = habit.progress as TimerProgress;
+      const s = habit.setup as TimerSetup;
+      const fullDuration = s.durationMinutes * 60;
+      const remaining = timerSecondsRemaining(p);
+      const sessionActive =
+        p.isRunning || p.completed || remaining < fullDuration;
+      if (sessionActive) return null;
+    }
+
     switch (habit.type) {
       case "timer": {
         const s = habit.setup as TimerSetup;
@@ -404,25 +420,25 @@ export function HabitFormInline({
       case "timer": {
         const p = habit.progress as TimerProgress;
         const s = habit.setup as TimerSetup;
-        const done = p.completed || p.secondsRemaining <= 0;
+        const remaining = timerSecondsRemaining(p);
+        const done = p.completed || remaining <= 0;
         const fullDuration = s.durationMinutes * 60;
         const isIdle =
-          !p.isRunning && !done && p.secondsRemaining >= fullDuration;
+          !p.isRunning && !done && remaining >= fullDuration;
 
         return (
-          <View style={styles.section}>
-            <AppText variant="small" style={styles.sectionTitle}>
+          <View style={[styles.section, !isIdle && styles.timerSection]}>
+            <AppText
+              variant="small"
+              style={[styles.sectionTitle, !isIdle && styles.timerSectionTitle]}
+            >
               Today’s action
             </AppText>
             {isIdle && (
               <Pressable
                 style={[styles.primaryBtn, accentFill]}
                 onPress={() =>
-                  updateProgress({
-                    ...p,
-                    secondsRemaining: fullDuration,
-                    isRunning: true,
-                  })
+                  updateProgress(startOrResumeTimer(p, fullDuration))
                 }
               >
                 <AppText variant="paragraph" style={styles.primaryBtnText}>
@@ -433,7 +449,7 @@ export function HabitFormInline({
             {!isIdle && (
               <View style={styles.timerWrap}>
                 <AppText variant="display" style={styles.timerText}>
-                  {done ? "0:00" : formatTime(p.secondsRemaining)}
+                  {done ? "0:00" : formatTime(remaining)}
                 </AppText>
                 {done && (
                   <AppText variant="paragraphRegular" style={styles.reward}>
@@ -445,9 +461,7 @@ export function HabitFormInline({
                     {p.isRunning ? (
                       <Pressable
                         style={[styles.timerCtrlBtn, accentFill]}
-                        onPress={() =>
-                          updateProgress({ ...p, isRunning: false })
-                        }
+                        onPress={() => updateProgress(pauseTimer(p))}
                       >
                         <AppText
                           variant="paragraph"
@@ -461,7 +475,7 @@ export function HabitFormInline({
                         style={[styles.timerCtrlBtn, accentFill]}
                         onPress={() => {
                           triggerHabitTimerStartedHaptic();
-                          updateProgress({ ...p, isRunning: true });
+                          updateProgress(startOrResumeTimer(p));
                         }}
                       >
                         <AppText
@@ -475,12 +489,7 @@ export function HabitFormInline({
                     <Pressable
                       style={[styles.timerCtrlBtn, styles.timerCtrlStop, accentOutline]}
                       onPress={() =>
-                        updateProgress({
-                          ...p,
-                          isRunning: false,
-                          completed: false,
-                          secondsRemaining: fullDuration,
-                        })
+                        updateProgress(resetTimer(s.durationMinutes))
                       }
                     >
                       <AppText
@@ -648,7 +657,7 @@ export function HabitFormInline({
 function createStyles(colors: GroveColorPalette) {
   return StyleSheet.create({
   wrap: {
-    paddingTop: 4,
+    paddingTop: 2,
   },
   section: {
     marginBottom: 16,
@@ -656,6 +665,7 @@ function createStyles(colors: GroveColorPalette) {
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
+    lineHeight: 18,
     color: colors.deepText,
     marginBottom: 8,
   },
@@ -666,6 +676,7 @@ function createStyles(colors: GroveColorPalette) {
   },
   customLabel: {
     fontSize: 12,
+    lineHeight: 16,
     color: colors.secondaryText,
     marginTop: 12,
     marginBottom: 6,
@@ -685,6 +696,7 @@ function createStyles(colors: GroveColorPalette) {
   pillText: {
     fontSize: 14,
     fontWeight: "600",
+    lineHeight: 18,
   },
   pillTextSelected: {
     color: colors.onAccent,
@@ -706,10 +718,12 @@ function createStyles(colors: GroveColorPalette) {
   stepperText: {
     fontSize: 18,
     fontWeight: "600",
+    lineHeight: 22,
   },
   stepperValue: {
     fontSize: 16,
     fontWeight: "700",
+    lineHeight: 22,
     color: colors.deepText,
     minWidth: 44,
     textAlign: "center",
@@ -718,11 +732,13 @@ function createStyles(colors: GroveColorPalette) {
     fontFamily: GroveFontFamily,
     fontSize: 16,
     fontWeight: "700",
+    lineHeight: 20,
     color: colors.deepText,
     textAlign: "center",
-    minWidth: 48,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    minWidth: 52,
+    minHeight: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderWidth: 2,
     borderRadius: 8,
     backgroundColor: colors.white,
@@ -730,6 +746,7 @@ function createStyles(colors: GroveColorPalette) {
   customDurationUnit: {
     fontSize: 14,
     fontWeight: "600",
+    lineHeight: 18,
     color: colors.secondaryText,
   },
   counterRow: {
@@ -748,16 +765,19 @@ function createStyles(colors: GroveColorPalette) {
   counterBtnText: {
     fontSize: 22,
     fontWeight: "600",
+    lineHeight: 28,
     color: colors.onAccent,
   },
   counterValueWrap: { alignItems: "center" },
   counterValue: {
     fontSize: 24,
     fontWeight: "700",
+    lineHeight: 30,
     color: colors.deepText,
   },
   counterUnit: {
     fontSize: 13,
+    lineHeight: 18,
     color: colors.secondaryText,
   },
   primaryBtn: {
@@ -771,25 +791,40 @@ function createStyles(colors: GroveColorPalette) {
   primaryBtnText: {
     fontSize: 15,
     fontWeight: "600",
+    lineHeight: 20,
     color: colors.onAccent,
   },
   primaryBtnTextDone: {
     color: colors.deepText,
   },
+  timerSection: {
+    alignItems: "center",
+  },
+  timerSectionTitle: {
+    textAlign: "center",
+    alignSelf: "stretch",
+  },
   timerWrap: {
     alignItems: "center",
-    paddingVertical: 12,
+    alignSelf: "stretch",
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   timerText: {
     fontSize: 36,
     fontWeight: "700",
+    /** Must exceed fontSize — display variant defaults to lineHeight 30. */
+    lineHeight: 44,
     color: colors.deepText,
     fontVariant: ["tabular-nums"],
+    textAlign: "center",
+    includeFontPadding: false,
   },
   timerControls: {
     flexDirection: "row",
+    justifyContent: "center",
     gap: 10,
-    marginTop: 14,
+    marginTop: 12,
   },
   timerCtrlBtn: {
     paddingVertical: 10,
@@ -805,11 +840,13 @@ function createStyles(colors: GroveColorPalette) {
   timerCtrlTextPrimary: {
     fontSize: 14,
     fontWeight: "600",
+    lineHeight: 18,
     color: colors.onAccent,
   },
   timerCtrlTextMuted: {
     fontSize: 14,
     fontWeight: "600",
+    lineHeight: 18,
   },
   input: {
     fontFamily: GroveFontFamily,
@@ -818,6 +855,7 @@ function createStyles(colors: GroveColorPalette) {
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
+    lineHeight: 20,
     color: colors.deepText,
     borderWidth: 2,
     marginBottom: 8,
@@ -828,9 +866,11 @@ function createStyles(colors: GroveColorPalette) {
   },
   reward: {
     fontSize: 13,
+    lineHeight: 18,
     color: colors.deepText,
     marginTop: 8,
     fontWeight: "500",
+    textAlign: "center",
   },
 });
 }

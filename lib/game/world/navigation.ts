@@ -170,7 +170,6 @@ export function createIslandNavigation(
   const FURNITURE_LOCAL = [
     { x: L.HIMG_X, y: L.HIMG_Y, w: L.HIMG_W, h: L.HIMG_H, depthY: L.HIMG_DEPTH_Y },
     { x: L.HDRAWER_X, y: L.HDRAWER_Y, w: L.HDRAWER_W, h: L.HDRAWER_H, depthY: L.HDRAWER_DEPTH_Y },
-    { x: L.HBED_X, y: L.HBED_Y, w: L.HBED_W, h: L.HBED_H, depthY: L.HBED_DEPTH_Y },
     { x: L.HDESK_X, y: L.HDESK_Y, w: L.HDESK_W, h: L.HDESK_H, depthY: L.HDESK_DEPTH_Y },
   ];
 
@@ -308,13 +307,10 @@ export function createIslandNavigation(
     return isOnWalkway(worldX, worldY + FEET_OFFSET_Y);
   }
 
-  /** Ellipse in front of desk / bed (same anchor as door: character world x/y). */
+  /** Ellipse in front of desk (same anchor as door: character world x/y). */
   const HOUSE_DESK_INTERACT_CX = L.HOUSE_LEFT + L.HDESK_X + L.HDESK_W * 0.52;
   const HOUSE_DESK_INTERACT_CY =
     L.HOUSE_TOP + L.HDESK_Y + L.HDESK_H + Math.max(8, Math.round(L.HOUSE_H * 0.035));
-  const HOUSE_BED_INTERACT_CX = L.HOUSE_LEFT + L.HBED_X + L.HBED_W * 0.48;
-  const HOUSE_BED_INTERACT_CY =
-    L.HOUSE_TOP + L.HBED_Y + L.HBED_H + Math.max(8, Math.round(L.HOUSE_H * 0.035));
   const HOUSE_FURNITURE_INTERACT_RX = Math.max(22, Math.round(L.HOUSE_EXIT_RX * 0.82));
   const HOUSE_FURNITURE_INTERACT_RY = Math.max(10, Math.round(L.HOUSE_EXIT_RY * 1.05));
 
@@ -322,15 +318,6 @@ export function createIslandNavigation(
     return inEllipse(
       worldX - HOUSE_DESK_INTERACT_CX,
       worldY - HOUSE_DESK_INTERACT_CY,
-      HOUSE_FURNITURE_INTERACT_RX,
-      HOUSE_FURNITURE_INTERACT_RY,
-    );
-  }
-
-  function isNearHouseBed(worldX: number, worldY: number): boolean {
-    return inEllipse(
-      worldX - HOUSE_BED_INTERACT_CX,
-      worldY - HOUSE_BED_INTERACT_CY,
       HOUSE_FURNITURE_INTERACT_RX,
       HOUSE_FURNITURE_INTERACT_RY,
     );
@@ -443,7 +430,6 @@ export function createIslandNavigation(
     nearActivityIndex,
     isNearDoor,
     isNearHouseDesk,
-    isNearHouseBed,
     isNearTree,
     isNearShakeTree,
     isNearCow,
@@ -461,12 +447,6 @@ export function createIslandNavigation(
       deskInteract: {
         cx: HOUSE_DESK_INTERACT_CX,
         cy: HOUSE_DESK_INTERACT_CY,
-        rx: HOUSE_FURNITURE_INTERACT_RX,
-        ry: HOUSE_FURNITURE_INTERACT_RY,
-      },
-      bedInteract: {
-        cx: HOUSE_BED_INTERACT_CX,
-        cy: HOUSE_BED_INTERACT_CY,
         rx: HOUSE_FURNITURE_INTERACT_RX,
         ry: HOUSE_FURNITURE_INTERACT_RY,
       },

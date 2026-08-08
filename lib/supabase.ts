@@ -18,9 +18,19 @@ const PLACEHOLDER_KEY =
 
 let client: SupabaseClient | null = null;
 
+/** Hard ceiling on any single Supabase request, native only (see below). */
+const SUPABASE_FETCH_TIMEOUT_MS = 10000;
+
 /**
  * On native, RN's default `fetch` is whatwg-fetch (XHR). That path often throws
  * opaque "Network request failed" on device. `expo/fetch` uses URLSession/OkHttp.
+ *
+ * Occasionally a `expo/fetch` request on the simulator stalls and never settles
+ * (neither resolves nor rejects) — e.g. a dropped connection mid-response. Because
+ * auth-js serializes session/user calls behind an internal lock, one stuck request
+ * wedges every future auth call (including reads that should be instant) until the
+ * whole JS context is restarted. Force every request to abort after a timeout so the
+ * promise always settles and that lock always gets released.
  */
 function createSupabaseFetch(): typeof globalThis.fetch {
   if (Platform.OS === 'web') {
@@ -34,8 +44,26 @@ function createSupabaseFetch(): typeof globalThis.fetch {
         : input instanceof URL
           ? input.href
           : input.url;
-    const response = await expoFetch(url, init as Parameters<typeof expoFetch>[1]);
-    return response as unknown as Response;
+
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      SUPABASE_FETCH_TIMEOUT_MS,
+    );
+    const externalSignal = init?.signal ?? undefined;
+    const onExternalAbort = () => controller.abort();
+    externalSignal?.addEventListener('abort', onExternalAbort);
+
+    try {
+      const response = await expoFetch(url, {
+        ...(init as Parameters<typeof expoFetch>[1]),
+        signal: controller.signal,
+      });
+      return response as unknown as Response;
+    } finally {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onExternalAbort);
+    }
   }) as typeof globalThis.fetch;
 }
 

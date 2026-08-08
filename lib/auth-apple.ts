@@ -3,6 +3,8 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { sha256 } from 'js-sha256';
 import { Platform } from 'react-native';
 
+import { isTransientNetworkError } from '@/lib/auth-invalid-session';
+import { callWithNetworkRetry } from '@/lib/auth-retry';
 import {
   isSupabaseConfigured,
   rawSupabaseUrl,
@@ -109,15 +111,34 @@ export async function signInWithApple(): Promise<{ error: Error | null }> {
     };
   }
 
-  const { error } = await getSupabase().auth.signInWithIdToken({
-    provider: 'apple',
-    token,
-    nonce: rawNonce,
-  });
+  try {
+    const { error } = await callWithNetworkRetry(() =>
+      getSupabase().auth.signInWithIdToken({
+        provider: 'apple',
+        token,
+        nonce: rawNonce,
+      }),
+    );
 
-  if (error) {
-    return { error: new Error(error.message) };
+    if (error) {
+      return {
+        error: new Error(
+          isTransientNetworkError(error.message)
+            ? "Couldn't reach the server. Check your connection and try again."
+            : error.message,
+        ),
+      };
+    }
+
+    return { error: null };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Network request failed';
+    return {
+      error: new Error(
+        isTransientNetworkError(msg)
+          ? "Couldn't reach the server. Check your connection and try again."
+          : msg,
+      ),
+    };
   }
-
-  return { error: null };
 }

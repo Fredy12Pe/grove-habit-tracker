@@ -25,12 +25,16 @@ type HabitPersistSlice = {
 function getAsyncStorage(): {
   getItem: (k: string) => Promise<string | null>;
   setItem: (k: string, v: string) => Promise<void>;
+  removeItem: (k: string) => Promise<void>;
 } | null {
   if (Platform.OS === "web" && typeof window !== "undefined") {
     return {
       getItem: async (k) => window.localStorage.getItem(k),
       setItem: async (k, v) => {
         window.localStorage.setItem(k, v);
+      },
+      removeItem: async (k) => {
+        window.localStorage.removeItem(k);
       },
     };
   }
@@ -40,6 +44,7 @@ function getAsyncStorage(): {
       default?: {
         getItem: (k: string) => Promise<string | null>;
         setItem: (k: string, v: string) => Promise<void>;
+        removeItem: (k: string) => Promise<void>;
       };
     };
     if (mod?.default) return mod.default;
@@ -105,6 +110,17 @@ export async function saveHabitSnapshotForUser(userId: string): Promise<void> {
     await storage.setItem(PER_USER_KEY(userId), JSON.stringify(slice));
   } catch (e) {
     console.warn("[habits] save snapshot:", e);
+  }
+}
+
+/** Permanently removes the locally cached habit snapshot for a user (e.g. after account deletion). */
+export async function deleteHabitSnapshotForUser(userId: string): Promise<void> {
+  const storage = getAsyncStorage();
+  if (!storage) return;
+  try {
+    await storage.removeItem(PER_USER_KEY(userId));
+  } catch (e) {
+    console.warn("[habits] delete snapshot:", e);
   }
 }
 

@@ -60,6 +60,8 @@ export interface TimerProgress {
   completed: boolean;
   secondsRemaining: number;
   isRunning: boolean;
+  /** Wall-clock end while running — keeps countdown accurate if the card is collapsed. */
+  endsAtMs?: number;
 }
 
 export interface InputProgress {
@@ -280,8 +282,9 @@ export function getProgressSummary(habit: HabitWithActions): string {
       const p = habit.progress as TimerProgress;
       if (p.completed) return "Done";
       const s = habit.setup as TimerSetup;
+      const remaining = timerSecondsRemaining(p);
       return p.isRunning
-        ? `${Math.ceil(p.secondsRemaining / 60)} min left`
+        ? `${Math.ceil(remaining / 60)} min left`
         : `${s.durationMinutes} min`;
     }
     case "scheduled": {
@@ -335,6 +338,51 @@ export function isHabitComplete(habit: HabitWithActions): boolean {
       return false;
     }
   }
+}
+
+/** Remaining seconds for a timer, using wall-clock end when running. */
+export function timerSecondsRemaining(
+  p: TimerProgress,
+  nowMs = Date.now(),
+): number {
+  if (p.completed) return 0;
+  if (p.isRunning && typeof p.endsAtMs === "number") {
+    return Math.max(0, Math.ceil((p.endsAtMs - nowMs) / 1000));
+  }
+  return Math.max(0, p.secondsRemaining);
+}
+
+export function startOrResumeTimer(
+  p: TimerProgress,
+  seconds?: number,
+): TimerProgress {
+  const secs = Math.max(0, seconds ?? timerSecondsRemaining(p));
+  return {
+    ...p,
+    completed: false,
+    secondsRemaining: secs,
+    isRunning: true,
+    endsAtMs: Date.now() + secs * 1000,
+  };
+}
+
+export function pauseTimer(p: TimerProgress): TimerProgress {
+  const secs = timerSecondsRemaining(p);
+  return {
+    ...p,
+    secondsRemaining: secs,
+    isRunning: false,
+    endsAtMs: undefined,
+  };
+}
+
+export function resetTimer(durationMinutes: number): TimerProgress {
+  return {
+    completed: false,
+    secondsRemaining: durationMinutes * 60,
+    isRunning: false,
+    endsAtMs: undefined,
+  };
 }
 
 export function formatTime(seconds: number): string {

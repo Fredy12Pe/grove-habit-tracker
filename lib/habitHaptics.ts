@@ -80,7 +80,7 @@ export function triggerHabitTimerFinishedHaptic(): void {
     void (async () => {
       try {
         if (Platform.OS === "android") {
-          await Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.LongPress);
+          await Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press);
           await delay(110);
           await Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
           await delay(110);

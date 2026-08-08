@@ -1,5 +1,6 @@
 import { HABIT_CARD_THEMES } from "@/components/habits/HabitRow";
 import { MonthHeatmap } from "@/components/progress/MonthHeatmap";
+import { YearHeatmap } from "@/components/progress/YearHeatmap";
 import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGroveColors } from "@/hooks/useGroveColors";
@@ -10,6 +11,7 @@ import {
   getActiveDaysInMonth,
   getCompletionsInMonth,
   getCurrentStreak,
+  getDayCompletionRatio,
 } from "@/lib/stats";
 import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
 import React, { useEffect, useMemo, useState } from "react";
@@ -54,12 +56,15 @@ function habitHeatColor(
   return HABIT_CARD_THEMES[index % HABIT_CARD_THEMES.length].accent;
 }
 
+type ViewMode = "month" | "year";
+
 export default function ProgressScreen() {
   const colors = useGroveColors();
   const [selectedMonth, setSelectedMonth] = useState(() =>
     startOfMonth(new Date()),
   );
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
   const habits = useHabitStore((s) => s.habits);
   const completionDates = useHabitStore((s) => s.completionDates);
   const recordCompletion = useHabitStore((s) => s.recordCompletion);
@@ -118,6 +123,9 @@ export default function ProgressScreen() {
     [completionDates, habits, today, year, month],
   );
 
+  const getYearActivity = (_dayOfYear: number, date: Date) =>
+    getDayCompletionRatio(completionDates, habits, calendarDateKey(date), today);
+
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.white }]}
@@ -128,11 +136,47 @@ export default function ProgressScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header: title + current month (tappable) */}
+        {/* Header: title + Month/Year toggle */}
         <View style={styles.header}>
           <AppText variant="h1" style={[styles.title, { color: colors.deepText }]}>
             Progress
           </AppText>
+          <View
+            style={[
+              styles.viewModeToggle,
+              { backgroundColor: colors.softSurface },
+            ]}
+          >
+            {(["month", "year"] as const).map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.viewModeOption,
+                  viewMode === mode && {
+                    backgroundColor: colors.white,
+                  },
+                ]}
+                onPress={() => setViewMode(mode)}
+                activeOpacity={0.7}
+              >
+                <AppText
+                  variant="small"
+                  style={[
+                    styles.viewModeText,
+                    {
+                      color:
+                        viewMode === mode ? colors.deepText : colors.mutedGray,
+                    },
+                  ]}
+                >
+                  {mode === "month" ? "Month" : "Year"}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {viewMode === "month" ? (
           <TouchableOpacity
             style={[
               styles.monthPill,
@@ -151,7 +195,38 @@ export default function ProgressScreen() {
               {monthLabel}
             </AppText>
           </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={styles.yearNavRow}>
+            <TouchableOpacity
+              onPress={() => changeYear(-1)}
+              hitSlop={12}
+              style={styles.yearNavBtn}
+            >
+              <IconSymbol
+                name="chevron.left"
+                size={16}
+                color={colors.primaryGreen}
+              />
+            </TouchableOpacity>
+            <AppText
+              variant="paragraph"
+              style={[styles.yearNavLabel, { color: colors.deepText }]}
+            >
+              {year}
+            </AppText>
+            <TouchableOpacity
+              onPress={() => changeYear(1)}
+              hitSlop={12}
+              style={styles.yearNavBtn}
+            >
+              <IconSymbol
+                name="chevron.right"
+                size={16}
+                color={colors.primaryGreen}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Records: stat cards */}
         <View style={styles.recordsSection}>
@@ -237,57 +312,90 @@ export default function ProgressScreen() {
           </View>
         </View>
 
-        {/* Per-habit: two per row, month grid each */}
-        <View style={styles.habitsGrid}>
-          {habits.map((habit, index) => {
-            const color = habitHeatColor(habit, index);
-            const icon =
-              CATALOG_ICON_MAP[habit.customIconCatalogId ?? habit.id] ??
-              HABIT_CATALOG[0]?.icon;
-            return (
-              <View
-                key={habit.id}
-                style={[
-                  styles.habitCard,
-                  { backgroundColor: colors.softSurface },
-                ]}
-              >
-                <View style={styles.habitHeader}>
-                  {icon != null && (
-                    <View
-                      style={[
-                        styles.habitIconWell,
-                        { backgroundColor: colors.white },
-                      ]}
+        {viewMode === "year" ? (
+          <View
+            style={[
+              styles.yearCard,
+              { backgroundColor: colors.softSurface },
+            ]}
+          >
+            <AppText
+              variant="paragraph"
+              style={[styles.yearCardTitle, { color: colors.deepText }]}
+            >
+              Your year at a glance
+            </AppText>
+            <AppText
+              variant="small"
+              style={[styles.yearCardSubtitle, { color: colors.mutedGray }]}
+            >
+              Darker squares mean more habits completed that day.
+            </AppText>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.yearHeatmapScroll}
+            >
+              <YearHeatmap
+                year={year}
+                getActivity={getYearActivity}
+                color={colors.primaryGreen}
+              />
+            </ScrollView>
+          </View>
+        ) : (
+          /* Per-habit: two per row, month grid each */
+          <View style={styles.habitsGrid}>
+            {habits.map((habit, index) => {
+              const color = habitHeatColor(habit, index);
+              const icon =
+                CATALOG_ICON_MAP[habit.customIconCatalogId ?? habit.id] ??
+                HABIT_CATALOG[0]?.icon;
+              return (
+                <View
+                  key={habit.id}
+                  style={[
+                    styles.habitCard,
+                    { backgroundColor: colors.softSurface },
+                  ]}
+                >
+                  <View style={styles.habitHeader}>
+                    {icon != null && (
+                      <View
+                        style={[
+                          styles.habitIconWell,
+                          { backgroundColor: colors.white },
+                        ]}
+                      >
+                        <Image
+                          source={icon}
+                          style={styles.habitIcon}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    )}
+                    <AppText
+                      variant="paragraph"
+                      style={[styles.habitName, { color: colors.deepText }]}
+                      numberOfLines={1}
                     >
-                      <Image
-                        source={icon}
-                        style={styles.habitIcon}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  )}
-                  <AppText
-                    variant="paragraph"
-                    style={[styles.habitName, { color: colors.deepText }]}
-                    numberOfLines={1}
-                  >
-                    {habit.name}
-                  </AppText>
+                      {habit.name}
+                    </AppText>
+                  </View>
+                  <MonthHeatmap
+                    year={year}
+                    month={month}
+                    getActivity={getActivityForHabit(
+                      habit.id,
+                      habit.completedToday,
+                    )}
+                    color={color}
+                  />
                 </View>
-                <MonthHeatmap
-                  year={year}
-                  month={month}
-                  getActivity={getActivityForHabit(
-                    habit.id,
-                    habit.completedToday,
-                  )}
-                  color={color}
-                />
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -411,15 +519,62 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   monthPill: {
+    alignSelf: "flex-start",
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: GroveBorderRadius.pill,
     minWidth: 120,
     alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 20,
   },
   monthPillText: {
     fontWeight: "600",
+  },
+  viewModeToggle: {
+    flexDirection: "row",
+    borderRadius: GroveBorderRadius.pill,
+    padding: 3,
+    gap: 2,
+  },
+  viewModeOption: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: GroveBorderRadius.pill,
+  },
+  viewModeText: {
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  yearNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 12,
+    marginBottom: 20,
+  },
+  yearNavBtn: {
+    padding: 4,
+  },
+  yearNavLabel: {
+    fontWeight: "600",
+    minWidth: 48,
+    textAlign: "center",
+  },
+  yearCard: {
+    borderRadius: GroveBorderRadius.card,
+    padding: 16,
+    marginTop: 8,
+  },
+  yearCardTitle: {
+    fontWeight: "600",
+  },
+  yearCardSubtitle: {
+    marginTop: 2,
+    marginBottom: 14,
+  },
+  yearHeatmapScroll: {
+    marginTop: 4,
   },
   recordsSection: {
     marginBottom: GroveSpacing.sectionGap,

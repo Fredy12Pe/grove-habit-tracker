@@ -65,9 +65,10 @@ export default function ProfileScreen() {
   const { pickPhoto: pickPhotoParam } = useLocalSearchParams<{
     pickPhoto?: string | string[];
   }>();
-  const { user, session, isGuest, guestDisplayName, guestAvatarUri, signOut, applySessionUser, setGuestDisplayName, setGuestAvatarUri, clearGuest } = useAuth();
+  const { user, session, isGuest, guestDisplayName, guestAvatarUri, signOut, deleteAccount, applySessionUser, setGuestDisplayName, setGuestAvatarUri, clearGuest } = useAuth();
   const recoverOrphanedSession = useRecoverOrphanedSession();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [avatarUrlModalVisible, setAvatarUrlModalVisible] = useState(false);
@@ -260,6 +261,64 @@ export default function ProfileScreen() {
     applySessionUser,
     recoverOrphanedSession,
   ]);
+
+  const confirmDeleteAccount = useCallback(async () => {
+    if (deletingAccount) return;
+    setDeletingAccount(true);
+    try {
+      const result = await Promise.race([
+        deleteAccount(),
+        new Promise<{ error: Error }>((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                error: new Error(
+                  'Delete account timed out. Check your connection and try again.',
+                ),
+              }),
+            20000,
+          ),
+        ),
+      ]);
+      if (result.error) {
+        Alert.alert('Could not delete account', result.error.message);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert('Could not delete account', msg);
+    } finally {
+      setDeletingAccount(false);
+    }
+  }, [deleteAccount, deletingAccount]);
+
+  const onDeleteAccount = useCallback(() => {
+    if (deletingAccount) return;
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, profile photo, and cloud data. Habits saved on this device will also be cleared. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'There is no way to recover your account or data after this.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete my account',
+                  style: 'destructive',
+                  onPress: () => void confirmDeleteAccount(),
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  }, [deletingAccount, confirmDeleteAccount]);
 
   /** Garden → Profile with `pickPhoto=1`: open photo library once when this tab is focused. */
   const shouldOpenPhotoPickerFromGarden = useMemo(() => {
@@ -588,30 +647,63 @@ export default function ProfileScreen() {
                 />
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={[styles.settingsRow, styles.settingsRowLast]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  void signOut();
-                }}
-              >
-                <MaterialIcons
-                  name="logout"
-                  size={22}
-                  color={colors.deepText}
-                />
-                <AppText
-                  variant="paragraph"
-                  style={[styles.settingsLabel, { color: colors.deepText }]}
+              <>
+                <TouchableOpacity
+                  style={styles.settingsRow}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    void signOut();
+                  }}
                 >
-                  Sign out
-                </AppText>
-                <MaterialIcons
-                  name="chevron-right"
-                  size={22}
-                  color={colors.mutedGray}
-                />
-              </TouchableOpacity>
+                  <MaterialIcons
+                    name="logout"
+                    size={22}
+                    color={colors.deepText}
+                  />
+                  <AppText
+                    variant="paragraph"
+                    style={[styles.settingsLabel, { color: colors.deepText }]}
+                  >
+                    Sign out
+                  </AppText>
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={22}
+                    color={colors.mutedGray}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.settingsRow, styles.settingsRowLast]}
+                  activeOpacity={0.7}
+                  disabled={deletingAccount}
+                  onPress={onDeleteAccount}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete account"
+                >
+                  {deletingAccount ? (
+                    <ActivityIndicator color={colors.error} />
+                  ) : (
+                    <MaterialIcons
+                      name="delete-outline"
+                      size={22}
+                      color={colors.error}
+                    />
+                  )}
+                  <AppText
+                    variant="paragraph"
+                    style={[styles.settingsLabel, { color: colors.error }]}
+                  >
+                    Delete account
+                  </AppText>
+                  {!deletingAccount ? (
+                    <MaterialIcons
+                      name="chevron-right"
+                      size={22}
+                      color={colors.mutedGray}
+                    />
+                  ) : null}
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>

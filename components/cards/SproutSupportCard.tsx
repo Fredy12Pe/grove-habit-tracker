@@ -1,9 +1,10 @@
+import { MascotRive } from "@/components/mascot";
 import { AppText } from "@/components/ui/AppText";
 import { Card } from "@/components/ui/Card";
 import { useGroveColors } from "@/hooks/useGroveColors";
 import { GroveBorderRadius } from "@/styles/theme";
 import React from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 interface SproutSupportCardProps {
   onPress?: () => void;
@@ -25,11 +26,7 @@ export function SproutSupportCard({ onPress }: SproutSupportCardProps) {
       >
         <View style={styles.content}>
           <View style={styles.mascotWrap}>
-            <Image
-              source={require("@/assets/garden/redesign/sprout-waving.png")}
-              style={styles.mascotImage}
-              resizeMode="contain"
-            />
+            <MascotRive style={styles.mascotImage} />
           </View>
           <View style={styles.textBlock}>
             <AppText

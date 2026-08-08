@@ -1,6 +1,8 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import { isTransientNetworkError } from '@/lib/auth-invalid-session';
+import { callWithNetworkRetry } from '@/lib/auth-retry';
 import { getAuthOAuthRedirectUrl } from '@/lib/auth-redirect-url';
 import {
   isSupabaseConfigured,
@@ -51,15 +53,23 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
 
   let authUrl: string | undefined;
   try {
-    const res = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo,
-        skipBrowserRedirect: true,
-      },
-    });
+    const res = await callWithNetworkRetry(() =>
+      supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      }),
+    );
     if (res.error) {
-      return { error: new Error(res.error.message) };
+      return {
+        error: new Error(
+          isTransientNetworkError(res.error.message)
+            ? "Couldn't reach the server. Check your connection and try again."
+            : res.error.message,
+        ),
+      };
     }
     const u = res.data?.url;
     authUrl = typeof u === 'string' && u.length > 0 ? u : undefined;
@@ -67,7 +77,9 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
     const msg = err instanceof Error ? err.message : 'Network request failed';
     return {
       error: new Error(
-        `Could not start Google sign-in: ${msg}. Check your internet/VPN/DNS and try again.`,
+        isTransientNetworkError(msg)
+          ? "Couldn't reach the server. Check your connection and try again."
+          : `Could not start Google sign-in: ${msg}. Check your internet/VPN/DNS and try again.`,
       ),
     };
   }
@@ -105,10 +117,27 @@ export async function signInWithGoogle(): Promise<{ error: Error | null }> {
     return { error: new Error('No authorization code returned from Google') };
   }
 
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-  if (exchangeError) {
-    return { error: new Error(exchangeError.message) };
+  try {
+    const { error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) {
+      return {
+        error: new Error(
+          isTransientNetworkError(exchangeError.message)
+            ? "Couldn't reach the server. Check your connection and try again."
+            : exchangeError.message,
+        ),
+      };
+    }
+    return { error: null };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Network request failed';
+    return {
+      error: new Error(
+        isTransientNetworkError(msg)
+          ? "Couldn't reach the server. Check your connection and try again."
+          : msg,
+      ),
+    };
   }
-
-  return { error: null };
 }

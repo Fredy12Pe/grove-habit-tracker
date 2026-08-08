@@ -9,15 +9,26 @@ import * as WebBrowser from "expo-web-browser";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppState, Text, TextInput, View } from "react-native";
+import { AppState, LogBox, Text, TextInput, View } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { OnboardingProvider } from "@/contexts/onboarding-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { initSentry } from "@/lib/sentry";
+import { silenceBenignNetworkErrors } from "@/lib/silence-benign-network-errors";
 import { syncWidgets } from "@/lib/widgets/syncWidgets";
 import { GroveFontFamily, getGroveColors } from "@/styles/theme";
 import * as SystemUI from "expo-system-ui";
+
+/** Before anything else can make a Supabase call — see the module for why this exists. */
+silenceBenignNetworkErrors();
+
+/** As early as possible so startup crashes are still captured (no-op until EXPO_PUBLIC_SENTRY_DSN is set). */
+initSentry();
+
+/** Defense in depth: also hide the in-app popup for the (now downgraded to warn) pattern above. */
+LogBox.ignoreLogs([/fetch failed/i]);
 
 type TextWithDefaults = typeof Text & {
   defaultProps?: { style?: unknown; [key: string]: unknown };
@@ -149,24 +160,12 @@ function RootLayoutContent() {
           }}
         />
         <Stack.Screen
-          name="house-bed"
-          options={{
-            headerShown: false,
-            animation: "slide_from_right",
-            gestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
           name="add-custom-habit"
           options={{ headerShown: false, animation: "slide_from_right" }}
         />
         <Stack.Screen
           name="habit-settings/[habitId]"
           options={{ headerShown: false, animation: "slide_from_right" }}
-        />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: "modal", title: "Modal" }}
         />
       </Stack>
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />

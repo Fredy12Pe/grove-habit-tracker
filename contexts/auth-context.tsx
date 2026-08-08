@@ -10,7 +10,7 @@
  *   - Guest: stored locally in AsyncStorage (grove.guest key)
  * Guest-to-account migration: when a guest creates/signs into an account, their display name
  * is pushed to Supabase user_metadata, onboarding is marked complete (skipping the flow),
- * and habits migrate automatically via syncHabitsWithAuthUser.
+ * habits migrate via syncHabitsWithAuthUser, then habit_snapshots cloud sync kicks in.
  */
 import type { Session, User } from '@supabase/supabase-js';
 import React, {
@@ -24,13 +24,33 @@ import React, {
 } from 'react';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
-import { isOrphanedSessionAuthError } from '@/lib/auth-invalid-session';
+import {
+  isAccountDeleteTransportError,
+  isInvalidCredentialsError,
+  isMissingDeleteAccountRpcError,
+  isOrphanedSessionAuthError,
+  isTransientNetworkError,
+} from '@/lib/auth-invalid-session';
 import { getAuthOAuthRedirectUrl } from '@/lib/auth-redirect-url';
+import { callWithNetworkRetry } from '@/lib/auth-retry';
+import { fetchSignInHintForEmail } from '@/lib/auth-signin-hint';
 import { signUpIndicatesExistingAccount } from '@/lib/auth-signup-duplicate';
-import { syncHabitsWithAuthUser } from '@/lib/habit-user-snapshot';
+import {
+  clearHabitCloudMeta,
+  pauseHabitCloudSync,
+  setHabitCloudSyncUser,
+} from '@/lib/habit-cloud-sync';
+import {
+  deleteHabitSnapshotForUser,
+  syncHabitsWithAuthUser,
+  writeHabitMeta,
+} from '@/lib/habit-user-snapshot';
+import { useHabitStore } from '@/lib/store/useHabitStore';
 import { isSupabaseConfigured, rawSupabaseUrl } from '@/lib/supabase-env';
 import { getSupabase } from '@/lib/supabase';
 import { supabaseAuthStorage } from '@/lib/supabase-storage';
+import { trackEvent } from '@/lib/analytics';
+import { setSentryUser } from '@/lib/sentry';
 
 // ─── Guest state (AsyncStorage) ──────────────────────────────────────────────
 
@@ -153,6 +173,8 @@ export type AuthContextValue = {
     accountAlreadyExists: boolean;
   }>;
   signOut: () => Promise<void>;
+  /** Permanently deletes the signed-in user's account and locally cached data. Guests have nothing to delete server-side. */
+  deleteAccount: () => Promise<{ error: Error | null }>;
   completeOnboarding: () => Promise<{ error: Error | null }>;
   /** Skip sign-in and enter the app as a guest. */
   continueAsGuest: () => Promise<void>;
@@ -169,6 +191,38 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function getNeedsOnboarding(user: User | null): boolean {
   if (!user) return false;
   return user.user_metadata?.onboarding_completed !== true;
+}
+
+/** Avoid hanging forever on splash if Auth/network never resolves (common after account delete on simulator). */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+/**
+ * Called only once a session is already known to be invalid (orphaned JWT / deleted
+ * user), so there's no point asking the server to revoke it — `signOut()` still makes a
+ * real network call even with `scope: 'local'` (only the *server-side* revocation scope
+ * changes, not whether the client calls it), and that call is prone to failing with a
+ * noisy "network connection was lost" transport error auth-js always logs regardless of
+ * how gracefully the caller handles it. Clear local storage directly instead.
+ */
+async function clearInvalidLocalSession(): Promise<void> {
+  await clearLocalSupabaseSession();
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -216,38 +270,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let s: Session | null = null;
 
       try {
-        const { data, error } = await supabase.auth.getSession();
+        /** `getSession()` reads the persisted token from local storage — no network round-trip. */
+        const { data, error } = await withTimeout(
+          supabase.auth.getSession(),
+          5000,
+          'getSession',
+        );
         if (!mounted) return;
         if (error) {
           console.warn('[auth] getSession:', error.message);
         }
         s = data.session ?? null;
-
-        if (s?.access_token) {
-          try {
-            const { error: userErr } = await supabase.auth.getUser();
-            if (
-              userErr &&
-              isOrphanedSessionAuthError(userErr.message) &&
-              mounted
-            ) {
-              console.warn('[auth] clearing invalid session:', userErr.message);
-              await supabase.auth.signOut();
-              guestRef.current = g;
-              setGuestData(g);
-              setSession(null);
-              setInitialized(true);
-              return;
-            }
-            if (userErr) {
-              console.warn('[auth] getUser:', userErr.message);
-            }
-          } catch (e: unknown) {
-            /** `fetch`/XHR often throws rather than `{ error }` when offline — keep cached session. */
-            const msg = e instanceof Error ? e.message : String(e);
-            console.warn('[auth] getUser transport error — keeping cached session:', msg);
-          }
-        }
       } catch (err: unknown) {
         console.warn('[auth] session bootstrap failed:', err);
       }
@@ -259,6 +292,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setGuestData(activeGuest);
       setSession(s);
       setInitialized(true);
+
+      /**
+       * Revalidate the cached token with the server in the background. Trusting the local
+       * session first (above) means reload/splash never waits on this network round-trip —
+       * it only clears the session after the fact if the token turns out to be orphaned.
+       */
+      if (s?.access_token) {
+        try {
+          const { error: userErr } = await withTimeout(
+            supabase.auth.getUser(),
+            8000,
+            'getUser',
+          );
+          if (userErr && isOrphanedSessionAuthError(userErr.message) && mounted) {
+            console.warn('[auth] clearing invalid session:', userErr.message);
+            await clearInvalidLocalSession();
+            if (mounted) setSession(null);
+          } else if (userErr) {
+            console.warn('[auth] getUser:', userErr.message);
+          }
+        } catch (e: unknown) {
+          /** `fetch`/XHR often throws when offline — keep cached session, it's already in use. */
+          const msg = e instanceof Error ? e.message : String(e);
+          console.warn(
+            '[auth] getUser transport error — keeping cached session:',
+            msg,
+          );
+        }
+      }
     })();
 
     const { data: listenerData } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -299,8 +361,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * Per-user habit snapshots: sign-out / account switch save to AsyncStorage; same user signing
-   * back in restores from snapshot. Same-user cold start trusts rehydrated `grove.habits.v1`.
+   * Per-user habit snapshots (local) then cloud sync (signed-in only):
+   * sign-out / account switch save to AsyncStorage; same user signing back in restores
+   * from snapshot. Same-user cold start trusts rehydrated `grove.habits.v1`.
+   * After local restore, `setHabitCloudSyncUser` pulls/merges/pushes `habit_snapshots`.
    */
   useEffect(() => {
     if (!initialized) return;
@@ -311,9 +375,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void (async () => {
       await syncHabitsWithAuthUser({ previousUserId: prev, nextUserId: uid });
-      if (!cancelled) {
-        habitSyncUserIdRef.current = uid;
-      }
+      if (cancelled) return;
+      habitSyncUserIdRef.current = uid;
+      await setHabitCloudSyncUser(uid);
     })();
 
     return () => {
@@ -360,6 +424,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const user = session?.user ?? null;
   const isGuest = !session && guestData !== null;
 
+  /** Crash reports carry the signed-in user id/email; guests stay anonymous. */
+  useEffect(() => {
+    setSentryUser(user ? { id: user.id, email: user.email } : null);
+  }, [user]);
+
   const needsOnboarding = useMemo(() => {
     if (user) return getNeedsOnboarding(user);
     if (isGuest) return !guestData?.onboardingCompleted;
@@ -375,14 +444,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: CONFIG_ERROR };
     }
     try {
-      const { error } = await getSupabase().auth.signInWithPassword({
-        email,
-        password,
-      });
-      return { error: error ? new Error(error.message) : null };
+      const { error } = await callWithNetworkRetry(() =>
+        getSupabase().auth.signInWithPassword({ email, password }),
+      );
+      if (!error) {
+        trackEvent('sign_in', { method: 'email' });
+        return { error: null };
+      }
+      /**
+       * A dropped connection surfaces here as a normal `{ error }` (auth-js catches its
+       * own thrown `AuthRetryableFetchError` and returns it) rather than as a thrown
+       * exception — show a clear network message instead of the raw transport string.
+       */
+      if (isTransientNetworkError(error.message)) {
+        return {
+          error: new Error(
+            "Couldn't reach the server. Check your connection and try again.",
+          ),
+        };
+      }
+      /**
+       * Supabase returns the same generic "Invalid login credentials" for both a wrong
+       * password and a non-existent account. We already reveal account existence via
+       * `sign_in_hint_for_email` in the sign-up "account already exists" flow, so reuse
+       * it here to give a specific, honest message instead of the raw Supabase string.
+       */
+      if (isInvalidCredentialsError(error.message)) {
+        const hint = await fetchSignInHintForEmail(email);
+        return {
+          error: new Error(
+            hint.found
+              ? 'Incorrect password. Try again.'
+              : "No account found with that email. Check your email or create a new account.",
+          ),
+        };
+      }
+      return { error: new Error(error.message) };
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Network request failed';
+      if (isTransientNetworkError(msg)) {
+        return {
+          error: new Error(
+            "Couldn't reach the server. Check your connection and try again.",
+          ),
+        };
+      }
       return {
         error: new Error(
           `Sign in failed: ${msg}. Check your internet/VPN/DNS and try again.`,
@@ -400,29 +507,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
     try {
-      const { data, error } = await getSupabase().auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: getAuthOAuthRedirectUrl(),
-        },
-      });
+      const { data, error } = await callWithNetworkRetry(() =>
+        getSupabase().auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: getAuthOAuthRedirectUrl(),
+          },
+        }),
+      );
       const accountAlreadyExists = signUpIndicatesExistingAccount(
         data,
         error,
       );
       if (accountAlreadyExists && !error) {
         await getSupabase().auth.signOut();
+      } else if (!error) {
+        trackEvent('sign_up', { method: 'email' });
       }
       return {
         error:
-          error && !accountAlreadyExists ? new Error(error.message) : null,
+          error && !accountAlreadyExists
+            ? new Error(
+                isTransientNetworkError(error.message)
+                  ? "Couldn't reach the server. Check your connection and try again."
+                  : error.message,
+              )
+            : null,
         sessionCreated: Boolean(data?.session),
         accountAlreadyExists,
       };
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : 'Network request failed';
+      if (isTransientNetworkError(msg)) {
+        return {
+          error: new Error(
+            "Couldn't reach the server. Check your connection and try again.",
+          ),
+          sessionCreated: false,
+          accountAlreadyExists: false,
+        };
+      }
       return {
         error: new Error(
           `Sign up failed: ${msg}. Check your internet/VPN/DNS and try again.`,
@@ -435,10 +561,151 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (isSupabaseConfigured) {
-      await getSupabase().auth.signOut();
+      try {
+        await withTimeout(getSupabase().auth.signOut(), 5000, 'signOut');
+      } catch {
+        await clearLocalSupabaseSession();
+      }
     }
+    trackEvent('sign_out');
     /** Habit save + in-memory reset run in `useEffect` when session becomes null. */
   }, []);
+
+  const deleteAccount = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      return { error: CONFIG_ERROR };
+    }
+    const uid = session?.user?.id;
+    if (!uid) {
+      return { error: new Error('No account to delete.') };
+    }
+
+    const finishLocalCleanup = async () => {
+      pauseHabitCloudSync();
+      try {
+        await clearHabitCloudMeta();
+      } catch {
+        /* ignore */
+      }
+      try {
+        await deleteHabitSnapshotForUser(uid);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await writeHabitMeta(null);
+      } catch {
+        /* ignore */
+      }
+      useHabitStore.getState().resetHabitsForNewAccount();
+      habitSyncUserIdRef.current = null;
+      /**
+       * Clear storage directly instead of `signOut()` — the user no longer exists server-side,
+       * so `signOut()`'s network call to revoke the session is not just unnecessary, it's prone
+       * to failing with a scary "network connection was lost" transport error (auth-js always
+       * logs those, even when the app handles them gracefully — see `isAccountDeleteTransportError`).
+       */
+      await clearLocalSupabaseSession();
+      trackEvent('account_deleted');
+      setSession(null);
+    };
+
+    // Stop sync immediately (no network flush) so a hung upsert can't freeze the spinner.
+    pauseHabitCloudSync();
+
+    try {
+      const { error } = await withTimeout(
+        Promise.resolve(getSupabase().rpc('delete_own_account')),
+        15000,
+        'delete_own_account',
+      );
+
+      if (error) {
+        const msg = error.message || String(error);
+        if (isMissingDeleteAccountRpcError(msg)) {
+          void setHabitCloudSyncUser(uid);
+          return {
+            error: new Error(
+              'Account deletion is not set up on the server yet. Apply the delete_own_account migration in Supabase, then try again.',
+            ),
+          };
+        }
+
+        // Deleting auth.users often aborts the HTTP response on iOS even when
+        // the row was removed. Confirm the user is gone before surfacing an error.
+        if (isAccountDeleteTransportError(msg)) {
+          let stillExists = false;
+          try {
+            const { data, error: userErr } = await withTimeout(
+              getSupabase().auth.getUser(),
+              5000,
+              'getUser after delete',
+            );
+            if (userErr && isOrphanedSessionAuthError(userErr.message)) {
+              stillExists = false;
+            } else if (!userErr && data.user?.id === uid) {
+              stillExists = true;
+            }
+          } catch {
+            // Unverifiable after transport abort — treat as deleted.
+            stillExists = false;
+          }
+          if (stillExists) {
+            void setHabitCloudSyncUser(uid);
+            return {
+              error: new Error(
+                'Could not reach the server to delete your account. Check your connection and try again.',
+              ),
+            };
+          }
+        } else {
+          void setHabitCloudSyncUser(uid);
+          return { error: new Error(msg) };
+        }
+      }
+
+      await finishLocalCleanup();
+      return { error: null };
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Network request failed';
+      if (
+        isAccountDeleteTransportError(msg) ||
+        msg.toLowerCase().includes('timed out')
+      ) {
+        // RPC timed out / connection dropped after server may have deleted the user.
+        // Prefer signing the user out locally over leaving them stuck spinning.
+        try {
+          let stillExists = false;
+          try {
+            const { data, error: userErr } = await withTimeout(
+              getSupabase().auth.getUser(),
+              4000,
+              'getUser after delete timeout',
+            );
+            if (!userErr && data.user?.id === uid) stillExists = true;
+            if (userErr && isOrphanedSessionAuthError(userErr.message)) {
+              stillExists = false;
+            }
+          } catch {
+            stillExists = false;
+          }
+          if (!stillExists) {
+            await finishLocalCleanup();
+            return { error: null };
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+      void setHabitCloudSyncUser(uid);
+      return {
+        error: new Error(
+          `Delete account failed: ${msg}. Check your internet connection and try again.`,
+        ),
+      };
+    }
+  }, [session]);
 
   const completeOnboarding = useCallback(async () => {
     // Guest path: write local flag only
@@ -465,6 +732,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.user) {
       setSession((prev) => (prev ? { ...prev, user: data.user! } : prev));
     }
+    trackEvent('onboarding_completed');
     return { error: null };
   }, [session]);
 
@@ -478,6 +746,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await writeGuestData(newGuest);
     guestRef.current = newGuest;
     setGuestData(newGuest);
+    trackEvent('guest_mode_started');
   }, []);
 
   const clearGuest = useCallback(async () => {
@@ -526,6 +795,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signUp,
       signOut,
+      deleteAccount,
       completeOnboarding,
       continueAsGuest,
       clearGuest,
@@ -544,6 +814,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signUp,
       signOut,
+      deleteAccount,
       completeOnboarding,
       continueAsGuest,
       clearGuest,

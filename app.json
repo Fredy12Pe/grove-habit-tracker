@@ -76,7 +76,8 @@
       "expo-web-browser",
       "@bacons/apple-targets",
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,

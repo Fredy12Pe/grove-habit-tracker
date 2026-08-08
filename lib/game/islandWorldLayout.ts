@@ -78,19 +78,19 @@ export function getIslandWorldLayout(windowHeight: number) {
   const COW_DISPLAY_H = Math.round(ISLAND_H * 0.112);
 
   const CHICKEN_IDLE_FRAMES = [
-    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group-1.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group-2.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Idle/Mask group-3.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/mask_group.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/mask_group-1.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/mask_group-2.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Idle/mask_group-3.png"),
   ] as const;
   const CHICKEN_IDLE_FRAME_COUNT = CHICKEN_IDLE_FRAMES.length;
   const CHICKEN_PECK_FRAMES = [
-    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-1.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-2.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-3.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-4.png"),
-    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/Mask group-5.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/mask_group.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/mask_group-1.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/mask_group-2.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/mask_group-3.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/mask_group-4.png"),
+    require("@/assets/Game/Sprites/Chickens_animations/Pecking_reverse/mask_group-5.png"),
   ] as const;
   const CHICKEN_PECK_FRAME_COUNT = CHICKEN_PECK_FRAMES.length;
   /** Milliseconds between idle and peck animation frames. */
@@ -268,7 +268,6 @@ export function getIslandWorldLayout(windowHeight: number) {
 
   const HOUSE_FRAME = require("@/assets/Game/house/house-frame.png");
   const HOUSE_FLOOR = require("@/assets/Game/house/house-floor.png");
-  const HOUSE_BED = require("@/assets/Game/house/house-bed.png");
   const HOUSE_DRAWER = require("@/assets/Game/house/house-drawer.png");
   const HOUSE_IMAGE = require("@/assets/Game/house/house-image.png");
   const HOUSE_DESK = require("@/assets/Game/house/desk-and-table.png");
@@ -303,11 +302,6 @@ export function getIslandWorldLayout(windowHeight: number) {
   const HDRAWER_W = Math.round(37 * HOUSE_SCALE);
   const HDRAWER_H = Math.round(42 * HOUSE_SCALE);
 
-  const HBED_X = Math.round(172 * HOUSE_SCALE);
-  const HBED_Y = Math.round(50 * HOUSE_SCALE);
-  const HBED_W = Math.round(37 * HOUSE_SCALE);
-  const HBED_H = Math.round(53 * HOUSE_SCALE);
-
   const HDESK_X = Math.round(18 * HOUSE_SCALE);
   const HDESK_Y = Math.round(85 * HOUSE_SCALE);
   const HDESK_W = Math.round(74 * HOUSE_SCALE);
@@ -316,7 +310,6 @@ export function getIslandWorldLayout(windowHeight: number) {
   /** Sprite bottom Y for indoor depth sort (feetY below this line = char behind object). */
   const HIMG_DEPTH_Y = HOUSE_TOP + HIMG_Y + HIMG_H;
   const HDRAWER_DEPTH_Y = HOUSE_TOP + HDRAWER_Y + HDRAWER_H;
-  const HBED_DEPTH_Y = HOUSE_TOP + HBED_Y + HBED_H;
   const HDESK_DEPTH_Y = HOUSE_TOP + HDESK_Y + HDESK_H;
 
   const HOUSE_FRONT_W = Math.round(231 * HOUSE_SCALE);
@@ -615,7 +608,6 @@ export function getIslandWorldLayout(windowHeight: number) {
     ARROW_SIZE,
     HOUSE_FRAME,
     HOUSE_FLOOR,
-    HOUSE_BED,
     HOUSE_DRAWER,
     HOUSE_IMAGE,
     HOUSE_DESK,
@@ -645,17 +637,12 @@ export function getIslandWorldLayout(windowHeight: number) {
     HDRAWER_Y,
     HDRAWER_W,
     HDRAWER_H,
-    HBED_X,
-    HBED_Y,
-    HBED_W,
-    HBED_H,
     HDESK_X,
     HDESK_Y,
     HDESK_W,
     HDESK_H,
     HIMG_DEPTH_Y,
     HDRAWER_DEPTH_Y,
-    HBED_DEPTH_Y,
     HDESK_DEPTH_Y,
     HOUSE_DOOR_X,
     HOUSE_DOOR_Y,

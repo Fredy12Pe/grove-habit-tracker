@@ -16,7 +16,7 @@ import {
   getPlantSprite,
 } from "@/lib/game/plantSprites";
 import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
-import type { Habit } from "@/lib/types";
+import type { Habit, PlantGrowthState } from "@/lib/types";
 import React from "react";
 import {
   Image,
@@ -42,11 +42,27 @@ function getWeekRangeLabel(weekIndex: number): string {
   return `Week of ${fmt(startDate)}\u2013${fmt(endDate)}`;
 }
 
-function getGrowthLabel(completionCount: number): string {
+/** Historical weeks (not the live plot) are labeled purely from how many days were completed. */
+function getGrowthLabelFromCount(completionCount: number): string {
   if (completionCount >= 5) return "Blooming";
   if (completionCount >= 3) return "Growing";
   if (completionCount >= 1) return "Sprouting";
   return "Seed";
+}
+
+/** The live plot instead reflects the habit's real-time growth stage, including wilting. */
+function getGrowthLabelFromState(state: PlantGrowthState): string {
+  switch (state) {
+    case "bloom":
+      return "Blooming";
+    case "sprout":
+      return "Growing";
+    case "wilt":
+      return "Wilting";
+    case "seed":
+    default:
+      return "Seed";
+  }
 }
 
 export function GardenDetailsModal({
@@ -139,12 +155,16 @@ export function GardenDetailsModal({
                   const count = habitCompletions[idx];
                   const frame = Math.min(count, FRAMES_PER_PLANT - 1);
                   const sprite = getPlantSprite(plantIndex, frame);
-                  const growthLabel = getGrowthLabel(count);
+                  const isLivePlot = safeIndex === currentWeekPlot;
+                  const growthLabel = isLivePlot
+                    ? getGrowthLabelFromState(habit.growthState)
+                    : getGrowthLabelFromCount(count);
+                  const isWilting = isLivePlot && habit.growthState === "wilt";
                   return (
                     <View key={habit.id} style={styles.plantCard}>
                       <Image
                         source={sprite}
-                        style={styles.plantImage}
+                        style={[styles.plantImage, isWilting && styles.plantImageWilting]}
                         resizeMode="contain"
                       />
                       <Text style={styles.plantName} numberOfLines={2}>
@@ -153,8 +173,17 @@ export function GardenDetailsModal({
                       <Text style={styles.plantVarietyName} numberOfLines={2}>
                         {getPlantDisplayName(plantIndex)}
                       </Text>
-                      <Text style={styles.plantStatus}>{growthLabel}</Text>
+                      <Text
+                        style={[styles.plantStatus, isWilting && styles.plantStatusWilting]}
+                      >
+                        {growthLabel}
+                      </Text>
                       <Text style={styles.plantStreak}>{count}/7 days</Text>
+                      {isWilting ? (
+                        <Text style={styles.plantWiltHint}>
+                          Complete today to revive it
+                        </Text>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -262,6 +291,9 @@ const styles = StyleSheet.create({
     height: 56,
     marginBottom: 6,
   },
+  plantImageWilting: {
+    opacity: 0.55,
+  },
   plantName: {
     fontSize: 14,
     fontWeight: "600",
@@ -280,10 +312,19 @@ const styles = StyleSheet.create({
     color: "#6a9a3a",
     marginTop: 2,
   },
+  plantStatusWilting: {
+    color: "#b2662f",
+  },
   plantStreak: {
     fontSize: 11,
     color: "#aaa",
     marginTop: 2,
+  },
+  plantWiltHint: {
+    fontSize: 10,
+    color: "#b2662f",
+    marginTop: 4,
+    textAlign: "center",
   },
   emptyState: {
     alignItems: "center",

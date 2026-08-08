@@ -25,6 +25,7 @@ import {
 import {
   getProgressSummary,
   isHabitComplete,
+  timerSecondsRemaining,
   type HabitWithActions,
   type TimerProgress,
 } from "@/lib/habitsWithActions";
@@ -40,6 +41,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  AppState,
   SafeAreaView,
   StyleSheet,
   TouchableOpacity,
@@ -159,56 +161,99 @@ export default function HabitsScreen() {
     setExpandedId(null);
   }, [selectedKey]);
 
-  const expandedHabit = habitsWithActions.find((h) => h.id === expandedId);
-  const timerRunning =
-    expandedHabit?.type === "timer" &&
-    (expandedHabit.progress as TimerProgress)?.isRunning;
+  const anyTimerRunning = habitsWithActions.some(
+    (h) =>
+      h.type === "timer" && (h.progress as TimerProgress).isRunning === true,
+  );
 
   useEffect(() => {
-    if (!isViewingToday) return;
-    if (!expandedId || !expandedHabit || expandedHabit.type !== "timer") return;
-    const p = expandedHabit.progress as TimerProgress;
-    if (!p.isRunning || p.secondsRemaining <= 0) return;
+    if (!isViewingToday || !anyTimerRunning) return;
 
-    const id = setInterval(() => {
-      setHabitsWithActions((prev) =>
-        prev.map((h) => {
-          if (h.id !== expandedId || h.type !== "timer") return h;
+    const markFinished = (finishedIds: string[]) => {
+      if (finishedIds.length === 0) return;
+      let markedAny = false;
+      for (const habitId of finishedIds) {
+        const st = useHabitStore.getState().habits.find((x) => x.id === habitId);
+        if (st && !st.completedToday) {
+          toggleHabit(habitId);
+          markedAny = true;
+        }
+      }
+      if (!markedAny) return;
+      syncWidgets();
+      const habits = useHabitStore.getState().habits;
+      const allDone =
+        habits.length > 0 && habits.every((x) => x.completedToday);
+      if (allDone) setShowCompletionOverlay(true);
+      else triggerHabitTimerFinishedHaptic();
+    };
+
+    const tick = () => {
+      const now = Date.now();
+      setHabitsWithActions((prev) => {
+        let changed = false;
+        const finishedIds: string[] = [];
+        const next = prev.map((h) => {
+          if (h.type !== "timer") return h;
           const prog = h.progress as TimerProgress;
           if (!prog.isRunning) return h;
-          const nextSec = prog.secondsRemaining - 1;
-          if (nextSec <= 0) {
-            queueMicrotask(() => {
-              const st = useHabitStore
-                .getState()
-                .habits.find((x) => x.id === expandedId);
-              if (st && !st.completedToday) {
-                toggleHabit(expandedId);
-                syncWidgets();
-                const habits = useHabitStore.getState().habits;
-                const allDone =
-                  habits.length > 0 && habits.every((x) => x.completedToday);
-                if (allDone) setShowCompletionOverlay(true);
-                else triggerHabitTimerFinishedHaptic();
-              }
-            });
+
+          // Migrate timers started before wall-clock endsAtMs existed.
+          const running =
+            typeof prog.endsAtMs === "number"
+              ? prog
+              : {
+                  ...prog,
+                  endsAtMs: now + Math.max(0, prog.secondsRemaining) * 1000,
+                };
+
+          const remaining = timerSecondsRemaining(running, now);
+          if (remaining <= 0) {
+            changed = true;
+            finishedIds.push(h.id);
             return {
               ...h,
               progress: {
-                ...prog,
+                ...running,
                 secondsRemaining: 0,
                 isRunning: false,
                 completed: true,
+                endsAtMs: undefined,
               },
               completedToday: true,
             };
           }
-          return { ...h, progress: { ...prog, secondsRemaining: nextSec } };
-        }),
-      );
-    }, 1000);
-    return () => clearInterval(id);
-  }, [expandedId, timerRunning, toggleHabit, isViewingToday]);
+
+          if (
+            remaining !== prog.secondsRemaining ||
+            running.endsAtMs !== prog.endsAtMs
+          ) {
+            changed = true;
+            return {
+              ...h,
+              progress: { ...running, secondsRemaining: remaining },
+            };
+          }
+          return h;
+        });
+
+        if (finishedIds.length > 0) {
+          queueMicrotask(() => markFinished(finishedIds));
+        }
+        return changed ? next : prev;
+      });
+    };
+
+    tick();
+    const id = setInterval(tick, 250);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") tick();
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
+  }, [anyTimerRunning, toggleHabit, isViewingToday]);
 
   const weekStart = startOfWeekMonday(selectedDate);
   const weekKeys = Array.from({ length: 7 }, (_, i) =>

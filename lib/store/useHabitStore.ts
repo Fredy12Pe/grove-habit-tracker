@@ -4,6 +4,8 @@ import { Platform } from 'react-native';
 import type { Habit, PlantGrowthState } from '@/lib/types';
 import { calendarDateKey } from '@/lib/calendarDate';
 import { CATALOG_ID_SET, CATALOG_NAME_MAP } from '@/lib/habitCatalog';
+import { computeGrowthState } from '@/lib/game/plantGrowth';
+import { trackEvent } from '@/lib/analytics';
 
 /** ISO date string (YYYY-MM-DD) per habit for progress heatmaps */
 export type CompletionDatesByHabit = Record<string, string[]>;
@@ -52,17 +54,20 @@ interface HabitStore {
 
 const MAX_ACTIVE_HABITS = 8;
 
-const makeHabit = (id: string, streakCount = 0, completedToday = false): Habit => ({
-  id,
-  name: CATALOG_NAME_MAP[id] ?? id,
-  completedToday,
-  streakCount,
-  frequency: 'daily',
-  plantId: id,
-  growthState: 'seed',
-  createdAt: '',
-  updatedAt: '',
-});
+const makeHabit = (id: string, streakCount = 0, completedToday = false): Habit => {
+  const now = new Date().toISOString();
+  return {
+    id,
+    name: CATALOG_NAME_MAP[id] ?? id,
+    completedToday,
+    streakCount,
+    frequency: 'daily',
+    plantId: id,
+    growthState: 'seed',
+    createdAt: now,
+    updatedAt: now,
+  };
+};
 
 /** Fresh install / pre-onboarding — no completions or streaks until the user acts. */
 const DEFAULT_HABITS: Habit[] = [
@@ -92,25 +97,35 @@ function getNativeAsyncStorage() {
   return undefined;
 }
 
+function memoryStorage() {
+  // In-memory fallback (dev only). Avoids crashing if AsyncStorage is unavailable.
+  const mem = new Map<string, string>();
+  return {
+    getItem: async (key: string) => mem.get(key) ?? null,
+    setItem: async (key: string, value: string) => {
+      mem.set(key, value);
+    },
+    removeItem: async (key: string) => {
+      mem.delete(key);
+    },
+  };
+}
+
 const habitStoreStorage = createJSONStorage(() => {
+  /**
+   * `Platform.OS === "web"` is also true during Expo Router's Node-based SSR
+   * render pass for the web bundle, where there's no `window` — guard for
+   * that or `persist`'s eager rehydration crashes the whole Metro process.
+   * (Falling through to `getNativeAsyncStorage()` doesn't help here: its
+   * web-resolved implementation touches `window` too.)
+   */
   if (Platform.OS === 'web') {
+    if (typeof window === 'undefined') {
+      return memoryStorage();
+    }
     return window.localStorage;
   }
-  const native = getNativeAsyncStorage();
-  if (!native) {
-    // In-memory fallback (dev only). Avoids crashing if AsyncStorage is unavailable.
-    const mem = new Map<string, string>();
-    return {
-      getItem: async (key: string) => mem.get(key) ?? null,
-      setItem: async (key: string, value: string) => {
-        mem.set(key, value);
-      },
-      removeItem: async (key: string) => {
-        mem.delete(key);
-      },
-    };
-  }
-  return native;
+  return getNativeAsyncStorage() ?? memoryStorage();
 });
 
 export const useHabitStore = create<HabitStore>()(
@@ -198,11 +213,20 @@ export const useHabitStore = create<HabitStore>()(
       const nextDates = nextCompleted
         ? dates.includes(today) ? dates : [...dates, today]
         : dates.filter((d) => d !== today);
+      const completionDates = { ...state.completionDates, [id]: nextDates };
+      const growthState = computeGrowthState(
+        { id, completedToday: nextCompleted },
+        completionDates,
+        today,
+      );
+      if (nextCompleted) trackEvent('habit_completed', { habitId: id });
       return {
         habits: state.habits.map((h) =>
-          h.id === id ? { ...h, completedToday: nextCompleted, updatedAt: new Date().toISOString() } : h
+          h.id === id
+            ? { ...h, completedToday: nextCompleted, growthState, updatedAt: new Date().toISOString() }
+            : h
         ),
-        completionDates: { ...state.completionDates, [id]: nextDates },
+        completionDates,
       };
     }),
 
@@ -217,13 +241,20 @@ export const useHabitStore = create<HabitStore>()(
       const nextDates = has
         ? dates.filter((d) => d !== dateKey)
         : [...dates, dateKey].sort();
+      const completionDates = { ...state.completionDates, [id]: nextDates };
+      const nextCompletedToday = dateKey === today ? !has : h.completedToday;
+      const growthState = computeGrowthState(
+        { id, completedToday: nextCompletedToday },
+        completionDates,
+        today,
+      );
       const patch =
         dateKey === today
-          ? { completedToday: !has, updatedAt: new Date().toISOString() }
-          : { updatedAt: new Date().toISOString() };
+          ? { completedToday: nextCompletedToday, growthState, updatedAt: new Date().toISOString() }
+          : { growthState, updatedAt: new Date().toISOString() };
       return {
         habits: state.habits.map((x) => (x.id === id ? { ...x, ...patch } : x)),
-        completionDates: { ...state.completionDates, [id]: nextDates },
+        completionDates,
       };
     }),
 
@@ -244,6 +275,13 @@ export const useHabitStore = create<HabitStore>()(
       const today = todayStr();
       const dates = state.completionDates[id] ?? [];
       const nextDates = dates.includes(today) ? dates : [...dates, today];
+      const completionDates = { ...state.completionDates, [id]: nextDates };
+      const growthState = computeGrowthState(
+        { id, completedToday: true },
+        completionDates,
+        today,
+      );
+      trackEvent('habit_completed', { habitId: id });
       return {
         habits: state.habits.map((h) =>
           h.id === id
@@ -251,11 +289,12 @@ export const useHabitStore = create<HabitStore>()(
                 ...h,
                 completedToday: true,
                 streakCount: h.streakCount + 1,
+                growthState,
                 updatedAt: new Date().toISOString(),
               }
             : h
         ),
-        completionDates: { ...state.completionDates, [id]: nextDates },
+        completionDates,
       };
     }),
 
@@ -275,6 +314,7 @@ export const useHabitStore = create<HabitStore>()(
       const byId = new Map(state.habits.map((h) => [h.id, h]));
       const next: Habit[] = [];
       const seen = new Set<string>();
+      const now = new Date().toISOString();
       for (const id of orderedIds) {
         const h = byId.get(id);
         if (!h || seen.has(id)) continue;
@@ -290,7 +330,10 @@ export const useHabitStore = create<HabitStore>()(
       ) {
         return state;
       }
-      return { habits: next };
+      // Bump updatedAt so cloud merge prefers this device's order.
+      return {
+        habits: next.map((h) => ({ ...h, updatedAt: now })),
+      };
     }),
 
   syncHabits: (selectedIds) =>
@@ -337,13 +380,25 @@ export const useHabitStore = create<HabitStore>()(
         return next;
       };
 
+      /** Refresh growth stage daily so a habit visibly wilts once it's gone quiet. */
+      const applyGrowthStates = (
+        habits: Habit[],
+        dates: CompletionDatesByHabit,
+      ): Habit[] =>
+        habits.map((h) => ({
+          ...h,
+          growthState: computeGrowthState(h, dates, today),
+        }));
+
       if (state.lastResetDate === today) {
+        const completionDates = reconcileCompletionDates(
+          state.habits,
+          state.completionDates,
+        );
         return {
           ...state,
-          completionDates: reconcileCompletionDates(
-            state.habits,
-            state.completionDates,
-          ),
+          completionDates,
+          habits: applyGrowthStates(state.habits, completionDates),
         };
       }
 
@@ -355,10 +410,11 @@ export const useHabitStore = create<HabitStore>()(
       for (const [id, arr] of Object.entries(state.completionDates)) {
         strippedDates[id] = arr.filter((d) => d !== today);
       }
+      const completionDates = reconcileCompletionDates(clearedHabits, strippedDates);
       return {
         lastResetDate: today,
-        habits: clearedHabits,
-        completionDates: reconcileCompletionDates(clearedHabits, strippedDates),
+        habits: applyGrowthStates(clearedHabits, completionDates),
+        completionDates,
       };
     }),
 

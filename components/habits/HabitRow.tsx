@@ -527,17 +527,17 @@ const styles = StyleSheet.create({
   expandedArea: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    paddingTop: 4,
+    paddingTop: 8,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    overflow: "hidden",
+    overflow: "visible",
   },
   expandedHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    paddingTop: 6,
-    paddingBottom: 8,
+    paddingTop: 2,
+    paddingBottom: 4,
   },
   expandedHeaderSpacer: {
     flex: 1,

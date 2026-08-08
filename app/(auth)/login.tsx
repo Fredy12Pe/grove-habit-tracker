@@ -78,28 +78,28 @@ export default function LoginScreen() {
     try {
       const { error } = await signInWithApple();
       if (error) {
-        Alert.alert("Sign in failed", error.message);
+        Alert.alert(`${verb} failed`, error.message);
       } else {
         await waitForGuestMigrationIfAny();
       }
     } finally {
       setAppleBusy(false);
     }
-  }, [waitForGuestMigrationIfAny]);
+  }, [waitForGuestMigrationIfAny, verb]);
 
   const onGoogle = useCallback(async () => {
     setGoogleBusy(true);
     try {
       const { error } = await signInWithGoogle();
       if (error) {
-        Alert.alert("Sign in failed", error.message);
+        Alert.alert(`${verb} failed`, error.message);
       } else {
         await waitForGuestMigrationIfAny();
       }
     } finally {
       setGoogleBusy(false);
     }
-  }, [waitForGuestMigrationIfAny]);
+  }, [waitForGuestMigrationIfAny, verb]);
 
   useEffect(() => {
     const raw = params.auto;

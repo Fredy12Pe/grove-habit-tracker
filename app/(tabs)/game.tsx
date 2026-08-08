@@ -84,7 +84,6 @@ function getAnimKey(jx: number, jy: number): AnimKey {
 type Proximity = {
   door: boolean;
   desk: boolean;
-  bed: boolean;
   garden: number;
   activity: number;
   tree: boolean;
@@ -95,7 +94,6 @@ type Proximity = {
 const PROXIMITY_NONE: Proximity = {
   door: false,
   desk: false,
-  bed: false,
   garden: -1,
   activity: -1,
   tree: false,
@@ -107,9 +105,8 @@ const PROXIMITY_NONE: Proximity = {
 
 export default function GameScreen() {
   const router = useRouter();
-  const { resetFromHome, resetHouseInterior } = useLocalSearchParams<{
+  const { resetFromHome } = useLocalSearchParams<{
     resetFromHome?: string;
-    resetHouseInterior?: string;
   }>();
   const insets = useSafeAreaInsets();
   const habits = useHabitStore((s) => s.habits);
@@ -224,15 +221,6 @@ export default function GameScreen() {
     placeCharacter(layout.START_X, layout.START_Y, false);
     router.setParams({ resetFromHome: undefined });
   }, [isFocused, placeCharacter, resetFromHome, router]);
-
-  const resetHouseEntryRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!isFocused || !resetHouseInterior) return;
-    if (resetHouseEntryRef.current === resetHouseInterior) return;
-    resetHouseEntryRef.current = resetHouseInterior;
-    placeCharacter(layout.HOUSE_ENTER_POS.x, layout.HOUSE_ENTER_POS.y, true);
-    router.setParams({ resetHouseInterior: undefined });
-  }, [isFocused, placeCharacter, resetHouseInterior, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -372,12 +360,10 @@ export default function GameScreen() {
             ...PROXIMITY_NONE,
             door: nav.isNearDoor(px, py, true),
             desk: nav.isNearHouseDesk(px, py),
-            bed: nav.isNearHouseBed(px, py),
           }
         : {
             door: nav.isNearDoor(px, py, false),
             desk: false,
-            bed: false,
             garden: nav.nearGardenIndex(px, outdoorFeetY),
             activity: nav.nearActivityIndex(px, outdoorFeetY),
             tree:
@@ -392,7 +378,6 @@ export default function GameScreen() {
       if (
         next.door !== prev.door ||
         next.desk !== prev.desk ||
-        next.bed !== prev.bed ||
         next.garden !== prev.garden ||
         next.activity !== prev.activity ||
         next.tree !== prev.tree ||
@@ -403,7 +388,6 @@ export default function GameScreen() {
         if (
           (next.door && !prev.door) ||
           (next.desk && !prev.desk) ||
-          (next.bed && !prev.bed) ||
           (next.garden >= 0 && prev.garden < 0) ||
           (next.activity >= 0 && prev.activity < 0) ||
           (next.tree && !prev.tree) ||
@@ -593,24 +577,7 @@ export default function GameScreen() {
           ]}
           activeOpacity={1}
         >
-          <Text style={styles.actionButtonText}>Pomodoro</Text>
-        </TouchableOpacity>
-      )}
-
-      {prox.bed && insideHouse && (
-        <TouchableOpacity
-          onPress={() => {
-            gameSelection();
-            router.push("/house-bed" as Href);
-          }}
-          style={[
-            styles.actionButton,
-            (prox.door || prox.desk) && styles.actionButtonOffset,
-            GAME_INTERACTION_DEBUG && styles.interactionDebugUiOutline,
-          ]}
-          activeOpacity={1}
-        >
-          <Text style={styles.actionButtonText}>Rest</Text>
+          <Text style={styles.actionButtonText}>Focus</Text>
         </TouchableOpacity>
       )}
 
@@ -736,25 +703,21 @@ function DebugZones({ insideHouse }: { insideHouse: boolean }) {
             },
           ]}
         />
-        {([z.deskInteract, z.bedInteract] as const).map((e, i) => (
-          <View
-            key={`furniture-zone-${i}`}
-            pointerEvents="none"
-            style={[
-              debugStyles.zone,
-              {
-                left: e.cx - e.rx,
-                top: e.cy - e.ry,
-                width: e.rx * 2,
-                height: e.ry * 2,
-                borderRadius: e.ry,
-                borderColor: i === 0 ? "#00695C" : "#C62828",
-                backgroundColor:
-                  i === 0 ? "rgba(0, 105, 92, 0.2)" : "rgba(198, 40, 40, 0.18)",
-              },
-            ]}
-          />
-        ))}
+        <View
+          pointerEvents="none"
+          style={[
+            debugStyles.zone,
+            {
+              left: z.deskInteract.cx - z.deskInteract.rx,
+              top: z.deskInteract.cy - z.deskInteract.ry,
+              width: z.deskInteract.rx * 2,
+              height: z.deskInteract.ry * 2,
+              borderRadius: z.deskInteract.ry,
+              borderColor: "#00695C",
+              backgroundColor: "rgba(0, 105, 92, 0.2)",
+            },
+          ]}
+        />
       </>
     );
   }

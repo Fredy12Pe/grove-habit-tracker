@@ -1,28 +1,24 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
+import { Image, type ImageStyle, type StyleProp } from 'react-native';
+
+const mascotImage = require('@/assets/garden/redesign/sprout-waving.png');
+
+type Props = {
+  style?: StyleProp<ImageStyle>;
+};
 
 /**
- * Placeholder for Rive mascot animation.
- * Replace with Rive when .riv assets are added to assets/rive/
+ * Static Sprout mascot artwork. Intentionally an image, not a Rive animation —
+ * the existing .riv files (`sprout_welcome.riv`, `sprout_breathing.riv`) are
+ * full-scene compositions built for their own dedicated screens (auth background,
+ * breathing session) and don't crop cleanly into a small card-sized mascot cutout.
  */
-export function MascotRive() {
+export function MascotRive({ style }: Props) {
   return (
-    <View style={styles.container}>
-      <ThemedText style={styles.placeholder}>Mascot (Rive)</ThemedText>
-    </View>
+    <Image
+      source={mascotImage}
+      style={style}
+      resizeMode="contain"
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholder: {
-    fontSize: 12,
-    opacity: 0.7,
-  },
-});

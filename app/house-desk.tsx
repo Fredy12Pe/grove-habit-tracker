@@ -1,3 +1,4 @@
+import { AppText } from "@/components/ui/AppText";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -5,7 +6,12 @@ import {
   gameImpactMedium,
   gameSelection,
 } from "@/lib/gameHaptics";
-import { GroveSpacing } from "@/styles/theme";
+import {
+  GroveBorderRadius,
+  GroveColors,
+  GroveFontFamily,
+  GroveSpacing,
+} from "@/styles/theme";
 import { useIsFocused } from "@react-navigation/native";
 import { Redirect, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -26,13 +32,8 @@ import {
 
 const STUDY_VIDEO = require("@/assets/Game/house/Pomodoro/Character_studying_202604171508.mp4");
 
-const SCREEN_BG = "#9D754D";
-const CARD_BG = "#8D6E63";
-const CONTROL_SURFACE = "#A1887F";
-const POMO_PANEL_BG = "#B88A5D";
-const TEXT_WHITE = "#FFFFFF";
-const BAR_COMPLETE = "#CDDC39";
-const BAR_TODO = "#D7CCC8";
+/** Soft lime wash — matches Breathe / Grove activity screens. */
+const SCREEN_BG = "#F3FBDE";
 
 /**
  * 1:1 viewport (e.g. 1080×1080 framing).
@@ -68,11 +69,11 @@ function formatMmSs(totalSeconds: number): string {
 function phaseLabel(phase: Phase): string {
   switch (phase) {
     case "focus":
-      return "FOCUS";
+      return "Focus";
     case "shortBreak":
-      return "SHORT BREAK";
+      return "Short break";
     case "longBreak":
-      return "LONG BREAK";
+      return "Long break";
   }
 }
 
@@ -304,6 +305,8 @@ function HouseDeskContent() {
       ? barCount
       : Math.min(pomodorosCompletedInCycle, barCount);
 
+  const startLabel = isRunning ? "Pause" : timerEverStarted ? "Resume" : "Start";
+
   return (
     <View style={styles.root}>
       <View
@@ -343,11 +346,22 @@ function HouseDeskContent() {
             activeOpacity={0.75}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <IconSymbol name="chevron.left" size={22} color={TEXT_WHITE} />
+            <IconSymbol
+              name="chevron.left"
+              size={20}
+              color={GroveColors.deepText}
+            />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.title}>Pomodoro</Text>
+        <View style={styles.headerCopy}>
+          <AppText variant="h1" style={styles.title}>
+            Focus with Sprout
+          </AppText>
+          <AppText variant="paragraphRegular" style={styles.subtitle}>
+            A quiet stretch of focused work.
+          </AppText>
+        </View>
 
         <View style={styles.timerCard}>
           <Text style={styles.timerDigits}>{formatMmSs(secondsRemaining)}</Text>
@@ -375,23 +389,19 @@ function HouseDeskContent() {
           >
             <IconSymbol
               name="arrow.counterclockwise"
-              size={22}
-              color={TEXT_WHITE}
+              size={20}
+              color={GroveColors.deepText}
             />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.startPill}
             onPress={handleStartPause}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
             accessibilityRole="button"
-            accessibilityLabel={
-              isRunning ? "Pause" : timerEverStarted ? "Resume" : "Start"
-            }
+            accessibilityLabel={startLabel}
           >
-            <Text style={styles.startPillText}>
-              {isRunning ? "PAUSE" : timerEverStarted ? "RESUME" : "START"}
-            </Text>
+            <Text style={styles.startPillText}>{startLabel}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -401,7 +411,11 @@ function HouseDeskContent() {
             accessibilityRole="button"
             accessibilityLabel="Settings"
           >
-            <IconSymbol name="gearshape" size={22} color={TEXT_WHITE} />
+            <IconSymbol
+              name="gearshape"
+              size={20}
+              color={GroveColors.deepText}
+            />
           </TouchableOpacity>
         </View>
 
@@ -414,14 +428,20 @@ function HouseDeskContent() {
           <Pressable style={styles.modalBackdrop} onPress={closeSettings}>
             <Pressable style={styles.modalCard} onPress={() => {}}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Settings</Text>
+                <AppText variant="h1" style={styles.modalTitle}>
+                  Settings
+                </AppText>
                 <TouchableOpacity
                   onPress={closeSettings}
                   hitSlop={12}
                   accessibilityRole="button"
                   accessibilityLabel="Close settings"
                 >
-                  <IconSymbol name="xmark" size={22} color={TEXT_WHITE} />
+                  <IconSymbol
+                    name="xmark"
+                    size={20}
+                    color={GroveColors.deepText}
+                  />
                 </TouchableOpacity>
               </View>
 
@@ -546,8 +566,8 @@ function DurationRow({
               returnKeyType="done"
               selectTextOnFocus
               underlineColorAndroid="transparent"
-              cursorColor={TEXT_WHITE}
-              placeholderTextColor="rgba(255,255,255,0.45)"
+              cursorColor={GroveColors.primaryGreen}
+              placeholderTextColor={GroveColors.mutedGray}
             />
             <Text style={styles.durationUnit}>{unitLabel}</Text>
           </View>
@@ -607,32 +627,42 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: POMO_PANEL_BG,
+    backgroundColor: GroveColors.white,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GroveColors.borderSubtle,
   },
-  title: {
+  headerCopy: {
     marginTop: 12,
     marginBottom: 20,
-    fontSize: 34,
-    fontWeight: "700",
-    color: TEXT_WHITE,
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+  title: {
     textAlign: "center",
-    letterSpacing: 0.5,
+    color: GroveColors.deepText,
+  },
+  subtitle: {
+    marginTop: 6,
+    textAlign: "center",
+    color: GroveColors.secondaryText,
   },
   timerCard: {
-    backgroundColor: POMO_PANEL_BG,
-    borderRadius: 20,
-    paddingVertical: 28,
-    paddingHorizontal: 28,
-    marginHorizontal: 14,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderRadius: GroveBorderRadius.card,
+    paddingVertical: GroveSpacing.cardPaddingVertical,
+    paddingHorizontal: GroveSpacing.cardPaddingHorizontal,
+    marginHorizontal: 4,
     alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GroveColors.borderSubtle,
   },
   timerDigits: {
+    fontFamily: GroveFontFamily,
     fontSize: 56,
     fontWeight: "700",
-    color: TEXT_WHITE,
+    color: GroveColors.deepText,
     fontVariant: ["tabular-nums"],
   },
   barsRow: {
@@ -649,19 +679,18 @@ const styles = StyleSheet.create({
   },
   sessionBarDone: {
     height: 26,
-    backgroundColor: BAR_COMPLETE,
+    backgroundColor: GroveColors.primaryGreen,
   },
   sessionBarTodo: {
     height: 18,
-    backgroundColor: BAR_TODO,
-    opacity: 0.85,
+    backgroundColor: GroveColors.inactive,
   },
   phaseTag: {
     marginTop: 14,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.85)",
-    letterSpacing: 1.2,
+    fontFamily: GroveFontFamily,
+    fontSize: 14,
+    fontWeight: "600",
+    color: GroveColors.secondaryText,
   },
   controlsRow: {
     flexDirection: "row",
@@ -670,39 +699,46 @@ const styles = StyleSheet.create({
     gap: 14,
     marginTop: 22,
     marginBottom: 24,
-    marginHorizontal: 14,
+    marginHorizontal: 4,
   },
   roundControl: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: POMO_PANEL_BG,
+    backgroundColor: GroveColors.white,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GroveColors.borderSubtle,
   },
   startPill: {
     flex: 1,
     maxWidth: 220,
-    backgroundColor: POMO_PANEL_BG,
+    backgroundColor: GroveColors.primaryGreen,
     paddingVertical: 14,
-    borderRadius: 999,
+    borderRadius: GroveBorderRadius.pill,
     alignItems: "center",
+    shadowColor: "#6B9E1A",
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   startPillText: {
-    color: TEXT_WHITE,
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 1.5,
+    fontFamily: GroveFontFamily,
+    color: GroveColors.onAccent,
+    fontSize: 16,
+    fontWeight: "700",
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(33, 50, 66, 0.35)",
     justifyContent: "center",
     padding: 24,
   },
   modalCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 20,
+    backgroundColor: GroveColors.white,
+    borderRadius: GroveBorderRadius.card,
     padding: 20,
     maxHeight: "88%",
   },
@@ -713,22 +749,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: TEXT_WHITE,
+    color: GroveColors.deepText,
   },
   modalSection: {
+    fontFamily: GroveFontFamily,
     fontSize: 13,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.7)",
+    fontWeight: "600",
+    color: GroveColors.secondaryText,
     marginBottom: 12,
-    letterSpacing: 0.6,
   },
   durationRow: {
     marginBottom: 16,
   },
   durationLabel: {
-    color: TEXT_WHITE,
+    fontFamily: GroveFontFamily,
+    color: GroveColors.deepText,
     fontSize: 15,
     fontWeight: "600",
     marginBottom: 8,
@@ -741,19 +776,23 @@ const styles = StyleSheet.create({
   stepperBtn: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: CONTROL_SURFACE,
+    borderRadius: GroveBorderRadius.button,
+    backgroundColor: GroveColors.softSurface,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GroveColors.borderSubtle,
   },
   stepperBtnText: {
-    color: TEXT_WHITE,
+    fontFamily: GroveFontFamily,
+    color: GroveColors.deepText,
     fontSize: 22,
     fontWeight: "600",
   },
   durationValue: {
     flex: 1,
-    color: TEXT_WHITE,
+    fontFamily: GroveFontFamily,
+    color: GroveColors.deepText,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
@@ -768,26 +807,29 @@ const styles = StyleSheet.create({
     minWidth: 40,
     paddingVertical: 4,
     paddingHorizontal: 4,
-    color: TEXT_WHITE,
+    fontFamily: GroveFontFamily,
+    color: GroveColors.deepText,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "right",
   },
   durationUnit: {
+    fontFamily: GroveFontFamily,
     fontSize: 14,
     fontWeight: "500",
-    color: "rgba(255,255,255,0.75)",
+    color: GroveColors.secondaryText,
   },
   saveSettingsBtn: {
     marginTop: 8,
-    backgroundColor: BAR_COMPLETE,
+    backgroundColor: GroveColors.primaryGreen,
     paddingVertical: 14,
-    borderRadius: 999,
+    borderRadius: GroveBorderRadius.pill,
     alignItems: "center",
   },
   saveSettingsText: {
+    fontFamily: GroveFontFamily,
     fontSize: 16,
-    fontWeight: "800",
-    color: "#33691E",
+    fontWeight: "700",
+    color: GroveColors.onAccent,
   },
 });
