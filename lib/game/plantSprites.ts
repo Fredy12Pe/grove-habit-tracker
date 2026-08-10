@@ -337,24 +337,8 @@ export function getPlantSprite(plantIndex: number, frameIndex: number): PlantSpr
   return PLANT_SPRITES[pi][fi];
 }
 
-/** Week key for deterministic plant assignment (Sunday start). */
-export function getWeekKey(date: Date = new Date()): string {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const diff = d.getDate() - day;
-  d.setDate(diff);
-  return d.toISOString().slice(0, 10);
-}
-
 /** Plant index for a habit slot this week (0–27). */
 export function getPlantIndexForHabitSlot(habitIndex: number, weekKey: string): number {
   const weekSeed = weekKey.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return (habitIndex + weekSeed) % PLANT_COUNT;
-}
-
-/** Frame index from day of week (0 = Sunday … 6 = Saturday). */
-export function getFrameIndexForDay(date: Date = new Date()): number {
-  const day = date.getDay();
-  return Math.min(day, FRAMES_PER_PLANT - 1);
 }

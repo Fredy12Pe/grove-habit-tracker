@@ -14,6 +14,8 @@ export type CompletionDatesByHabit = Record<string, string[]>;
 export interface HabitEntry {
   journalText?: string;
   note?: string;
+  /** Separate gratitude lines for Practice Gratitude (and similar). */
+  gratitudeItems?: string[];
   durationMinutes?: number;
   count?: number;
 }

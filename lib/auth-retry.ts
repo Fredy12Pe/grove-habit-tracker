@@ -1,7 +1,7 @@
 import { isTransientNetworkError } from '@/lib/auth-invalid-session';
 
 /**
- * Retries a Supabase auth call exactly once if it fails with a known-transient
+ * Retries a Supabase auth call up to 2 extra times if it fails with a known-transient
  * transport error (dropped connection, aborted request, iOS Simulator network
  * blips — e.g. the iOS 18.4 Simulator URLSession/HTTP-3 bug: see
  * https://github.com/supabase/supabase/issues/35224). Handles both shapes
@@ -14,21 +14,31 @@ import { isTransientNetworkError } from '@/lib/auth-invalid-session';
 export async function callWithNetworkRetry<T extends { error: { message: string } | null }>(
   fn: () => Promise<T>,
 ): Promise<T> {
-  try {
-    const result = await fn();
-    if (result.error && isTransientNetworkError(result.error.message)) {
-      try {
-        return await fn();
-      } catch {
+  const maxAttempts = 3;
+  let lastResult: T | undefined;
+  let lastThrown: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const result = await fn();
+      lastResult = result;
+      if (
+        !result.error ||
+        !isTransientNetworkError(result.error.message) ||
+        attempt === maxAttempts - 1
+      ) {
         return result;
       }
+    } catch (err: unknown) {
+      lastThrown = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!isTransientNetworkError(msg) || attempt === maxAttempts - 1) {
+        throw err;
+      }
     }
-    return result;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (isTransientNetworkError(msg)) {
-      return fn();
-    }
-    throw err;
+    await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
   }
+
+  if (lastResult) return lastResult;
+  throw lastThrown;
 }

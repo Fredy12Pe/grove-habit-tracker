@@ -29,7 +29,7 @@ import {
   GroveFontFamily,
   type GroveColorPalette,
 } from "@/styles/theme";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 interface HabitFormInlineProps {
@@ -37,6 +37,14 @@ interface HabitFormInlineProps {
   onUpdate: (id: string, updates: Partial<HabitWithActions>) => void;
   /** Darker shade of the habit card background for controls. */
   accentColor: string;
+}
+
+function gratitudeDraftFromHabit(habit: HabitWithActions): string[] {
+  const p = habit.progress as InputProgress;
+  const s = habit.setup as InputSetup;
+  const count = s.gratitudeCount ?? 3;
+  const items = p.gratitudeItems ?? [];
+  return Array.from({ length: count }, (_, i) => items[i] ?? "");
 }
 
 export function HabitFormInline({
@@ -61,12 +69,41 @@ export function HabitFormInline({
     selected ? styles.pillTextSelected : accentFg,
   ];
 
+  const isGratitude = habit.type === "input" && habit.id === "practice-gratitude";
+  const isJournalLike = habit.type === "input" && !isGratitude;
+  const gratitudeCount =
+    habit.type === "input"
+      ? ((habit.setup as InputSetup).gratitudeCount ?? 3)
+      : 3;
+
+  const [gratitudeDraft, setGratitudeDraft] = useState(() =>
+    isGratitude ? gratitudeDraftFromHabit(habit) : [],
+  );
+  const [journalDraft, setJournalDraft] = useState(() =>
+    isJournalLike ? (habit.progress as InputProgress).text : "",
+  );
+  const [justSaved, setJustSaved] = useState(false);
+
+  // Keep draft length in sync when the user changes gratitude item count.
+  useEffect(() => {
+    if (!isGratitude) return;
+    setGratitudeDraft((prev) => {
+      if (prev.length === gratitudeCount) return prev;
+      return Array.from({ length: gratitudeCount }, (_, i) => prev[i] ?? "");
+    });
+  }, [gratitudeCount, isGratitude]);
+
   const updateProgress = (progress: HabitProgress) => {
     const next = { ...habit, progress };
     (next as HabitWithActions).completedToday = isHabitComplete(
       next as HabitWithActions,
     );
     onUpdate(habit.id, { progress, completedToday: next.completedToday });
+  };
+
+  const saveInputProgress = (progress: InputProgress) => {
+    updateProgress(progress);
+    setJustSaved(true);
   };
 
   const updateSetup = (setup: HabitSetup) => {
@@ -229,7 +266,7 @@ export function HabitFormInline({
               Journaling
             </AppText>
             <AppText variant="paragraphRegular" style={styles.hint}>
-              Write at least 10 characters to complete.
+              Write your thoughts, then tap Save.
             </AppText>
           </View>
         );
@@ -511,30 +548,71 @@ export function HabitFormInline({
           const p = habit.progress as InputProgress;
           const s = habit.setup as InputSetup;
           const count = s.gratitudeCount ?? 3;
-          const items = p.gratitudeItems ?? Array(count).fill("");
+          const items = Array.from(
+            { length: count },
+            (_, i) => gratitudeDraft[i] ?? "",
+          );
+          const draftHabit = {
+            ...habit,
+            progress: { ...p, gratitudeItems: items },
+          };
+          const draftComplete = isHabitComplete(draftHabit);
+          const hasDraftText = items.some((t) => t.trim().length > 0);
           const updateItem = (i: number, val: string) => {
-            const next = [...items];
-            next[i] = val;
-            while (next.length < count) next.push("");
-            while (next.length > count) next.pop();
-            updateProgress({ ...p, gratitudeItems: next });
+            setJustSaved(false);
+            setGratitudeDraft((prev) => {
+              const next = Array.from(
+                { length: count },
+                (_, j) => prev[j] ?? "",
+              );
+              next[i] = val;
+              return next;
+            });
           };
           return (
             <View style={styles.section}>
               <AppText variant="small" style={styles.sectionTitle}>
                 Today’s gratitude
               </AppText>
-              {Array.from({ length: count }, (_, i) => (
+              {items.map((value, i) => (
                 <TextInput
                   key={i}
                   style={[styles.input, accentOutline]}
                   placeholder={`Gratitude ${i + 1}`}
                   placeholderTextColor={colors.secondaryText}
-                  value={items[i] ?? ""}
+                  value={value}
                   onChangeText={(val) => updateItem(i, val)}
                 />
               ))}
-              {isHabitComplete(habit) && (
+              <Pressable
+                style={[
+                  styles.primaryBtn,
+                  justSaved ? styles.primaryBtnDone : accentFill,
+                  !hasDraftText && !justSaved && styles.primaryBtnDisabled,
+                ]}
+                disabled={!hasDraftText && !justSaved}
+                onPress={() => {
+                  if (!hasDraftText) return;
+                  saveInputProgress({
+                    ...p,
+                    gratitudeItems: items,
+                    text: items
+                      .filter((t) => t.trim().length > 0)
+                      .join("\n"),
+                  });
+                }}
+              >
+                <AppText
+                  variant="paragraph"
+                  style={[
+                    styles.primaryBtnText,
+                    justSaved && styles.primaryBtnTextDone,
+                  ]}
+                >
+                  {justSaved ? "Saved ✓" : "Save"}
+                </AppText>
+              </Pressable>
+              {draftComplete && justSaved && (
                 <AppText variant="paragraphRegular" style={styles.reward}>
                   Your plant grew a little 🌱
                 </AppText>
@@ -542,28 +620,66 @@ export function HabitFormInline({
             </View>
           );
         }
-        const p = habit.progress as InputProgress;
-        return (
-          <View style={styles.section}>
-            <AppText variant="small" style={styles.sectionTitle}>
-              Today’s entry
-            </AppText>
-            <TextInput
-              style={[styles.input, styles.inputMultiline, accentOutline]}
-              placeholder="What's on your mind?"
-              placeholderTextColor={colors.secondaryText}
-              value={p.text}
-              onChangeText={(text) => updateProgress({ ...p, text })}
-              multiline
-              numberOfLines={4}
-            />
-            {isHabitComplete(habit) && (
-              <AppText variant="paragraphRegular" style={styles.reward}>
-                Your plant grew a little 🌱
+        {
+          const p = habit.progress as InputProgress;
+          const s = habit.setup as InputSetup;
+          const draftHabit = {
+            ...habit,
+            progress: { ...p, text: journalDraft },
+          };
+          const draftComplete = isHabitComplete(draftHabit);
+          const hasDraftText = journalDraft.trim().length > 0;
+          return (
+            <View style={styles.section}>
+              <AppText variant="small" style={styles.sectionTitle}>
+                Today’s entry
               </AppText>
-            )}
-          </View>
-        );
+              <TextInput
+                style={[styles.input, styles.inputMultiline, accentOutline]}
+                placeholder="What's on your mind?"
+                placeholderTextColor={colors.secondaryText}
+                value={journalDraft}
+                onChangeText={(text) => {
+                  setJustSaved(false);
+                  setJournalDraft(text);
+                }}
+                multiline
+                numberOfLines={4}
+              />
+              <Pressable
+                style={[
+                  styles.primaryBtn,
+                  justSaved ? styles.primaryBtnDone : accentFill,
+                  !hasDraftText && !justSaved && styles.primaryBtnDisabled,
+                ]}
+                disabled={!hasDraftText && !justSaved}
+                onPress={() => {
+                  if (!hasDraftText) return;
+                  saveInputProgress({ ...p, text: journalDraft });
+                }}
+              >
+                <AppText
+                  variant="paragraph"
+                  style={[
+                    styles.primaryBtnText,
+                    justSaved && styles.primaryBtnTextDone,
+                  ]}
+                >
+                  {justSaved ? "Saved ✓" : "Save"}
+                </AppText>
+              </Pressable>
+              {draftComplete && justSaved ? (
+                <AppText variant="paragraphRegular" style={styles.reward}>
+                  Your plant grew a little 🌱
+                </AppText>
+              ) : !draftComplete && hasDraftText ? (
+                <AppText variant="paragraphRegular" style={styles.hint}>
+                  Write at least {s.minLength ?? 10} characters to complete.
+                </AppText>
+              ) : null}
+            </View>
+          );
+        }
       case "scheduled": {
         const p = habit.progress as ScheduledProgress;
         const s = habit.setup as ScheduledSetup;
@@ -784,9 +900,13 @@ function createStyles(colors: GroveColorPalette) {
     paddingVertical: 14,
     borderRadius: GroveBorderRadius.button,
     alignItems: "center",
+    marginTop: 4,
   },
   primaryBtnDone: {
     backgroundColor: colors.accentLime,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.45,
   },
   primaryBtnText: {
     fontSize: 15,

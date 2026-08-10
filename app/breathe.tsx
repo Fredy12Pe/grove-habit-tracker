@@ -127,12 +127,6 @@ function BreatheScreenContent() {
     phase: Phase | null;
   }>({ sec: -1, phase: null });
 
-  const resetSession = () => {
-    setSecondsRemaining(totalSeconds);
-    setPhase("inhale");
-    setPaused(false);
-  };
-
   const startSession = () => {
     gameImpactMedium();
     frozenElapsedMsRef.current = 0;

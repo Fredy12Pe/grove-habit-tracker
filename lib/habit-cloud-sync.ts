@@ -324,6 +324,10 @@ function mergeEntry(a: HabitEntry = {}, b: HabitEntry = {}): HabitEntry {
       next[key] = (bv.length >= av.length ? bv : av) as never;
     } else if (typeof bv === 'number' && typeof av === 'number') {
       next[key] = (bv >= av ? bv : av) as never;
+    } else if (Array.isArray(bv) && Array.isArray(av)) {
+      const bLen = (bv as string[]).join('').length;
+      const aLen = (av as string[]).join('').length;
+      next[key] = (bLen >= aLen ? bv : av) as never;
     } else {
       next[key] = bv as never;
     }

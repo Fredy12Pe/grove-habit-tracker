@@ -32,17 +32,3 @@ export interface Habit {
   /** Custom accent hex from the color picker (overrides customColorIndex). */
   customColor?: string;
 }
-
-export interface HabitCompletion {
-  habitId: string;
-  completedAt: string;
-}
-
-export interface CustomHabitPayload {
-  name: string;
-  customIconCatalogId: string;
-  customTracking: HabitCustomTracking;
-  customCategory: HabitCustomCategory;
-  customColorIndex?: number;
-  customColor?: string;
-}

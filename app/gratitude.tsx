@@ -71,9 +71,12 @@ function GratitudeScreenContent() {
       allFilled
     ) {
       const note = lines
-        .map((t, i) => `• ${t.trim()}`)
+        .map((t) => `• ${t.trim()}`)
         .join("\n");
-      setHabitEntry(GRATITUDE_HABIT_ID, date, { note });
+      setHabitEntry(GRATITUDE_HABIT_ID, date, {
+        note,
+        gratitudeItems: lines.map((t) => t.trim()),
+      });
       toggleHabit(GRATITUDE_HABIT_ID);
       syncWidgets();
     }

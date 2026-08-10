@@ -30,8 +30,10 @@ import {
   type TimerProgress,
 } from "@/lib/habitsWithActions";
 import {
+  applyHabitEntryToHabit,
   buildHabitWithActionsFromStore,
   buildHabitsWithActionsListFromStore,
+  habitEntryFromInputProgress,
 } from "@/lib/habitWithActionsFromStore";
 import { useHabitStore } from "@/lib/store";
 import { takeReopenAddHabitSheetFromSheet } from "@/lib/reopenAddHabitSheetFromSheet";
@@ -53,6 +55,16 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 
 const LIST_GAP = 12;
+
+function hydrateHabitsWithEntries(
+  habits: HabitWithActions[],
+  dateKey: string,
+): HabitWithActions[] {
+  const { getHabitEntry } = useHabitStore.getState();
+  return habits.map((h) =>
+    applyHabitEntryToHabit(h, getHabitEntry(h.id, dateKey)),
+  );
+}
 
 export default function HabitsScreen() {
   const router = useRouter();
@@ -81,6 +93,7 @@ export default function HabitsScreen() {
   const syncHabits = useHabitStore((s) => s.syncHabits);
   const reorderHabits = useHabitStore((s) => s.reorderHabits);
   const ensureDayReset = useHabitStore((s) => s.ensureDayReset);
+  const setHabitEntry = useHabitStore((s) => s.setHabitEntry);
 
   const selectedKey = calendarDateKey(selectedDate);
   const todayKey = calendarDateKey();
@@ -88,7 +101,12 @@ export default function HabitsScreen() {
 
   const [habitsWithActions, setHabitsWithActions] = useState<
     HabitWithActions[]
-  >(() => buildHabitsWithActionsListFromStore(storeHabits));
+  >(() =>
+    hydrateHabitsWithEntries(
+      buildHabitsWithActionsListFromStore(storeHabits),
+      calendarDateKey(),
+    ),
+  );
 
   useEffect(() => {
     ensureDayReset();
@@ -104,7 +122,14 @@ export default function HabitsScreen() {
       for (const sh of storeHabits) {
         if (!next.some((h) => h.id === sh.id)) {
           const built = buildHabitWithActionsFromStore(sh);
-          if (built) next.push(built);
+          if (built) {
+            next.push(
+              applyHabitEntryToHabit(
+                built,
+                useHabitStore.getState().getHabitEntry(built.id, todayKey),
+              ),
+            );
+          }
         }
       }
 
@@ -122,7 +147,32 @@ export default function HabitsScreen() {
         };
       });
     });
-  }, [storeHabits]);
+  }, [storeHabits, todayKey]);
+
+  // When the calendar day rolls over, reload saved text for the new day.
+  useEffect(() => {
+    setHabitsWithActions((prev) =>
+      hydrateHabitsWithEntries(
+        prev.map((h) => {
+          if (h.type !== "input") return h;
+          return {
+            ...h,
+            progress:
+              h.id === "practice-gratitude"
+                ? {
+                    text: "",
+                    gratitudeItems: Array(
+                      ((h.setup as { gratitudeCount?: number }).gratitudeCount ??
+                        3),
+                    ).fill(""),
+                  }
+                : { text: "" },
+          };
+        }),
+        todayKey,
+      ),
+    );
+  }, [todayKey]);
 
   const updateHabit = useCallback(
     (id: string, updates: Partial<HabitWithActions>) => {
@@ -132,6 +182,16 @@ export default function HabitsScreen() {
         if (!h) return prev;
         const merged = { ...h, ...updates };
         merged.completedToday = isHabitComplete(merged);
+
+        if (updates.progress && merged.type === "input") {
+          const entry = habitEntryFromInputProgress(merged);
+          if (entry) {
+            queueMicrotask(() => {
+              setHabitEntry(id, calendarDateKey(), entry);
+            });
+          }
+        }
+
         const storeComplete =
           useHabitStore.getState().habits.find((s) => s.id === id)
             ?.completedToday ?? false;
@@ -154,7 +214,7 @@ export default function HabitsScreen() {
         return prev.map((x) => (x.id === id ? merged : x));
       });
     },
-    [toggleHabit, selectedDate],
+    [toggleHabit, selectedDate, setHabitEntry],
   );
 
   useEffect(() => {
@@ -369,6 +429,7 @@ export default function HabitsScreen() {
               expandedId === habit.id && hwa ? (
                 isViewingToday ? (
                   <HabitFormInline
+                    key={hwa.id}
                     habit={hwa}
                     onUpdate={updateHabit}
                     accentColor={accentColor}

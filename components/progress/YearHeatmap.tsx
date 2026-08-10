@@ -27,8 +27,6 @@ function getMonthColumns(year: number): { month: number; col: number }[] {
   const result: { month: number; col: number }[] = [];
   for (let m = 0; m < 12; m++) {
     const first = new Date(year, m, 1);
-    const startDay = first.getDay();
-    const monBased = startDay === 0 ? 6 : startDay - 1;
     const dayOfYear = Math.floor((first.getTime() - new Date(year, 0, 1).getTime()) / (24 * 60 * 60 * 1000));
     const weekCol = Math.floor(dayOfYear / DAYS_PER_WEEK);
     result.push({ month: m, col: weekCol });

@@ -5,6 +5,7 @@
  * Ratios MUST match G_CONTAINER_* / G_FLOOR in lib/game/islandWorldLayout.ts.
  */
 
+import { calendarDateKey } from "@/lib/calendarDate";
 import type { CompletionDatesByHabit } from "@/lib/store/useHabitStore";
 
 /** Count how many dates in completionDates[habitId] fall within [start, end] (ISO strings). */
@@ -116,27 +117,6 @@ export function getGardenGridDimensionsForPlantCount(
   return { cols: bestCols, rows: bestRows };
 }
 
-/** Cell size and origin for aligning debug overlays to the same grid as slot centers. */
-export function getGridCellMetrics(
-  floor: GardenFloorRect,
-  cols: number,
-  rows: number,
-  insetRatio = DEFAULT_INSET,
-) {
-  const insetX = floor.width * insetRatio;
-  const insetY = floor.height * insetRatio;
-  const innerW = floor.width - 2 * insetX;
-  const innerH = floor.height - 2 * insetY;
-  return {
-    insetX,
-    insetY,
-    cellW: innerW / cols,
-    cellH: innerH / rows,
-    originLeft: floor.left + insetX,
-    originTop: floor.top + insetY,
-  };
-}
-
 /** Which week-of-month bucket (0–3) the calendar date falls in (days 1–7 → 0, … 22+ → 3). */
 export function getCurrentMonthWeekIndex(date: Date = new Date()): number {
   const dayOfMonth = date.getDate();
@@ -158,8 +138,12 @@ export function getWeekOfMonthDateRange(
   const endDay = weekIndex === 3 ? lastDay : Math.min(startDay + 6, lastDay);
   const startDate = new Date(y, m, startDay);
   const endDate = new Date(y, m, endDay);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: iso(startDate), end: iso(endDate), startDate, endDate };
+  return {
+    start: calendarDateKey(startDate),
+    end: calendarDateKey(endDate),
+    startDate,
+    endDate,
+  };
 }
 
 /**

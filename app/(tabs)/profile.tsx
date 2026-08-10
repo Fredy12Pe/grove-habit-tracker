@@ -322,6 +322,47 @@ export default function ProfileScreen() {
     );
   }, [deletingAccount, confirmDeleteAccount]);
 
+  const onContactSupport = useCallback(() => {
+    const subject = encodeURIComponent('Grove support');
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}`;
+    void (async () => {
+      try {
+        const canOpen = await Linking.canOpenURL(mailto);
+        if (canOpen) {
+          await Linking.openURL(mailto);
+          return;
+        }
+      } catch {
+        // Fall through to the alert — simulators and some devices reject mailto.
+      }
+      Alert.alert('Contact support', `Email us at ${SUPPORT_EMAIL}`, [
+        {
+          text: 'Open mail app',
+          onPress: () => {
+            void Linking.openURL(mailto).catch(() => {
+              Alert.alert(
+                'Mail app unavailable',
+                `Please email ${SUPPORT_EMAIL} from your mail app.`,
+              );
+            });
+          },
+        },
+        { text: 'OK', style: 'cancel' },
+      ]);
+    })();
+  }, []);
+
+  const onSignOut = useCallback(() => {
+    Alert.alert('Sign out?', 'You can sign back in any time with the same email.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => void signOut(),
+      },
+    ]);
+  }, [signOut]);
+
   /** Garden → Profile with `pickPhoto=1`: open photo library once when this tab is focused. */
   const shouldOpenPhotoPickerFromGarden = useMemo(() => {
     const raw = Array.isArray(pickPhotoParam) ? pickPhotoParam[0] : pickPhotoParam;
@@ -383,6 +424,7 @@ export default function ProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
         <View style={styles.header}>
@@ -663,9 +705,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={[styles.settingsRow, styles.settingsRowLast]}
               activeOpacity={0.7}
-              onPress={() => {
-                void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Grove%20support`);
-              }}
+              onPress={onContactSupport}
               accessibilityRole="button"
               accessibilityLabel="Contact support"
             >
@@ -735,9 +775,9 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   style={styles.settingsRow}
                   activeOpacity={0.7}
-                  onPress={() => {
-                    void signOut();
-                  }}
+                  onPress={onSignOut}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign out"
                 >
                   <MaterialIcons
                     name="logout"
@@ -1022,7 +1062,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   bottomSpacer: {
-    height: 110,
+    height: 140,
   },
   saveProgressCard: {
     borderRadius: GroveBorderRadius.homeCard,

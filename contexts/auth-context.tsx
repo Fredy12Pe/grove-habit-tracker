@@ -47,7 +47,7 @@ import {
 } from '@/lib/habit-user-snapshot';
 import { useHabitStore } from '@/lib/store/useHabitStore';
 import { isSupabaseConfigured, rawSupabaseUrl } from '@/lib/supabase-env';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, resetSupabaseClient } from '@/lib/supabase';
 import { supabaseAuthStorage } from '@/lib/supabase-storage';
 import { trackEvent } from '@/lib/analytics';
 import { setSentryUser } from '@/lib/sentry';
@@ -213,35 +213,59 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-/**
- * Called only once a session is already known to be invalid (orphaned JWT / deleted
- * user), so there's no point asking the server to revoke it — `signOut()` still makes a
- * real network call even with `scope: 'local'` (only the *server-side* revocation scope
- * changes, not whether the client calls it), and that call is prone to failing with a
- * noisy "network connection was lost" transport error auth-js always logs regardless of
- * how gracefully the caller handles it. Clear local storage directly instead.
- */
-async function clearInvalidLocalSession(): Promise<void> {
-  await clearLocalSupabaseSession();
-}
-
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [guestData, setGuestData] = useState<GuestData | null>(null);
+  /**
+   * Bumped whenever we `resetSupabaseClient()` so the auth listener re-attaches to the
+   * new singleton. Without this, sign-out / account-delete leave React stuck with
+   * `session === null` even after a successful email/OAuth sign-in (listener is on the
+   * discarded client).
+   */
+  const [authClientEpoch, setAuthClientEpoch] = useState(0);
   /** Last user id we synced with `grove.habits.user.*` snapshots (not React session order). */
   const habitSyncUserIdRef = useRef<string | null>(null);
   /** Ref mirror of guestData so async callbacks always read the latest value. */
   const guestRef = useRef<GuestData | null>(null);
+  const mountedRef = useRef(true);
 
   // Keep the ref in sync with state
   useEffect(() => {
     guestRef.current = guestData;
   }, [guestData]);
 
+  const recycleSupabaseClient = useCallback(() => {
+    resetSupabaseClient();
+    setAuthClientEpoch((n) => n + 1);
+  }, []);
+
+  /**
+   * Push a Supabase session into React state, migrating guest prefs when needed.
+   * Used by `onAuthStateChange` and by email sign-in/up so navigation never races the
+   * async listener (especially after a client recycle).
+   */
+  const applyAuthenticatedSession = useCallback(async (nextSession: Session) => {
+    const guest = guestRef.current;
+    if (!guest) {
+      if (mountedRef.current) setSession(nextSession);
+      return;
+    }
+
+    const updatedUser = await migrateGuestToAccount(guest);
+    guestRef.current = null;
+    setGuestData(null);
+    await clearGuestDataStorage();
+    if (!mountedRef.current) return;
+    setSession(
+      updatedUser ? { ...nextSession, user: updatedUser } : nextSession,
+    );
+  }, []);
+
   useEffect(() => {
+    mountedRef.current = true;
     let mounted = true;
 
     if (!isSupabaseConfigured) {
@@ -254,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return () => {
         mounted = false;
+        mountedRef.current = false;
       };
     }
 
@@ -307,8 +332,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           );
           if (userErr && isOrphanedSessionAuthError(userErr.message) && mounted) {
             console.warn('[auth] clearing invalid session:', userErr.message);
-            await clearInvalidLocalSession();
-            if (mounted) setSession(null);
+            /**
+             * Orphaned JWT / deleted user — clear storage and drop the in-memory client.
+             * Do NOT await `signOut()` (noisy transport errors). Recycle so the listener
+             * rebinds; `signOut`/`deleteAccount` use the same path.
+             */
+            setSession(null);
+            await clearLocalSupabaseSession();
+            recycleSupabaseClient();
           } else if (userErr) {
             console.warn('[auth] getUser:', userErr.message);
           }
@@ -323,31 +354,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })();
 
-    const { data: listenerData } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void (async () => {
+    const { data: listenerData } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
         if (!mounted) return;
         if (!nextSession) {
           setSession(null);
           return;
         }
-
-        let sessionToSet: Session = nextSession;
-        const guest = guestRef.current ?? (await readGuestData());
-        if (guest) {
-          const updatedUser = await migrateGuestToAccount(guest);
-          guestRef.current = null;
-          setGuestData(null);
-          await clearGuestDataStorage();
-          if (updatedUser) {
-            sessionToSet = { ...nextSession, user: updatedUser };
-          }
-        }
-
-        if (mounted) {
-          setSession(sessionToSet);
-        }
-      })();
-    });
+        void applyAuthenticatedSession(nextSession);
+      },
+    );
 
     const subscription = listenerData?.subscription;
     if (!subscription) {
@@ -356,9 +372,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      mountedRef.current = false;
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [authClientEpoch, applyAuthenticatedSession, recycleSupabaseClient]);
 
   /**
    * Per-user habit snapshots (local) then cloud sync (signed-in only):
@@ -444,10 +461,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: CONFIG_ERROR };
     }
     try {
-      const { error } = await callWithNetworkRetry(() =>
+      const { data, error } = await callWithNetworkRetry(() =>
         getSupabase().auth.signInWithPassword({ email, password }),
       );
       if (!error) {
+        if (data.session) {
+          await applyAuthenticatedSession(data.session);
+        }
         trackEvent('sign_in', { method: 'email' });
         return { error: null };
       }
@@ -496,7 +516,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ),
       };
     }
-  }, []);
+  }, [applyAuthenticatedSession]);
 
   const signUp = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
@@ -522,7 +542,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       if (accountAlreadyExists && !error) {
         await getSupabase().auth.signOut();
+        setSession(null);
       } else if (!error) {
+        if (data.session) {
+          await applyAuthenticatedSession(data.session);
+        }
         trackEvent('sign_up', { method: 'email' });
       }
       return {
@@ -557,19 +581,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accountAlreadyExists: false,
       };
     }
-  }, []);
+  }, [applyAuthenticatedSession]);
 
   const signOut = useCallback(async () => {
-    if (isSupabaseConfigured) {
-      try {
-        await withTimeout(getSupabase().auth.signOut(), 5000, 'signOut');
-      } catch {
-        await clearLocalSupabaseSession();
-      }
-    }
     trackEvent('sign_out');
-    /** Habit save + in-memory reset run in `useEffect` when session becomes null. */
-  }, []);
+    /**
+     * Clear React + persisted session locally. Do NOT await `auth.signOut()` —
+     * that always makes a network revoke call which, on flaky Simulator
+     * networking, aborts in-flight requests and can leave auth-js wedged so
+     * the next Apple/Google/email sign-in also fails with "Couldn't reach the
+     * server." Same approach as account-delete cleanup.
+     */
+    pauseHabitCloudSync();
+    setSession(null);
+    await clearLocalSupabaseSession();
+    recycleSupabaseClient();
+  }, [recycleSupabaseClient]);
 
   const deleteAccount = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -606,6 +633,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
        * logs those, even when the app handles them gracefully — see `isAccountDeleteTransportError`).
        */
       await clearLocalSupabaseSession();
+      recycleSupabaseClient();
       trackEvent('account_deleted');
       setSession(null);
     };
@@ -705,7 +733,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ),
       };
     }
-  }, [session]);
+  }, [session, recycleSupabaseClient]);
 
   const completeOnboarding = useCallback(async () => {
     // Guest path: write local flag only

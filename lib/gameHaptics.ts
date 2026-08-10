@@ -25,6 +25,3 @@ export function gameSuccess(): void {
   if (Platform.OS === "web") return;
   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }
-
-/** First contact when dragging the walk joystick (full game only). */
-export const gameJoystickEngage = gameImpactLight;

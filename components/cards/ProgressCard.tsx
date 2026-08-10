@@ -44,7 +44,7 @@ export function ProgressCard({
 
       <View style={styles.headerRow}>
         <AppText variant="h1" style={[styles.title, { color: colors.deepText }]}>
-          Today's Progress
+          Today&apos;s Progress
         </AppText>
         {onCompleteHabits ? (
           cardTappable ? (

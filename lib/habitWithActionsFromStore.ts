@@ -1,8 +1,11 @@
 import type { Habit, HabitCustomTracking } from "@/lib/types/habit";
+import type { HabitEntry } from "@/lib/store/useHabitStore";
 import {
   INITIAL_HABITS_WITH_ACTIONS,
   type HabitProgress,
   type HabitWithActions,
+  type InputProgress,
+  type InputSetup,
   type TimerSetup,
 } from "@/lib/habitsWithActions";
 
@@ -18,13 +21,91 @@ const TEMPLATE_ID_BY_CUSTOM_TRACKING: Record<HabitCustomTracking, string> = {
   input: "journal",
 };
 
+function cloneProgress(progress: HabitProgress): HabitProgress {
+  const p = { ...(progress as object) } as HabitProgress;
+  if ("gratitudeItems" in p && Array.isArray((p as InputProgress).gratitudeItems)) {
+    (p as InputProgress).gratitudeItems = [
+      ...((p as InputProgress).gratitudeItems ?? []),
+    ];
+  }
+  return p;
+}
+
 /** Deep-clone progress/setup for a habit row (same pattern as INITIAL_HABITS_WITH_ACTIONS). */
 export function cloneHabitWithActions(h: HabitWithActions): HabitWithActions {
   return {
     ...h,
     setup: { ...(h.setup as object) } as HabitWithActions["setup"],
-    progress: { ...(h.progress as object) } as HabitProgress,
+    progress: cloneProgress(h.progress),
   };
+}
+
+/** Parse a stored gratitude note (e.g. from the game screen) into input lines. */
+function gratitudeItemsFromNote(note: string, count: number): string[] {
+  const lines = note
+    .split("\n")
+    .map((line) => line.replace(/^[•\-*]\s*/, "").trim())
+    .filter((line) => line.length > 0);
+  return Array.from({ length: count }, (_, i) => lines[i] ?? "");
+}
+
+/** Apply a persisted habit entry onto an input habit's progress. */
+export function applyHabitEntryToHabit(
+  habit: HabitWithActions,
+  entry: HabitEntry | undefined,
+): HabitWithActions {
+  if (!entry || habit.type !== "input") return habit;
+  const p = habit.progress as InputProgress;
+  const s = habit.setup as InputSetup;
+
+  if (habit.id === "practice-gratitude") {
+    const count = s.gratitudeCount ?? 3;
+    const items =
+      entry.gratitudeItems != null
+        ? Array.from(
+            { length: count },
+            (_, i) => entry.gratitudeItems?.[i] ?? "",
+          )
+        : entry.note != null
+          ? gratitudeItemsFromNote(entry.note, count)
+          : undefined;
+    if (!items) return habit;
+    return {
+      ...habit,
+      progress: {
+        ...p,
+        gratitudeItems: items,
+        text: items.filter((t) => t.trim().length > 0).join("\n"),
+      },
+    };
+  }
+
+  const text = entry.journalText ?? entry.note;
+  if (text == null) return habit;
+  return {
+    ...habit,
+    progress: { ...p, text },
+  };
+}
+
+/** Build a HabitEntry payload from input-habit progress. */
+export function habitEntryFromInputProgress(
+  habit: HabitWithActions,
+): HabitEntry | null {
+  if (habit.type !== "input") return null;
+  const p = habit.progress as InputProgress;
+  if (habit.id === "practice-gratitude") {
+    const items = (p.gratitudeItems ?? []).map((t) => t.trimEnd());
+    const note = items
+      .filter((t) => t.trim().length > 0)
+      .map((t) => `• ${t.trim()}`)
+      .join("\n");
+    return {
+      gratitudeItems: items,
+      note: note.length > 0 ? note : undefined,
+    };
+  }
+  return { journalText: p.text };
 }
 
 function buildSyntheticCustomHabitWithActions(h: Habit): HabitWithActions | null {

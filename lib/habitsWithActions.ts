@@ -269,7 +269,6 @@ export const INITIAL_HABITS_WITH_ACTIONS: HabitWithActions[] = habitsList.map((h
   progress: { ...(h.progress as object) } as HabitProgress,
 }));
 
-export const CATEGORY_ORDER: HabitCategory[] = ["Faith", "Fitness", "Well Being"];
 
 export function getProgressSummary(habit: HabitWithActions): string {
   switch (habit.type) {

@@ -116,10 +116,9 @@ scripts/               Asset generation/sync (widgets, collision data, atlases)
 | `npm start` | Start the Metro bundler |
 | `npm run ios` / `npm run android` | Build and run the native app |
 | `npm run lint` | Lint with `expo lint` |
-| `npm run generate-collision` | Regenerate game-world collision data from map assets |
+| `npm run build-collision` | Rebuild the unified island walk area + collision grid from map assets |
 | `npm run generate-atlas` | Regenerate the character sprite atlas |
 | `npm run optimize-game-assets` | Compress game art assets |
-| `npm run reset-project` | Move the starter code aside and start from a blank `app/` (Expo template utility) |
 
 ## Troubleshooting
 

@@ -11,17 +11,21 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
+    ActivityIndicator,
+    Alert,
+    Platform,
+    Pressable,
+    StyleSheet,
+    View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { continueAsGuest, waitForGuestMigrationIfAny, isGuest } = useAuth();
   const params = useLocalSearchParams<{
     auto?: string | string[];
@@ -31,6 +35,8 @@ export default function LoginScreen() {
   const [appleBusy, setAppleBusy] = useState(false);
   const [guestBusy, setGuestBusy] = useState(false);
   const autoOAuthTriggered = useRef(false);
+  /** Sit closer to the home indicator than the full bottom inset. */
+  const actionsBottomPad = Math.max(insets.bottom - 14, 4);
 
   const rawMode = params.mode;
   const mode = rawMode === "signup" ? "signup" : "signin";
@@ -135,7 +141,7 @@ export default function LoginScreen() {
     <View style={styles.root}>
       <AuthWelcomeRiveBackground style={StyleSheet.absoluteFill} />
 
-      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
         {showClose ? (
           <Pressable
             onPress={onClose}
@@ -157,7 +163,7 @@ export default function LoginScreen() {
 
           <View style={styles.middleSpacer} />
 
-          <View style={styles.actions}>
+          <View style={[styles.actions, { paddingBottom: actionsBottomPad }]}>
             {Platform.OS === "ios" ? (
               <AuthPillButton
                 label={`${verb} with Apple`}
@@ -246,32 +252,6 @@ export default function LoginScreen() {
                 </Pressable>
               </>
             ) : null}
-
-            <View style={styles.legalRow}>
-              <Pressable
-                onPress={() => router.push("/privacy")}
-                hitSlop={8}
-                accessibilityRole="link"
-                accessibilityLabel="Privacy Policy"
-              >
-                <AppText variant="small" style={styles.legalLink}>
-                  Privacy
-                </AppText>
-              </Pressable>
-              <AppText variant="small" style={styles.legalSep}>
-                ·
-              </AppText>
-              <Pressable
-                onPress={() => router.push("/terms")}
-                hitSlop={8}
-                accessibilityRole="link"
-                accessibilityLabel="Terms of Use"
-              >
-                <AppText variant="small" style={styles.legalLink}>
-                  Terms
-                </AppText>
-              </Pressable>
-            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -337,7 +317,6 @@ const styles = StyleSheet.create({
     minHeight: 24,
   },
   actions: {
-    paddingBottom: 8,
     gap: 12,
   },
   pill: {
@@ -387,22 +366,5 @@ const styles = StyleSheet.create({
     color: authWelcomeTheme.textMuted,
     fontSize: 14,
     textDecorationLine: "underline",
-  },
-  legalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingTop: 4,
-    paddingBottom: 4,
-  },
-  legalLink: {
-    color: authWelcomeTheme.textMuted,
-    fontSize: 13,
-    textDecorationLine: "underline",
-  },
-  legalSep: {
-    color: authWelcomeTheme.textMuted,
-    fontSize: 13,
   },
 });

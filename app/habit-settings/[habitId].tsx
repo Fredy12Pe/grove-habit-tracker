@@ -20,21 +20,15 @@ import { AppText } from "@/components/ui/AppText";
 import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGroveColors } from "@/hooks/useGroveColors";
-import { HABIT_CATALOG, getHabitActionType } from "@/lib/habitCatalog";
+import {
+  HABIT_CATALOG,
+  TRACKING_OPTIONS,
+  getHabitActionType,
+  trackingLabel,
+} from "@/lib/habitCatalog";
 import { useHabitStore } from "@/lib/store";
 import type { HabitCustomTracking } from "@/lib/types/habit";
 import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
-
-const TRACKING_OPTIONS: { value: HabitCustomTracking; label: string }[] = [
-  { value: "toggle", label: "Checkbox" },
-  { value: "counter", label: "Counter" },
-  { value: "timer", label: "Timer" },
-  { value: "input", label: "Text" },
-];
-
-function trackingLabel(t: HabitCustomTracking): string {
-  return TRACKING_OPTIONS.find((o) => o.value === t)?.label ?? t;
-}
 
 function inferTrackingFromCatalogId(habitId: string): HabitCustomTracking {
   switch (getHabitActionType(habitId)) {

@@ -453,5 +453,3 @@ export function createIslandNavigation(
     },
   };
 }
-
-export type IslandNavigation = ReturnType<typeof createIslandNavigation>;

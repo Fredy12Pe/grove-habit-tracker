@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -20,30 +21,15 @@ import { useAuth } from "@/contexts/auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGroveColors } from "@/hooks/useGroveColors";
 import { GroveBorderRadius, GroveSpacing } from "@/styles/theme";
-import { HABIT_CATALOG } from "@/lib/habitCatalog";
+import { HABIT_CATALOG, TRACKING_OPTIONS, trackingLabel } from "@/lib/habitCatalog";
 import { clearReopenAddHabitSheetFromSheet } from "@/lib/reopenAddHabitSheetFromSheet";
 import { useHabitStore } from "@/lib/store";
 import type {
   HabitCustomCategory,
   HabitCustomTracking,
 } from "@/lib/types/habit";
-import { Alert } from "react-native";
 
 const CATEGORIES: HabitCustomCategory[] = ["Faith", "Fitness", "Well Being"];
-
-const TRACKING_OPTIONS: {
-  value: HabitCustomTracking;
-  label: string;
-}[] = [
-  { value: "toggle", label: "Checkbox" },
-  { value: "counter", label: "Counter" },
-  { value: "timer", label: "Timer" },
-  { value: "input", label: "Text" },
-];
-
-function trackingLabel(t: HabitCustomTracking): string {
-  return TRACKING_OPTIONS.find((o) => o.value === t)?.label ?? t;
-}
 
 function AddCustomHabitScreenContent() {
   const router = useRouter();

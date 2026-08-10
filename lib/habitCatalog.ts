@@ -1,3 +1,5 @@
+import type { HabitCustomTracking } from '@/lib/types/habit';
+
 export type HabitActionType =
   | 'journal'      // Multiline text (Journal)
   | 'note'         // Optional short note (Pray, Read Scripture, Gratitude)
@@ -34,23 +36,20 @@ export const HABIT_ACTION_MAP: Record<string, HabitActionType> = {
   'no-social-media': 'checkbox_only',
 };
 
-/** Duration presets (minutes) per habit id. Default used when not listed. */
-export const HABIT_DURATION_OPTIONS: Record<string, number[]> = {
-  meditate: [5, 10, 15, 20],
-  exercise: [10, 20, 30, 45, 60],
-  stretch: [5, 10, 15, 20],
-  'read-book': [15, 30, 45, 60],
-  study: [15, 30, 45, 60, 90],
-};
-
-export const DEFAULT_DURATION_OPTIONS = [5, 10, 15, 20, 30];
-
 export function getHabitActionType(habitId: string): HabitActionType {
   return HABIT_ACTION_MAP[habitId] ?? 'checkbox_only';
 }
 
-export function getDurationOptions(habitId: string): number[] {
-  return HABIT_DURATION_OPTIONS[habitId] ?? DEFAULT_DURATION_OPTIONS;
+/** Tracking modes offered when creating or editing a habit. */
+export const TRACKING_OPTIONS: { value: HabitCustomTracking; label: string }[] = [
+  { value: 'toggle', label: 'Checkbox' },
+  { value: 'counter', label: 'Counter' },
+  { value: 'timer', label: 'Timer' },
+  { value: 'input', label: 'Text' },
+];
+
+export function trackingLabel(t: HabitCustomTracking): string {
+  return TRACKING_OPTIONS.find((o) => o.value === t)?.label ?? t;
 }
 
 export interface CatalogSection {

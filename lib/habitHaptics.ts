@@ -23,37 +23,6 @@ export function triggerHabitToggleHaptic(nowCompleted: boolean): void {
   });
 }
 
-/** Stronger “buzz” when every habit for the day is completed (native only). */
-export function triggerAllHabitsCompleteHaptic(): void {
-  if (Platform.OS === "web") return;
-  runNativeHaptic(() => {
-    void (async () => {
-      try {
-        if (Platform.OS === "android") {
-          await Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
-          await delay(55);
-          await Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
-          await delay(55);
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          return;
-        }
-        // iOS: success + heavy impacts = noticeable “buzz” / celebration.
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await delay(85);
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        await delay(50);
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-      } catch {
-        try {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {
-          /* ignore */
-        }
-      }
-    })();
-  });
-}
-
 /** Short tap when a habit timer starts or resumes (native only). */
 export function triggerHabitTimerStartedHaptic(): void {
   if (Platform.OS === "web") return;

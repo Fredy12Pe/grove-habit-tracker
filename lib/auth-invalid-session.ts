@@ -26,6 +26,8 @@ export function isTransientNetworkError(message: string): boolean {
     m.includes('timed out') ||
     m.includes('timeout') ||
     m.includes('aborted') ||
+    m.includes('canceled') ||
+    m.includes('cancelled') ||
     m.includes('connection reset') ||
     (m.includes('socket') && m.includes('closed'))
   );

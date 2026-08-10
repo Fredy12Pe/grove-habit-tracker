@@ -37,16 +37,12 @@ function mondayStart(date: Date): Date {
   return d;
 }
 
-function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
 function weekDaysMonSun(today: Date): Array<{ iso: string; date: Date }> {
   const start = mondayStart(today);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
-    return { iso: isoDate(d), date: d };
+    return { iso: calendarDateKey(d), date: d };
   });
 }
 
@@ -87,7 +83,7 @@ export function syncWidgets() {
   const week = weekDaysMonSun(now);
   const weekSet = new Set(week.map((d) => d.iso));
 
-  const weekKey = isoDate(mondayStart(now));
+  const weekKey = calendarDateKey(mondayStart(now));
   const plants: WeeklyGrowthWidgetProps["plants"] = habits.map((h, idx) => {
     const dates = state.completionDates[h.id] ?? [];
     const weekDays = week.map((d) => {
