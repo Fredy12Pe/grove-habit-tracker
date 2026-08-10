@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -36,6 +37,7 @@ import {
   setAvatarUrlFromLink,
   uploadAvatarFromUri,
 } from '@/lib/avatar-upload';
+import { SUPPORT_EMAIL } from '@/lib/legal';
 import { getSupabase } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/lib/supabase-env';
 import { calendarDateKey } from '@/lib/calendarDate';
@@ -604,6 +606,88 @@ export default function ProfileScreen() {
             </View>
           </View>
         ) : null}
+
+        {/* Legal & support */}
+        <View style={styles.section}>
+          <View
+            style={[styles.settingsCard, { backgroundColor: colors.softSurface }]}
+          >
+            <TouchableOpacity
+              style={styles.settingsRow}
+              activeOpacity={0.7}
+              onPress={() => router.push('/privacy')}
+              accessibilityRole="button"
+              accessibilityLabel="Privacy Policy"
+            >
+              <MaterialIcons
+                name="privacy-tip"
+                size={22}
+                color={colors.deepText}
+              />
+              <AppText
+                variant="paragraph"
+                style={[styles.settingsLabel, { color: colors.deepText }]}
+              >
+                Privacy Policy
+              </AppText>
+              <MaterialIcons
+                name="chevron-right"
+                size={22}
+                color={colors.mutedGray}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              activeOpacity={0.7}
+              onPress={() => router.push('/terms')}
+              accessibilityRole="button"
+              accessibilityLabel="Terms of Use"
+            >
+              <MaterialIcons
+                name="description"
+                size={22}
+                color={colors.deepText}
+              />
+              <AppText
+                variant="paragraph"
+                style={[styles.settingsLabel, { color: colors.deepText }]}
+              >
+                Terms of Use
+              </AppText>
+              <MaterialIcons
+                name="chevron-right"
+                size={22}
+                color={colors.mutedGray}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.settingsRow, styles.settingsRowLast]}
+              activeOpacity={0.7}
+              onPress={() => {
+                void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Grove%20support`);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Contact support"
+            >
+              <MaterialIcons
+                name="mail-outline"
+                size={22}
+                color={colors.deepText}
+              />
+              <AppText
+                variant="paragraph"
+                style={[styles.settingsLabel, { color: colors.deepText }]}
+              >
+                Contact support
+              </AppText>
+              <MaterialIcons
+                name="chevron-right"
+                size={22}
+                color={colors.mutedGray}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Account */}
         <View style={styles.section}>

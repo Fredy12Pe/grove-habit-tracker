@@ -246,6 +246,32 @@ export default function LoginScreen() {
                 </Pressable>
               </>
             ) : null}
+
+            <View style={styles.legalRow}>
+              <Pressable
+                onPress={() => router.push("/privacy")}
+                hitSlop={8}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+              >
+                <AppText variant="small" style={styles.legalLink}>
+                  Privacy
+                </AppText>
+              </Pressable>
+              <AppText variant="small" style={styles.legalSep}>
+                ·
+              </AppText>
+              <Pressable
+                onPress={() => router.push("/terms")}
+                hitSlop={8}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Use"
+              >
+                <AppText variant="small" style={styles.legalLink}>
+                  Terms
+                </AppText>
+              </Pressable>
+            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -361,5 +387,22 @@ const styles = StyleSheet.create({
     color: authWelcomeTheme.textMuted,
     fontSize: 14,
     textDecorationLine: "underline",
+  },
+  legalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  legalLink: {
+    color: authWelcomeTheme.textMuted,
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  legalSep: {
+    color: authWelcomeTheme.textMuted,
+    fontSize: 13,
   },
 });

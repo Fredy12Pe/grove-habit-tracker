@@ -103,6 +103,12 @@ ios/GroveWidgets/      iOS widget extension (Swift)
 scripts/               Asset generation/sync (widgets, collision data, atlases)
 ```
 
+## App Store / legal
+
+- In-app **Privacy Policy** and **Terms of Use**: Profile settings and the login screen (`app/privacy.tsx`, `app/terms.tsx`; copy in `lib/legal.ts`).
+- Hostable HTML for App Store Connect URLs: `docs/legal/privacy.html`, `docs/legal/terms.html`.
+- Submission checklist + App Review notes paste: `docs/app-store-review-notes.md`.
+
 ## Useful scripts
 
 | Command | Description |

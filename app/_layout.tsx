@@ -167,6 +167,14 @@ function RootLayoutContent() {
           name="habit-settings/[habitId]"
           options={{ headerShown: false, animation: "slide_from_right" }}
         />
+        <Stack.Screen
+          name="privacy"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
+        <Stack.Screen
+          name="terms"
+          options={{ headerShown: false, animation: "slide_from_right" }}
+        />
       </Stack>
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </ThemeProvider>

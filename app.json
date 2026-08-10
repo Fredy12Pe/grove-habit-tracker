@@ -13,7 +13,6 @@
       "supportsTablet": true,
       "entitlements": {
         "com.apple.security.application-groups": [
-          "group.com.groveHabits.app",
           "group.com.groveHabits.app"
         ]
       },
@@ -31,10 +30,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "predictiveBackGestureEnabled": false
     },
     "splash": {
       "image": "./assets/images/splash-icon.png",
